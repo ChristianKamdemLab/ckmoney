@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { HandCoins, ArrowRight, Loader2, AlertCircle, WifiOff, Copy } from 'lucide-react';
+import { HandCoins, ArrowRight, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, googleProvider } from "../services/firebase";
 
@@ -12,7 +12,7 @@ interface AuthScreenProps {
 const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<React.ReactNode | null>(null); // Changed to ReactNode to support JSX in error
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showOfflineOption, setShowOfflineOption] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -46,45 +46,28 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         avatar: user.photoURL || undefined
       });
     } catch (error: any) {
-      console.error("Google Auth Error Full:", error);
+      console.error("Google Auth Error:", error);
       
-      let msg: React.ReactNode = "Erreur de connexion Google.";
+      let msg = "Erreur de connexion Google.";
       
+      // Messages simplifiés pour l'utilisateur final (plus de détails techniques visibles)
       if (error.code === 'auth/unauthorized-domain') {
-         const currentDomain = window.location.hostname;
-         msg = (
-            <div className="flex flex-col gap-2">
-                <span>Le domaine actuel n'est pas autorisé par Firebase :</span>
-                <div className="flex items-center gap-2 bg-rose-100 p-2 rounded-md border border-rose-200">
-                    <code className="text-xs font-mono font-bold select-all">{currentDomain}</code>
-                    <button 
-                        onClick={() => navigator.clipboard.writeText(currentDomain)}
-                        className="p-1 hover:bg-rose-200 rounded text-rose-700"
-                        title="Copier"
-                    >
-                        <Copy size={12} />
-                    </button>
-                </div>
-                <span className="text-[10px] leading-tight opacity-80">
-                    Ajoutez cette URL exacte dans la console Firebase &gt; Authentication &gt; Settings &gt; Authorized domains.
-                </span>
-            </div>
-         );
-         setShowOfflineOption(true);
+         msg = "Authentification indisponible sur ce domaine.";
       } else if (error.code === 'auth/operation-not-allowed') {
-          msg = "La connexion Google n'est pas activée dans la console Firebase.";
-          setShowOfflineOption(true);
+          msg = "Service d'authentification temporairement indisponible.";
       } else if (error.code === 'auth/popup-closed-by-user') {
-         msg = "Connexion annulée par l'utilisateur.";
+         msg = "Connexion annulée.";
       } else if (error.code === 'auth/popup-blocked') {
-         msg = "Le navigateur a bloqué la fenêtre (Popup). Veuillez autoriser les popups pour ce site.";
-      } else {
-         msg = error.message || "Une erreur technique est survenue.";
-         setShowOfflineOption(true);
+         msg = "Fenêtre de connexion bloquée par le navigateur.";
+      } else if (error.code === 'auth/network-request-failed') {
+         msg = "Erreur de connexion réseau.";
       }
 
       setErrorMsg(msg);
       setLoading(false);
+      // On affiche le bouton "Mode Secours" uniquement si une erreur survient, 
+      // pour permettre à l'utilisateur de tester quand même s'il le souhaite activement.
+      setShowOfflineOption(true);
     }
   };
 
@@ -122,10 +105,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         
         let msg = "Une erreur est survenue.";
         if (error.code === 'auth/wrong-password') msg = "Mot de passe incorrect.";
-        else if (error.code === 'auth/user-not-found') msg = "Aucun compte trouvé avec cet email.";
-        else if (error.code === 'auth/email-already-in-use') msg = "Cet email est déjà utilisé.";
-        else if (error.code === 'auth/weak-password') msg = "Le mot de passe doit contenir au moins 6 caractères.";
-        else if (error.code === 'auth/invalid-email') msg = "Format d'email invalide.";
+        else if (error.code === 'auth/user-not-found') msg = "Compte introuvable.";
+        else if (error.code === 'auth/email-already-in-use') msg = "Email déjà utilisé.";
+        else if (error.code === 'auth/weak-password') msg = "Mot de passe trop court (6 car. min).";
+        else if (error.code === 'auth/invalid-email') msg = "Email invalide.";
         else if (error.code === 'auth/network-request-failed' || error.code === 'auth/internal-error') {
             msg = "Erreur de connexion au serveur.";
             setShowOfflineOption(true);
@@ -170,14 +153,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
               <div className="p-4 bg-rose-50 text-rose-600 text-xs font-bold rounded-xl flex flex-col gap-2 border border-rose-100 animate-in fade-in">
                 <div className="flex items-start gap-2">
                     <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                    <div>{errorMsg}</div>
+                    <span>{errorMsg}</span>
                 </div>
                 {showOfflineOption && (
                     <button 
                         onClick={handleOfflineLogin}
                         className="mt-2 w-full py-2 bg-rose-100 text-rose-700 rounded-lg text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 hover:bg-rose-200 transition-colors"
                     >
-                        <WifiOff size={14} /> Accéder en mode Hors Ligne
+                        <WifiOff size={14} /> Mode Hors Ligne (Test)
                     </button>
                 )}
               </div>
