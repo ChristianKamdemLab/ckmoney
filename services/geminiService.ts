@@ -2,21 +2,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { Loan } from "../types";
 
-// Fonction utilitaire pour récupérer la clé API de manière sûre
-const getApiKey = () => {
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      return process.env.API_KEY;
-    }
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
-      return (import.meta as any).env.VITE_API_KEY;
-    }
-  } catch (e) {
-    return undefined;
-  }
-  return undefined;
-};
-
 export const generateContractContent = async (loan: Loan): Promise<string> => {
   const lenderDetails = `${loan.lenderCivility || ''} ${loan.lenderName}, né(e) le ${loan.lenderBirthDate ? new Date(loan.lenderBirthDate).toLocaleDateString('fr-FR') : '___'} à ${loan.lenderBirthPlace || '___'}, résidant à ${loan.lenderAddress || '___'}`;
   const borrowerDetails = `${loan.borrowerCivility || ''} ${loan.borrowerName}, né(e) le ${loan.borrowerBirthDate ? new Date(loan.borrowerBirthDate).toLocaleDateString('fr-FR') : '___'} à ${loan.borrowerBirthPlace || '___'}, résidant à ${loan.borrowerAddress || '___'}`;
@@ -69,8 +54,11 @@ Le présent contrat est soumis au droit en vigueur dans le pays de signature. En
 Fait à ${loan.city || '___'}, le ${signedDateStr} en deux exemplaires originaux.`;
 
   try {
-    const apiKey = getApiKey();
-    if (!apiKey) return fallbackTemplate;
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        console.warn("API Key manquante, utilisation du template local.");
+        return fallbackTemplate;
+    }
 
     const ai = new GoogleGenAI({ apiKey });
     
@@ -113,6 +101,7 @@ Fait à ${loan.city || '___'}, le ${signedDateStr} en deux exemplaires originaux
     return text;
 
   } catch (error) {
+    console.error("Erreur génération IA:", error);
     return fallbackTemplate;
   }
 };
