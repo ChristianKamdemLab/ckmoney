@@ -54,9 +54,11 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
   const isPending = loan.status === 'pending_borrower';
   
   // Génération du lien WhatsApp intelligent
+  // NOTE: WhatsApp Web ne permet pas d'attacher des fichiers via URL.
+  // Le texte a été adapté pour indiquer que le PDF suit le message.
   let whatsappText = '';
   if (isPending) {
-      whatsappText = `Salut ${loan.borrowerName}, voici la reconnaissance de dette pour le prêt de ${loan.amount} ${loan.currency}. Tu peux la consulter ici.`;
+      whatsappText = `Salut ${loan.borrowerName}, pour notre prêt de ${loan.amount} ${loan.currency}, je t'envoie le contrat PDF à signer juste après ce message.`;
   } else if (calculation.isOverdue) {
       whatsappText = `Salut ${loan.borrowerName}, sauf erreur de ma part, le remboursement de ${loan.amount} ${loan.currency} était prévu le ${formatDate(loan.repaymentDate)}. Avec les pénalités de retard, le montant s'élève aujourd'hui à ${calculation.totalDue.toFixed(2)} ${loan.currency}. Merci de me tenir au courant.`;
   } else {
@@ -144,9 +146,10 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
                 : 'bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20'
             }`}
             onClick={(e) => e.stopPropagation()}
+            title="Ouvre WhatsApp avec un message pré-rempli. Vous devrez joindre le PDF manuellement."
           >
             {calculation.isOverdue ? <BellRing size={14} /> : <MessageCircle size={14} />} 
-            {calculation.isOverdue ? 'Relancer (Retard)' : 'Partager WhatsApp'}
+            {calculation.isOverdue ? 'Relancer (Retard)' : 'Message WhatsApp'}
           </a>
 
           {/* SIMULATEUR: Visible pour tout prêt non remboursé, même en attente de signature */}
