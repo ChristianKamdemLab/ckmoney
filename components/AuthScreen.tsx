@@ -128,7 +128,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         <h1 className="text-3xl font-black tracking-tight text-slate-900 leading-none mb-1">
           CK<span className="text-indigo-600">Money</span>
         </h1>
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-400 font-bold">Gestion de Créances</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-400 font-bold">By Christian Kamdem</p>
       </div>
 
       <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
