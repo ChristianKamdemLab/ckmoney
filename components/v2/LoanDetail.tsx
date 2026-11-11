@@ -56,6 +56,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
   const [payDate, setPayDate] = useState(toISODate(new Date()));
   const [payMethod, setPayMethod] = useState('Virement');
   const [delayDate, setDelayDate] = useState('');
+  const [confirmDel, setConfirmDel] = useState(false);
   const [lenderLink, setLenderLink] = useState<string | undefined>(loan.lenderPaymentLink || undefined);
   useEffect(() => {
     if (isLender) { if (profile?.paymentLink) setLenderLink(profile.paymentLink); return; }
@@ -283,14 +284,26 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
       </Sheet>
 
       {/* Plus */}
-      <Sheet open={sheet === 'more'} onClose={() => setSheet(null)} title="Plus">
+      <Sheet open={sheet === 'more'} onClose={() => { setSheet(null); setConfirmDel(false); }} title="Plus">
         <div className="flex flex-col gap-2.5">
           {pending && loan.inviteToken && (
             <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(inviteLinkFor(loan.inviteToken!)); setToast('Lien copié'); setSheet(null); }}>Copier le lien de signature</Button>
           )}
           <Button variant="secondary" onClick={() => { setSheet(null); setShowContract(true); }}>Voir ou télécharger le contrat</Button>
           {pending && (
-            <Button variant="danger" busy={busy === 'del'} onClick={() => { if (window.confirm('Supprimer ce contrat non signé ? Le lien ne fonctionnera plus.')) run('del', async () => { await deleteOffer(loan); onBack(); }, 'Contrat supprimé'); }}>Supprimer ce contrat non signé</Button>
+            confirmDel ? (
+              <div className="rounded-2xl p-4 flex flex-col gap-2.5" style={{ background: C.redSoft }}>
+                <div className="text-[15px] font-semibold" style={{ color: C.red }}>Supprimer définitivement ce contrat non signé ?</div>
+                <div className="text-sm" style={{ color: C.text2 }}>Le lien envoyé à {other} ne fonctionnera plus. Cette action est irréversible.</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="secondary" onClick={() => setConfirmDel(false)}>Annuler</Button>
+                  <button disabled={busy === 'del'} onClick={() => run('del', async () => { await deleteOffer(loan); onBack(); }, 'Contrat supprimé')}
+                    className="h-14 rounded-2xl text-base font-bold text-white disabled:opacity-50" style={{ background: C.red }}>{busy === 'del' ? 'Suppression…' : 'Supprimer'}</button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="danger" onClick={() => setConfirmDel(true)}>Supprimer ce contrat non signé</Button>
+            )
           )}
         </div>
       </Sheet>
