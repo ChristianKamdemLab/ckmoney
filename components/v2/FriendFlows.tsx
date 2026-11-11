@@ -168,6 +168,17 @@ export const BorrowerSignFlow: React.FC<{
   const [preview, setPreview] = useState<Loan | null>(null);
   const lender = firstName(loan.lenderName);
   const s = loan.schedule || [];
+  const todayISO = toISODate(new Date());
+  const overdueFrom = s.find(i => i.dueDate < todayISO)?.dueDate;
+  const lateRateNum = loan.lateRateMode === 'legal' ? LEGAL_INTEREST_RATE : (loan.lateInterestRate || 0);
+  const [payLinkUrl, setPayLinkUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!overdueFrom || !loan.lenderUid) return;
+    getLenderCard(loan.lenderUid).then(c => {
+      const sit = computeSituation(loan, LEGAL_INTEREST_RATE);
+      setPayLinkUrl(payUrl(c?.paymentLink || loan.lenderPaymentLink, Math.round((sit.overdueAmount + sit.lateInterest) * 100) / 100, loan.currency));
+    });
+  }, [loan.id]);
 
   if (preview) return <ContractPreview loan={preview} onClose={() => setPreview(null)} />;
 
@@ -189,7 +200,15 @@ export const BorrowerSignFlow: React.FC<{
           ['En cas de retard', loan.lateRateMode === 'none' ? 'Pas de pénalité' : loan.lateRateMode === 'legal' ? `Taux légal, ${LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an` : `${(loan.lateInterestRate || 0).toLocaleString('fr-FR')} % par an`],
         ]} />
       </div>
-      <div className="px-6 pt-4"><Note>Tu peux rembourser plus tôt, sans frais. Si tu as besoin de plus de temps, tu pourras demander un délai depuis l'appli.</Note></div>
+      <div className="px-6 pt-4">
+        {overdueFrom ? (
+          <Note tone="warn">
+            Le remboursement était prévu le {dateFr(overdueFrom, { day: 'numeric', month: 'long' })}. En signant, tu reconnais devoir cette somme.
+            Tu pourras ensuite rembourser tout de suite, ou proposer une nouvelle date à {lender}
+            {loan.lateRateMode !== 'none' ? <> : les intérêts de retard ({lateRateNum.toLocaleString('fr-FR')} % par an) courent alors depuis le {dateFr(overdueFrom, { day: 'numeric', month: 'long' })} jusqu'au paiement</> : null}.
+          </Note>
+        ) : <Note>Tu peux rembourser plus tôt, sans frais. Si tu as besoin de plus de temps, tu pourras demander un délai depuis l'appli.</Note>}
+      </div>
       <Footer><Button onClick={() => setStep(needsIdentity ? 'identity' : 'sign')}>Continuer</Button></Footer>
     </Screen>
   );
@@ -219,8 +238,13 @@ export const BorrowerSignFlow: React.FC<{
   );
 
   return (
-    <Done title="C'est signé" sub={<>{lender} est prévenu. Tu retrouves ton prêt, tes échéances et le contrat dans ton espace.</>}>
-      <Button onClick={onDone}>Voir mon espace</Button>
+    <Done title="C'est signé" sub={overdueFrom
+      ? <>{lender} est prévenu. Le remboursement est en retard : règle-le maintenant, ou propose une nouvelle date avec le bouton « Délai » de ton prêt.</>
+      : <>{lender} est prévenu. Tu retrouves ton prêt, tes échéances et le contrat dans ton espace.</>}>
+      {overdueFrom && payLinkUrl && (
+        <a href={payLinkUrl} target="_blank" rel="noopener noreferrer" className="h-14 rounded-2xl flex items-center justify-center text-base font-bold text-white" style={{ background: C.ink }}>Payer maintenant</a>
+      )}
+      <Button variant={overdueFrom && payLinkUrl ? 'secondary' : 'primary'} onClick={onDone}>{overdueFrom ? 'Proposer une nouvelle date' : 'Voir mon espace'}</Button>
     </Done>
   );
 };
@@ -412,7 +436,7 @@ export const BorrowerSpace: React.FC<{
     .map(l => ({ l, s: computeSituation(l, LEGAL_INTEREST_RATE) }))
     .filter(x => x.s.nextInstallment || x.s.isOverdue)
     .sort((a, b) => (a.s.isOverdue ? -1 : 0) - (b.s.isOverdue ? -1 : 0) || (a.s.nextInstallment?.dueDate || '').localeCompare(b.s.nextInstallment?.dueDate || ''))[0];
-  const nextAmount = nextDue ? Math.round((nextDue.s.isOverdue ? nextDue.s.overdueAmount + nextDue.s.lateInterest : nextDue.s.nextInstallment!.outstanding) * 100) / 100 : 0;
+  const nextAmount = nextDue ? Math.round((nextDue.s.isOverdue ? nextDue.s.overdueAmount + nextDue.s.lateInterest : nextDue.s.nextInstallment!.outstanding + nextDue.s.lateInterest) * 100) / 100 : 0;
   const nextLink = nextDue ? payUrl(cards[nextDue.l.lenderUid || '']?.paymentLink || nextDue.l.lenderPaymentLink, nextAmount, nextDue.l.currency) : null;
 
   return (

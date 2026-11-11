@@ -426,7 +426,7 @@ export const requestDelay = async (loan: Loan, newDate: string) => {
   }
 };
 
-export const respondToDelay = async (loan: Loan, accepted: boolean) => {
+export const respondToDelay = async (loan: Loan, accepted: boolean, keepLateInterest = true) => {
   if (!loan.delayProposedDate) return;
   const newDate = loan.delayProposedDate;
   const updates: Record<string, unknown> = { status: 'active', delayProposedDate: deleteField(), delayRequestDate: deleteField() };
@@ -436,20 +436,24 @@ export const respondToDelay = async (loan: Loan, accepted: boolean) => {
     const schedule = (loan.schedule || []).map(inst => {
       const fullyPaid = covered >= inst.amount - 0.004;
       covered = Math.max(0, covered - inst.amount);
-      return !fullyPaid && inst.dueDate < newDate ? { ...inst, dueDate: newDate } : inst;
+      if (fullyPaid || inst.dueDate >= newDate) return inst;
+      // Intérêts de retard maintenus : ils continuent de courir depuis l'échéance d'origine.
+      return keepLateInterest ? { ...inst, dueDate: newDate, lateFrom: inst.lateFrom || inst.dueDate } : { ...inst, dueDate: newDate };
     });
     updates.schedule = schedule;
     const last = schedule.length ? schedule[schedule.length - 1].dueDate : newDate;
     updates.repaymentDate = last > newDate ? last : newDate;
     updates.amendments = [...(loan.amendments || []),
-      { type: 'report_echeance', newDate, acceptedAt: new Date().toISOString(), requestedAt: loan.delayRequestDate }];
+      { type: 'report_echeance', newDate, acceptedAt: new Date().toISOString(), requestedAt: loan.delayRequestDate, lateInterestKept: keepLateInterest }];
   }
   await updateDoc(doc(db, LOANS, loan.id), updates as any);
   if (loan.borrowerUid) {
     await sendNotification({
       userId: loan.borrowerUid, loanId: loan.id, type: accepted ? 'success' : 'warning',
       title: accepted ? 'Délai accepté' : 'Délai refusé',
-      message: accepted ? `Report accepté au ${new Date(newDate).toLocaleDateString('fr-FR')}.` : `Le report demandé n'a pas été accepté.`,
+      message: accepted
+        ? `Report accepté au ${new Date(newDate).toLocaleDateString('fr-FR')}${keepLateInterest ? ', les intérêts de retard continuent de courir' : ''}.`
+        : `Le report demandé n'a pas été accepté.`,
     });
   }
 };

@@ -8,6 +8,7 @@ export interface Installment {
   principal: number;  // part de capital
   interest: number;   // part d'intérêts
   remainingPrincipal: number; // capital restant dû après l'échéance
+  lateFrom?: string;  // échéance d'origine si un report a été accordé en maintenant les intérêts de retard
 }
 
 export interface InstallmentStatus extends Installment {
@@ -162,20 +163,22 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
   // Simulation chronologique : on rejoue les paiements dans l'ordre.
   const remaining = base.map(i => i.amount);
   let accruedLate = 0;
-  let lastAccrual = base.length ? base[0].dueDate : todayISO;
+  // Les intérêts de retard courent depuis l'échéance d'origine si un report les a maintenus.
+  const lateStart = base.map(i => i.lateFrom && i.lateFrom < i.dueDate ? i.lateFrom : i.dueDate);
+  let lastAccrual = base.length ? lateStart.reduce((a, b) => (a < b ? a : b)) : todayISO;
 
   const accrueUntil = (dateISO: string) => {
     if (lateRate <= 0) { lastAccrual = dateISO; return; }
     // Somme des échéances échues et impayées, jour par jour (par segments).
     const from = lastAccrual < dateISO ? lastAccrual : dateISO;
-    const dueDates = base.map(i => i.dueDate).filter(d => d > from && d < dateISO);
+    const dueDates = lateStart.filter(d => d > from && d < dateISO);
     const cuts = [from, ...dueDates, dateISO];
     for (let k = 0; k < cuts.length - 1; k++) {
       const segStart = cuts[k];
       const segEnd = cuts[k + 1];
       const days = daysBetween(segStart, segEnd);
       if (days <= 0) continue;
-      const overdue = base.reduce((s, inst, idx) => (inst.dueDate <= segStart ? s + remaining[idx] : s), 0);
+      const overdue = base.reduce((s, _inst, idx) => (lateStart[idx] <= segStart ? s + remaining[idx] : s), 0);
       accruedLate += overdue * lateRate * days / 365;
     }
     lastAccrual = dateISO;
