@@ -131,6 +131,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Jetons de notification de chaque appareil : seul leur propriétaire les écrit (le serveur les lit).
+    match /pushTokens/{userId} {
+      allow read, write: if signedIn() && uid() == userId;
+    }
+
     // Profil personnel (identité, IBAN, signature) : uniquement son propriétaire.
     match /profiles/{userId} {
       allow read, write: if signedIn() && uid() == userId;
