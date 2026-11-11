@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Loan, Payment, Profile, User } from '../../types';
+import { formatIban, Loan, Payment, Profile, User } from '../../types';
 import { Screen, TopBar, Amount, Button, Card, Field, inputClass, inputStyle, Note, Sheet, Icon, IconName, C, euro2, dateFr, relDays, firstName, Avatar, Toast } from './ui';
 import { computeSituation, effectiveLateRate, toISODate } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
@@ -193,21 +193,30 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
           <Card className="p-4">
             <div className="text-[15px] font-semibold">Envoie {euro2(loan.amount, loan.currency)} à {other}</div>
             {(() => {
-              const link = loan.borrowerPaymentLink?.trim();
-              const iban = link && /^[A-Z]{2}\d{2}[A-Z0-9 ]{10,}$/i.test(link.replace(/\s/g, '')) ? link : null;
-              const url = link && !iban ? payUrl(link, loan.amount, loan.currency) : null;
+              const rcv = loan.borrowerReceive || (loan.borrowerPaymentLink ? { method: (/paypal/i.test(loan.borrowerPaymentLink) ? 'paypal' : 'lien') as 'paypal' | 'lien', value: loan.borrowerPaymentLink } : null);
+              const isEmail = rcv?.method === 'paypal' && /@/.test(rcv.value);
+              const url = rcv && rcv.method !== 'virement' && !isEmail ? payUrl(rcv.value, loan.amount, loan.currency) : null;
+              const copy = (text: string, msg: string) => { navigator.clipboard?.writeText(text); setToast(msg); };
+              const ask = `https://wa.me/${(loan.borrowerPhone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Salut ${other}, c'est validé pour les ${euro2(loan.amount, loan.currency)}. Envoie-moi ton PayPal ou ton RIB et je t'envoie ça.`)}`;
               return (
                 <>
                   <div className="text-sm mt-1 leading-relaxed" style={{ color: C.text2 }}>
-                    {url ? <>Il veut le recevoir sur {payProvider(link)}. Le montant est déjà rempli.</>
-                      : iban ? <>Par virement sur son IBAN : <strong className="font-mono">{iban}</strong></>
-                      : <>Il n'a pas indiqué où recevoir l'argent. Envoie-le avec ton appli PayPal ou par virement, ou demande-lui son lien.</>}
+                    {!rcv ? <>Il n'a pas indiqué où recevoir l'argent. Demande-lui son PayPal ou son RIB.</>
+                      : rcv.method === 'virement' ? (
+                        <span className="flex flex-col gap-0.5">
+                          <span>Par virement instantané :</span>
+                          <span className="font-mono font-semibold" style={{ color: C.ink }}>{formatIban(rcv.value)}</span>
+                          <span>Titulaire : {rcv.holder}{rcv.bic ? ` · BIC ${rcv.bic}` : ''}</span>
+                        </span>)
+                      : isEmail ? <>Par PayPal, à l'adresse <strong>{rcv.value}</strong>. Ouvre ton appli PayPal et envoie-lui {euro2(loan.amount, loan.currency)}.</>
+                      : <>Il veut le recevoir sur {payProvider(rcv.value)}. Le montant est déjà rempli.</>}
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-3">
-                    {url ? <a href={url} target="_blank" rel="noopener noreferrer" className="h-12 rounded-[14px] flex items-center justify-center text-[15px] font-bold text-white" style={{ background: C.ink }}>Envoyer</a>
-                      : iban ? <Button onClick={() => { navigator.clipboard?.writeText(iban.replace(/\s/g, '')); setToast('IBAN copié'); }}>Copier l'IBAN</Button>
-                      : <a href={`https://wa.me/${(loan.borrowerPhone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Salut ${other}, c'est validé pour les ${euro2(loan.amount, loan.currency)}. Envoie-moi ton lien PayPal.me (ou ton IBAN) et je t'envoie ça.`)}`} target="_blank" rel="noopener noreferrer" className="h-12 rounded-[14px] flex items-center justify-center text-[15px] font-bold text-white" style={{ background: C.green }}>Lui demander</a>}
-                    <button disabled={busy === 'sent'} onClick={() => run('sent', () => markFundsSent(loan), 'Noté, c\'est envoyé')} className="h-12 rounded-[14px] text-[15px] font-bold" style={{ background: C.soft, color: C.ink }}>C'est envoyé</button>
+                    {!rcv ? <a href={ask} target="_blank" rel="noopener noreferrer" className="h-12 rounded-[14px] flex items-center justify-center text-[15px] font-bold text-white" style={{ background: C.green }}>Lui demander</a>
+                      : rcv.method === 'virement' ? <Button onClick={() => copy(rcv.value.replace(/\s/g, ''), 'IBAN copié')}>Copier l'IBAN</Button>
+                      : isEmail ? <Button onClick={() => copy(rcv.value, 'Adresse PayPal copiée')}>Copier l'adresse</Button>
+                      : <a href={url!} target="_blank" rel="noopener noreferrer" className="h-12 rounded-[14px] flex items-center justify-center text-[15px] font-bold text-white" style={{ background: C.ink }}>Envoyer</a>}
+                    <button disabled={busy === 'sent'} onClick={() => run('sent', () => markFundsSent(loan), "Noté, c'est envoyé")} className="h-12 rounded-[14px] text-[15px] font-bold" style={{ background: C.soft, color: C.ink }}>C'est envoyé</button>
                   </div>
                 </>
               );

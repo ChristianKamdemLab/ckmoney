@@ -71,7 +71,8 @@ export interface Loan {
   requestNote?: string;
   fundsSentAt?: string;
   counterOf?: string;           // contre-proposition à la demande n°…         // le prêteur a envoyé l'argent
-  borrowerPaymentLink?: string; // où l'ami veut recevoir l'argent (PayPal.me, Lydia, Revolut, IBAN…)        // message de l'ami avec sa demande
+  borrowerPaymentLink?: string;
+  borrowerReceive?: ReceiveInfo; // où l'ami veut recevoir l'argent (PayPal.me, Lydia, Revolut, IBAN…)        // message de l'ami avec sa demande
   initiatedBy?: 'lender' | 'borrower';
   lateInterestRate?: number;
   
@@ -148,6 +149,7 @@ export interface Profile {
   address: string;
   iban?: string;
   paymentLink?: string;
+  receive?: ReceiveInfo;     // où l'ami reçoit l'argent qu'on lui prête
   signature?: string;   // signature dessinée, réutilisable
   updatedAt?: string;
 }
@@ -174,3 +176,25 @@ export interface Invite {
 
 export const isProfileComplete = (p: Profile | null | undefined): p is Profile =>
   !!p && !!p.fullName && !!p.birthDate && !!p.birthPlace && p.birthPlace.includes(',') && !!p.address;
+
+/** Comment un proche reçoit l'argent prêté : PayPal, virement instantané (RIB) ou lien de paiement. */
+export interface ReceiveInfo {
+  method: 'paypal' | 'virement' | 'lien';
+  value: string;      // lien PayPal.me ou e-mail PayPal · IBAN · lien Lydia/Revolut…
+  holder?: string;    // titulaire du compte (virement)
+  bic?: string;
+}
+
+/** Contrôle de l'IBAN (clé ISO 13616, modulo 97). */
+export const isValidIban = (raw: string) => {
+  const iban = (raw || '').replace(/\s/g, '').toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) return false;
+  const moved = iban.slice(4) + iban.slice(0, 4);
+  let rem = 0;
+  for (const ch of moved) {
+    const v = ch >= 'A' ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const d of v) rem = (rem * 10 + Number(d)) % 97;
+  }
+  return rem === 1;
+};
+export const formatIban = (raw: string) => (raw || '').replace(/\s/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
