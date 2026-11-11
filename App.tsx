@@ -11,6 +11,7 @@ import FiscalPanel from './components/FiscalPanel';
 import NotificationCenter from './components/NotificationCenter';
 import LegalDocs from './components/LegalDocs';
 import CKLogo from './components/brand/CKLogo';
+import InstallPrompt from './components/InstallPrompt';
 import ProfileSetup from './components/ProfileSetup';
 import BorrowerHome from './components/BorrowerHome';
 import { getProfile } from './services/profileService';
@@ -327,6 +328,8 @@ const App: React.FC = () => {
           </header>
 
           {/* Main Content */}
+          <InstallPrompt />
+
           {currentView === 'borrower' ? (
             <BorrowerHome loans={borrowerLoans} user={user} loading={loadingLoans} onOpen={setSelectedLoan}
               onSwitchToLender={mayLend || lenderLoans.length > 0 ? () => setViewChoice('lender') : undefined} />
