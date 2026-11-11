@@ -137,7 +137,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
       const terms: Terms = { amount, currency, loanDate, schedule, interestRate: rate, lateRateMode: lateMode, lateInterestRate: lateRate };
       const r = await createOffer({
         user, profile, terms, nickname: friendLabel, phone: fullPhone || undefined,
-        lenderSignature: signature, knownBorrowerUid: friend?.uid, counterOf: prefill?.counterOf, borrowerPaymentLink: friend?.lastLoan?.borrowerPaymentLink,
+        lenderSignature: signature, knownBorrowerUid: friend?.uid, counterOf: prefill?.counterOf, borrowerPaymentLink: friend?.lastLoan?.borrowerPaymentLink, borrowerReceive: friend?.lastLoan?.borrowerReceive,
       });
       setResult(r);
       setStep(4);

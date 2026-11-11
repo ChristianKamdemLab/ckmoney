@@ -2,7 +2,7 @@ import { db } from "./firebase";
 import {
   collection, addDoc, updateDoc, doc, getDoc, query, where, getDocs, deleteField, setDoc, deleteDoc,
 } from "firebase/firestore";
-import { Loan, Payment, Invite, Profile, User } from "../types";
+import { Loan, Payment, Invite, Profile, User, ReceiveInfo } from "../types";
 import { sendNotification } from "./notificationService";
 import { Installment } from "../utils/schedule";
 import { buildLoanContract, buildDebtAcknowledgment, sha256Hex, CONTRACT_VERSION } from "../utils/contract";
@@ -92,7 +92,7 @@ export const scheduleSummary = (s: Installment[], currency: string) => {
  */
 export const createOffer = async (args: {
   user: User; profile: Profile; terms: Terms; nickname: string; phone?: string;
-  lenderSignature: string; knownBorrowerUid?: string; counterOf?: string; borrowerPaymentLink?: string;
+  lenderSignature: string; knownBorrowerUid?: string; counterOf?: string; borrowerPaymentLink?: string; borrowerReceive?: ReceiveInfo;
 }): Promise<{ loanId: string; token: string }> => {
   const { user, profile, terms } = args;
   const token = newInviteId(args.nickname, terms.amount);
@@ -106,6 +106,7 @@ export const createOffer = async (args: {
     borrowerUid: args.knownBorrowerUid || undefined,
     counterOf: args.counterOf || undefined,
     borrowerPaymentLink: args.borrowerPaymentLink || undefined,
+    borrowerReceive: args.borrowerReceive ? clean(args.borrowerReceive) : undefined,
     lenderSignature: args.lenderSignature,
     lenderAttestation: `Prêt personnel et occasionnel attesté le ${new Date().toISOString()}`,
     amountInWords: amountToFrenchWords(terms.amount, terms.currency),
@@ -299,7 +300,7 @@ export const signOffer = async (loan: Loan, user: User, b: BorrowerIdentity, sig
 /** L'ami demande un nouveau prêt à un prêteur qu'il connaît, et signe sa demande. */
 export const createRequest = async (args: {
   user: User; lenderUid: string; lenderName: string; identity: BorrowerIdentity; terms: Terms; note: string;
-  amountWords: string; signature: string; receiveLink?: string;
+  amountWords: string; signature: string; receive?: ReceiveInfo;
 }) => {
   const now = new Date().toISOString();
   const ref = await addDoc(collection(db, LOANS), clean({
@@ -318,7 +319,8 @@ export const createRequest = async (args: {
     borrowerSignedUserAgent: navigator.userAgent.slice(0, 300),
     amountInWords: amountToFrenchWords(args.terms.amount, args.terms.currency),
     requestNote: args.note.trim() || undefined,
-    borrowerPaymentLink: args.receiveLink?.trim() || undefined,
+    borrowerReceive: args.receive ? clean(args.receive) : undefined,
+    borrowerPaymentLink: args.receive?.method !== 'virement' ? args.receive?.value || undefined : undefined,
     status: 'requested',
     initiatedBy: 'borrower',
     createdAt: now,
