@@ -63,7 +63,18 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
     if (loan.lenderUid) getLenderCard(loan.lenderUid).then(c => { if (c?.paymentLink) setLenderLink(c.paymentLink); });
   }, [loan.lenderUid, isLender, profile?.paymentLink]);
   // Ce qu'il faut régler maintenant : l'arriéré et ses intérêts, sinon la prochaine échéance.
-  const dueNow = Math.round((s.isOverdue ? s.overdueAmount + s.lateInterest : (s.nextInstallment?.outstanding ?? s.totalDueNow)) * 100) / 100;
+  const dueNow = Math.round((s.isOverdue ? s.overdueAmount + s.lateInterest : (s.nextInstallment ? s.nextInstallment.outstanding + s.lateInterest : s.totalDueNow)) * 100) / 100;
+  // Échéance d'origine d'où courent les intérêts de retard (report accordé en les maintenant)
+  const lateSince = s.schedule.find(i => i.outstanding > 0.004 && i.lateFrom)?.lateFrom;
+  const [keepLate, setKeepLate] = useState(true);
+  const unpaidFrom = s.schedule.find(i => i.outstanding > 0.004);
+  const delayCost = (() => {
+    if (!lateRate || !delayDate || !unpaidFrom) return 0;
+    const start = unpaidFrom.lateFrom || unpaidFrom.dueDate;
+    const days = Math.max(0, Math.round((new Date(delayDate).getTime() - new Date(start).getTime()) / 86400000));
+    const base = s.schedule.filter(i => i.outstanding > 0.004 && (i.lateFrom || i.dueDate) < delayDate).reduce((a, i) => a + i.outstanding, 0);
+    return Math.round(base * lateRate / 100 * days / 365 * 100) / 100;
+  })();
   const payLink = payUrl(lenderLink, dueNow, loan.currency);
   const dailyLate = lateRate && s.overdueAmount > 0 ? Math.round(s.overdueAmount * lateRate / 100 / 365 * 100) / 100 : 0;
 
@@ -164,7 +175,9 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
                 <div className="text-[15px] font-semibold">Prochaine échéance {relDays(s.nextInstallment.dueDate)}</div>
                 <div className="text-sm mt-1 leading-relaxed" style={{ color: C.text2 }}>
                   {euro2(s.nextInstallment.outstanding, loan.currency)} le {dateFr(s.nextInstallment.dueDate)}.
-                  {lateRate ? <> Passé cette date, des intérêts de retard de {lateRate.toLocaleString('fr-FR')} % par an s'appliquent.</> : null}
+                  {s.lateInterest > 0 && lateSince
+                    ? <> S'y ajoutent <strong>{euro2(s.lateInterest, loan.currency)}</strong> d'intérêts de retard courus depuis le {dateFr(lateSince, { day: 'numeric', month: 'long' })}, qui augmentent jusqu'au paiement.</>
+                    : lateRate ? <> Passé cette date, des intérêts de retard de {lateRate.toLocaleString('fr-FR')} % par an s'appliquent.</> : null}
                 </div>
               </>
             )}
@@ -181,9 +194,15 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
           <Card className="p-4">
             <div className="text-[15px] font-semibold">{isLender ? `${other} demande un délai` : 'Délai demandé'}</div>
             <div className="text-sm mt-1" style={{ color: C.mute }}>Report des échéances impayées au {dateFr(loan.delayProposedDate)}.</div>
+            {isLender && lateRate > 0 && (
+              <label className="flex items-start gap-2.5 mt-3 text-sm leading-snug cursor-pointer">
+                <input type="checkbox" checked={keepLate} onChange={e => setKeepLate(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#1C2551]" />
+                <span>Les intérêts de retard continuent de courir depuis l'échéance d'origine{unpaidFrom ? ` (${dateFr(unpaidFrom.lateFrom || unpaidFrom.dueDate, { day: 'numeric', month: 'long' })})` : ''} jusqu'au paiement.</span>
+              </label>
+            )}
             {isLender && (
               <div className="grid grid-cols-2 gap-2 mt-3">
-                <Button busy={busy === 'dy'} onClick={() => run('dy', () => respondToDelay(loan, true), 'Délai accepté')}>Accepter</Button>
+                <Button busy={busy === 'dy'} onClick={() => run('dy', () => respondToDelay(loan, true, lateRate > 0 && keepLate), 'Délai accepté')}>Accepter</Button>
                 <Button variant="danger" busy={busy === 'dn'} onClick={() => run('dn', () => respondToDelay(loan, false), 'Délai refusé')}>Refuser</Button>
               </div>
             )}
@@ -278,7 +297,13 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
       <Sheet open={sheet === 'delay'} onClose={() => setSheet(null)} title="Demander un délai">
         <div className="flex flex-col gap-4">
           <Field label="Nouvelle date souhaitée" htmlFor="dd"><input id="dd" type="date" min={toISODate(new Date())} value={delayDate} onChange={e => setDelayDate(e.target.value)} className={inputClass} style={inputStyle} /></Field>
-          <Note>Si {other} accepte, les échéances impayées sont reportées à cette date.</Note>
+          {lateRate > 0 ? (
+            <Note tone="warn">
+              Si {other} accepte, les échéances impayées sont reportées à cette date. En demandant ce délai, tu acceptes que les intérêts de retard
+              ({lateRate.toLocaleString('fr-FR')} % par an) continuent de courir depuis le {unpaidFrom ? dateFr(unpaidFrom.lateFrom || unpaidFrom.dueDate, { day: 'numeric', month: 'long' }) : ''} jusqu'au paiement
+              {delayDate && delayCost > 0 ? <> : environ <strong>{euro2(delayCost, loan.currency)}</strong> si tu paies le {dateFr(delayDate, { day: 'numeric', month: 'long' })}</> : null}.
+            </Note>
+          ) : <Note>Si {other} accepte, les échéances impayées sont reportées à cette date.</Note>}
           <Button disabled={!delayDate || loan.status !== 'active'} busy={busy === 'delay'} onClick={() => run('delay', () => requestDelay(loan, delayDate), 'Demande envoyée')}>Envoyer la demande</Button>
         </div>
       </Sheet>
