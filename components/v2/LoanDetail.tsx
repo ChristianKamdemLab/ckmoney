@@ -88,7 +88,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
     <Screen>
       <TopBar onBack={onBack} title={isLender ? `Prêt à ${other}` : `Prêt de ${other}`} />
 
-      {loan.status === 'requested' ? null : pending ? (
+      {loan.status === 'requested' || loan.status === 'declined' ? null : pending ? (
         <div className="px-6 pt-3 flex items-center gap-4">
           <Avatar name={other} size={56} />
           <div>
@@ -107,6 +107,27 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
         </div>
       )}
 
+      {!isLender && (loan.status === 'requested' || loan.status === 'declined') ? (
+        <div className="px-5 pt-2 flex flex-col gap-3">
+          <div className="px-1">
+            <div className="text-sm" style={{ color: C.mute }}>Ta demande</div>
+            <Amount size={40}>{euro2(loan.amount, loan.currency)}</Amount>
+          </div>
+          <Note tone={loan.status === 'declined' ? 'warn' : 'info'} icon="clock">
+            {loan.status === 'declined'
+              ? `${other} n'a pas pu accepter cette demande.`
+              : `Envoyée le ${dateFr(loan.createdAt, { day: 'numeric', month: 'long' })}. ${other} doit l'accepter ; tu seras prévenu dès qu'il répond. Le contrat sera alors disponible ici.`}
+          </Note>
+          <Card className="px-4 py-3">
+            {(loan.schedule || []).map((i, idx) => (
+              <div key={i.index} className="flex justify-between text-[15px] py-1.5" style={{ borderTop: idx ? `1px solid ${C.line}` : undefined }}>
+                <span>{dateFr(i.dueDate, { day: 'numeric', month: 'long' })}</span>
+                <span className="font-semibold tabular-nums">{euro2(i.amount, loan.currency)}</span>
+              </div>
+            ))}
+          </Card>
+        </div>
+      ) : (<>
       {/* Actions */}
       <div className="px-6 pt-6 grid grid-cols-4 gap-2">
         {isLender ? (
@@ -228,6 +249,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
           </div>
         </>
       )}
+      </>)}
       <div className="h-8" />
 
       {/* Paiement */}
