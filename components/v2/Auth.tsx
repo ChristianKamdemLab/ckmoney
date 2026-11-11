@@ -67,7 +67,7 @@ const Auth: React.FC<{ context?: string; onBack?: () => void }> = ({ context, on
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
         <CKLogo size="lg" subtitle="Une app CKLabs" />
         <h1 className="text-[28px] leading-tight font-bold mt-10 max-w-[320px]">{context || 'Le Jambo n’aime pas la panique.'}</h1>
-        <p className="text-[15px] mt-3 leading-relaxed max-w-[320px]" style={{ color: C.mute }}>
+        <p className="text-[13px] mt-3 leading-snug max-w-[280px]" style={{ color: C.mute }}>
           {context ? 'Tes informations ne sont visibles que par toi et la personne avec qui tu fais le prêt.' : 'Demander, prêter, rembourser entre proches\u00a0: avec un vrai contrat et sans avoir à relancer.'}
         </p>
       </div>

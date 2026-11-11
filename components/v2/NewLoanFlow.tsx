@@ -10,7 +10,7 @@ import { createOffer, inviteLinkFor, knownFriends, KnownFriend, Terms } from '..
 import { annualTotalsForBorrower, loansInLast12Months } from '../../utils/compliance';
 import { fetchExchangeRate } from '../../services/exchangeRate';
 import {
-  RATE_CAP, LEGAL_INTEREST_RATE, DECLARATION_THRESHOLD_EUR, HABITUAL_LENDING_WARNING_COUNT, MAX_INSTALLMENTS,
+  rateCapFor, RATE_CAP_LABEL, LEGAL_INTEREST_RATE, DECLARATION_THRESHOLD_EUR, HABITUAL_LENDING_WARNING_COUNT, MAX_INSTALLMENTS,
 } from '../../config/legal';
 
 const PREFIXES = [
@@ -122,8 +122,12 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
     } catch { /* annulé */ }
   };
 
+  const cap = rateCapFor(amount, currency);
+  useEffect(() => { if (rate > cap) setRate(cap); if (lateRate > cap) setLateRate(cap); }, [cap]);
+  const totalInterest = schedule.reduce((a, i) => a + i.interest, 0);
+
   const signature = profile.signature || drawnSig;
-  const canSign = amount > 0 && !!friendLabel && schedule.length > 0 && !!signature && (lateMode !== 'custom' || (lateRate > 0 && lateRate <= RATE_CAP));
+  const canSign = amount > 0 && !!friendLabel && schedule.length > 0 && !!signature && rate <= cap && (lateMode !== 'custom' || (lateRate > 0 && lateRate <= cap));
 
   const submit = async () => {
     setBusy(true);
@@ -282,8 +286,8 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
 
         <Sheet open={optionsOpen} onClose={() => setOptionsOpen(false)} title="Options du prêt">
           <div className="flex flex-col gap-5">
-            <Field label={`Intérêts : ${rate ? `${rate.toLocaleString('fr-FR')} % par an` : 'aucun'}`} hint={`Plafond prudent : ${RATE_CAP.toLocaleString('fr-FR')} %. Les intérêts reçus sont imposables pour toi. Entre proches, sans intérêt reste le plus simple.`}>
-              <input type="range" min={0} max={RATE_CAP} step={0.25} value={rate} onChange={e => setRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+            <Field label={`Intérêts : ${rate ? `${rate.toLocaleString('fr-FR')} % par an` : 'aucun'}`} hint={`${rate ? `Soit ${euro2(totalInterest, currency)} d'intérêts au total. ` : ''}Maximum légal pour ce montant : ${cap.toLocaleString('fr-FR')} % par an (${RATE_CAP_LABEL}). Les intérêts reçus sont imposables pour toi.`}>
+              <input type="range" min={0} max={cap} step={0.25} value={rate} onChange={e => setRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
             </Field>
             <Field label="En cas de retard">
               <Chips value={lateMode} onChange={v => setLateMode(v as any)} options={[{ id: 'legal', label: 'Taux légal' }, { id: 'none', label: 'Rien' }, { id: 'custom', label: 'Mon taux' }]} />
@@ -291,7 +295,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
             {lateMode === 'legal' && <Note>Intérêts au taux légal ({LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an aujourd'hui) sur les sommes en retard. C'est le réglage le plus sûr.</Note>}
             {lateMode === 'custom' && (
               <Field label={`Taux de retard : ${lateRate.toLocaleString('fr-FR')} % par an`} hint="Un juge peut réduire une pénalité excessive.">
-                <input type="range" min={0.5} max={RATE_CAP} step={0.25} value={lateRate} onChange={e => setLateRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+                <input type="range" min={0.5} max={cap} step={0.25} value={lateRate} onChange={e => setLateRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
               </Field>
             )}
             <div className="grid grid-cols-2 gap-3">

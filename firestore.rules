@@ -57,6 +57,9 @@ service cloud.firestore {
         && (
           resource.data.status == 'pending_borrower' && resource.data.get('borrowerSignedAt', null) == null
           || !changed().hasAny(termsFields())
+          // Report accepté à la demande de l'emprunteur : seules les dates bougent.
+          || resource.data.status == 'delay_requested' && request.resource.data.status == 'active'
+             && changed().hasOnly(['status', 'delayProposedDate', 'delayRequestDate', 'schedule', 'repaymentDate', 'amendments'])
         );
 
       // Ami : 1) se relie au prêt avec le lien personnel ;

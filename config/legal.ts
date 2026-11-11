@@ -2,14 +2,22 @@
 // ⚠️ À mettre à jour : taux d'usure chaque trimestre, intérêt légal chaque semestre.
 
 /**
- * Plafond prudentiel des taux conventionnels (intérêts et retard), en % annuel.
- * Valeur retenue : seuil de l'usure le plus bas applicable aux prêts aux particuliers
- * hors immobilier (prêts personnels > 6 000 €), 4e trimestre 2026 : 8,56 %.
- * Bercy considère que l'usure ne vise pas les prêts entre particuliers, mais une partie
- * de la doctrine soutient l'inverse : on plafonne donc par prudence.
+ * Plafond des taux conventionnels (intérêts et retard), en % annuel : seuils de l'usure
+ * des prêts aux particuliers hors immobilier, 4e trimestre 2026 (art. L314-6 C. conso.,
+ * « tout prêt conventionnel »). Le seuil dépend du montant prêté.
  */
+export const USURY_BRACKETS: { upTo: number; rate: number }[] = [
+  { upTo: 3000, rate: 23.60 },
+  { upTo: 6000, rate: 15.76 },
+  { upTo: Infinity, rate: 8.56 },
+];
+/** Plafond applicable à un prêt de ce montant (en euros ; autre devise : seuil le plus bas). */
+export const rateCapFor = (amount: number, currency = 'EUR') =>
+  currency !== 'EUR' ? USURY_BRACKETS[USURY_BRACKETS.length - 1].rate
+    : (USURY_BRACKETS.find(b => amount <= b.upTo) || USURY_BRACKETS[USURY_BRACKETS.length - 1]).rate;
+/** Seuil le plus bas, utilisé quand le montant n'est pas connu. */
 export const RATE_CAP = 8.56;
-export const RATE_CAP_LABEL = 'seuil de l’usure, prêts personnels > 6 000 €, T4 2026';
+export const RATE_CAP_LABEL = 'taux de l’usure, 4e trimestre 2026';
 
 /** Taux de l'intérêt légal (créanciers personnes physiques non professionnelles), 2nd semestre 2026. */
 export const LEGAL_INTEREST_RATE = 6.84;
