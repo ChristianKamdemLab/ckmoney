@@ -399,6 +399,7 @@ export const BorrowerSpace: React.FC<{
   user: User; profile: Profile | null; loans: Loan[]; loading: boolean;
   onOpenLoan: (l: Loan) => void; onRequest: (lenderUid: string, lenderFirstName: string) => void;
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
+  onOpenContract: (l: Loan) => void;
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);
   const open = mine.filter(l => ['active', 'delay_requested', 'pending_borrower', 'requested'].includes(l.status));
@@ -505,6 +506,26 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
+      {mine.some(l => l.contractText) && (
+        <>
+          <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Mes contrats</div>
+          <div className="px-5">
+            <Card>
+              {mine.filter(l => l.contractText).map((l, i) => (
+                <button key={l.id} onClick={() => p.onOpenContract(l)} className="w-full flex items-center gap-3 px-4 py-3.5 text-left" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
+                  <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: C.ochreSoft, color: C.ochreText }}><Icon name="file" size={20} /></span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[15px] font-semibold truncate">{euro2(l.amount, l.currency)} avec {lenderName(l)}</div>
+                    <div className="text-[13px]" style={{ color: C.mute }}>Signé le {dateFr((l.borrowerSignedAt || l.signedDate || l.createdAt).slice(0, 10), { day: 'numeric', month: 'long', year: 'numeric' })} · lire ou télécharger</div>
+                  </div>
+                  <Icon name="chevron" size={18} />
+                </button>
+              ))}
+            </Card>
+          </div>
+        </>
+      )}
+
       {closed.length > 0 && (
         <>
           <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Terminés</div>
@@ -517,6 +538,9 @@ export const BorrowerSpace: React.FC<{
         <div className="flex flex-col gap-2.5">
           <div className="text-sm -mt-2 mb-1" style={{ color: C.mute }}>{p.user.email}</div>
           <Button variant="secondary" onClick={() => { setMenu(false); p.onEditIdentity(); }}>Mes informations</Button>
+          {mine.filter(l => l.contractText).slice(0, 1).map(l => (
+            <Button key={l.id} variant="secondary" onClick={() => { setMenu(false); p.onOpenContract(l); }}>Mon dernier contrat</Button>
+          ))}
           <Button variant="secondary" onClick={() => { setMenu(false); p.onLegal('cgu'); }}>Conditions d'utilisation</Button>
           <Button variant="secondary" onClick={() => { setMenu(false); p.onLegal('privacy'); }}>Confidentialité</Button>
           <Button variant="danger" onClick={p.onLogout}>Se déconnecter</Button>

@@ -18,6 +18,7 @@ import Auth from './components/v2/Auth';
 import { Landing, BorrowerSignFlow, RequestFlow, BorrowerSpace, IdentityEditor } from './components/v2/FriendFlows';
 import ProfileSetup from './components/ProfileSetup';
 import LegalDocs from './components/LegalDocs';
+import ContractPreview from './components/ContractPreview';
 import InstallPrompt from './components/InstallPrompt';
 import CKLogo from './components/brand/CKLogo';
 
@@ -75,7 +76,8 @@ type Overlay =
   | { k: 'profile' }
   | { k: 'identity' }
   | { k: 'borrower' }
-  | { k: 'legal'; v: 'cgu' | 'privacy' };
+  | { k: 'legal'; v: 'cgu' | 'privacy' }
+  | { k: 'contract'; id: string };
 
 const Splash = () => (
   <Screen><div className="flex-1 flex items-center justify-center"><div className="animate-pulse"><CKLogo size="lg" /></div></div></Screen>
@@ -251,6 +253,10 @@ const App: React.FC = () => {
     const content = (() => {
       switch (overlay.k) {
         case 'legal': return <LegalDocs view={overlay.v} onClose={close} />;
+        case 'contract': {
+          const l = findLoan(overlay.id);
+          return l ? <ContractPreview loan={l} onClose={() => setOverlay(isLender ? { k: 'borrower' } : null)} /> : <LoanLoader id={overlay.id} onLoaded={refreshLoans} onMissing={close} />;
+        }
         case 'profile': return <ProfileSetup user={user} initial={profile} onSaved={p => { setProfile(p); close(); setToast('Informations enregistrées'); }} onCancel={close} />;
         case 'identity': return <IdentityEditor user={user} profile={profile} onClose={close} onSaved={() => { loadProfile(); setToast('Informations enregistrées'); }} />;
         case 'new':
@@ -280,7 +286,8 @@ const App: React.FC = () => {
         case 'borrower':
           return <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
             onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
-            onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onBack={isLender ? close : undefined} />;
+            onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onBack={isLender ? close : undefined}
+            onOpenContract={l => setOverlay({ k: 'contract', id: l.id })} />;
       }
     })();
     return <ErrorBoundary>{content}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
@@ -292,7 +299,7 @@ const App: React.FC = () => {
       <InstallPrompt />
       <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
-        onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} />
+        onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
   );
