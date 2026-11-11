@@ -46,6 +46,9 @@
         .serif {
             font-family: 'Source Serif 4', Georgia, serif;
         }
+        @keyframes sheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
         
         /* Optimisations pour l'impression PDF */
         @media print {

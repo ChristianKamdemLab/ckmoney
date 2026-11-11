@@ -3,13 +3,13 @@ import { Loan } from '../types';
 import { fetchExchangeRate } from '../services/exchangeRate';
 import { DECLARATION_THRESHOLD_EUR } from '../config/legal';
 
-const borrowerKeyOf = (l: Loan) => (l.borrowerEmail || l.borrowerName || '').trim().toLowerCase();
+export const borrowerKeyOf = (l: Loan) => (l.borrowerUid || l.borrowerPhone || l.borrowerNickname || l.borrowerName || '').trim().toLowerCase();
 
 /** Cumul en euros des prêts déjà consentis à cet emprunteur pendant l'année civile. */
 export const annualTotalsForBorrower = async (loans: Loan[], borrowerKey: string, year: number): Promise<number> => {
   if (!borrowerKey) return 0;
   const same = loans.filter(l =>
-    borrowerKeyOf(l) === borrowerKey &&
+    borrowerKeyOf(l) === borrowerKey && l.status !== 'declined' &&
     parseInt((l.loanDate || '').slice(0, 4), 10) === year,
   );
   const values = await Promise.all(same.map(l => fetchExchangeRate(l.amount, l.currency)));
@@ -17,13 +17,10 @@ export const annualTotalsForBorrower = async (loans: Loan[], borrowerKey: string
 };
 
 /** Nombre de prêts consentis par ce prêteur sur les 12 derniers mois. */
-export const loansInLast12Months = (loans: Loan[], lenderEmail: string): number => {
+export const loansInLast12Months = (loans: Loan[], lenderUid: string): number => {
   const since = new Date();
   since.setFullYear(since.getFullYear() - 1);
-  return loans.filter(l =>
-    (l.lenderEmail || '').toLowerCase() === lenderEmail.toLowerCase() &&
-    new Date(l.loanDate) >= since,
-  ).length;
+  return loans.filter(l => l.lenderUid === lenderUid && ['active', 'paid', 'pending_borrower', 'delay_requested'].includes(l.status) && new Date(l.loanDate) >= since).length;
 };
 
 export interface DeclarationLine {
@@ -37,8 +34,8 @@ export interface DeclarationLine {
 }
 
 /** Tableau des déclarations 2062 par année et par emprunteur (prêts dont l'utilisateur est le prêteur). */
-export const declarationSummary = async (loans: Loan[], lenderEmail: string): Promise<DeclarationLine[]> => {
-  const mine = loans.filter(l => (l.lenderEmail || '').toLowerCase() === lenderEmail.toLowerCase());
+export const declarationSummary = async (loans: Loan[], lenderUid: string): Promise<DeclarationLine[]> => {
+  const mine = loans.filter(l => l.lenderUid === lenderUid && ['active', 'paid', 'delay_requested', 'repayment_pending'].includes(l.status));
   const groups = new Map<string, Loan[]>();
   for (const l of mine) {
     const year = (l.loanDate || '').slice(0, 4);
@@ -51,7 +48,7 @@ export const declarationSummary = async (loans: Loan[], lenderEmail: string): Pr
     const totalEur = values.reduce((s, v) => s + v, 0);
     return {
       year,
-      borrowerName: group[0].borrowerName,
+      borrowerName: group[0].borrowerNickname || group[0].borrowerName,
       borrowerEmail: group[0].borrowerEmail,
       totalEur,
       loansCount: group.length,

@@ -60,7 +60,16 @@ export interface Loan {
   lenderUid?: string;
 
   // Status
-  status: 'pending_borrower' | 'active' | 'repayment_pending' | 'paid' | 'delay_requested';
+  // requested : demande faite par l'ami, en attente du prêteur ; declined : refusée
+  status: 'requested' | 'declined' | 'pending_borrower' | 'active' | 'repayment_pending' | 'paid' | 'delay_requested';
+
+  // Parcours par lien personnel (v2)
+  borrowerNickname?: string;   // prénom ou surnom donné par le prêteur
+  inviteToken?: string;        // jeton du lien envoyé sur WhatsApp
+  claimToken?: string;         // jeton utilisé par l'ami pour se relier au prêt
+  termsHash?: string;          // empreinte des conditions (offre)
+  requestNote?: string;        // message de l'ami avec sa demande
+  initiatedBy?: 'lender' | 'borrower';
   lateInterestRate?: number;
   
   // Contract Data
@@ -138,6 +147,26 @@ export interface Profile {
   paymentLink?: string;
   signature?: string;   // signature dessinée, réutilisable
   updatedAt?: string;
+}
+
+/** Identité suffisante pour figurer dans un contrat (prêteur ou emprunteur). */
+export const isIdentityComplete = (p: Partial<Profile> | null | undefined): boolean =>
+  !!p && !!p.fullName && !!p.birthDate && !!p.birthPlace && p.birthPlace.includes(',') && !!p.address;
+
+/** Résumé public d'une invitation (lisible avec le seul jeton, avant connexion). */
+export interface Invite {
+  loanId: string;
+  lenderUid: string;
+  lenderFirstName: string;
+  borrowerNickname: string;
+  amount: number;
+  currency: string;
+  scheduleSummary: string;
+  firstDueDate: string;
+  interestRate: number;
+  lateRateMode: 'none' | 'legal' | 'custom';
+  createdAt: string;
+  claimedBy: string | null;
 }
 
 export const isProfileComplete = (p: Profile | null | undefined): p is Profile =>
