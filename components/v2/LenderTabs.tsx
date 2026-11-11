@@ -3,6 +3,7 @@ import { Loan, Notification, Profile, User } from '../../types';
 import { Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, euro2, firstName, relDays, dateFr, Note } from './ui';
 import CKLogo from '../brand/CKLogo';
 import FiscalPanel from '../FiscalPanel';
+import PushCard from './PushCard';
 import { computeSituation } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
 import { fetchExchangeRate } from '../../services/exchangeRate';
@@ -126,6 +127,7 @@ const LenderTabs: React.FC<Props> = (p) => {
           <Icon name="chat" size={20} /> Partager mon lien de demande
         </button>
       </div>
+      <div className="px-5 pt-4"><PushCard uid={p.user.id} text="Reçois les demandes de tes proches et leurs paiements dès qu'ils arrivent." /></div>
       <div className="px-5 pt-7 pb-3 flex justify-between items-baseline">
         <div className="text-[17px] font-bold">{sorted.some(l => priority(l) < 3) ? 'À traiter' : 'À venir'}</div>
       </div>

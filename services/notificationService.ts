@@ -3,6 +3,7 @@ import { collection, addDoc, query, where, getDocs, updateDoc, doc } from "fireb
 import { Notification, Loan } from "../types";
 import { computeSituation, formatMoney } from "../utils/schedule";
 import { LEGAL_INTEREST_RATE } from "../config/legal";
+import { pushNotification } from "./push";
 
 // Les notifications sont adressées à un compte (uid), jamais à une adresse email.
 const COL = "notifications";
@@ -10,7 +11,8 @@ const COL = "notifications";
 export const sendNotification = async (n: Omit<Notification, 'id' | 'date' | 'read'>) => {
   if (!n.userId) return;
   try {
-    await addDoc(collection(db, COL), { ...n, date: new Date().toISOString(), read: false });
+    const ref = await addDoc(collection(db, COL), { ...n, date: new Date().toISOString(), read: false });
+    pushNotification(ref.id);
   } catch (e) {
     console.warn("Notification non envoyée", e);
   }

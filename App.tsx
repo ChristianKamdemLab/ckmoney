@@ -7,6 +7,7 @@ import {
   getUserLoans, getLoanById, getInvite, claimInvite, getLenderCard, publishLenderCard, requestLinkFor, resolveHandle, LenderCard, KnownFriend,
 } from './services/loanService';
 import { checkAutomaticNotifications } from './services/notificationService';
+import { refreshPushToken } from './services/push';
 import { canCreateLoans } from './config/legal';
 import { Screen, TabBar, Button, Note, Toast, C, euro2, dateFr } from './components/v2/ui';
 import LenderTabs from './components/v2/LenderTabs';
@@ -138,6 +139,16 @@ const App: React.FC = () => {
     if (!user) { setProfile(null); setProfileLoaded(false); setLoans([]); setLoading(true); return; }
     loadProfile();
     refreshLoans();
+    refreshPushToken(user.id);
+  }, [user?.id]);
+
+  // Ouverture depuis une notification : /?loan=<id>
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const id = new URLSearchParams(window.location.search).get('loan');
+      if (id) { window.history.replaceState({}, '', '/'); setOverlay({ k: 'loan', id }); }
+    } catch { /* ignore */ }
   }, [user?.id]);
 
   // Rafraîchir quand l'appli revient au premier plan (une demande a pu arriver)

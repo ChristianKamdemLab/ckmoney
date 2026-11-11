@@ -5,6 +5,7 @@ import {
   C, euro, euro2, firstName, dateFr, relDays,
 } from './ui';
 import CKLogo from '../brand/CKLogo';
+import PushCard from './PushCard';
 import CityInput from '../CityInput';
 import SignaturePad from '../SignaturePad';
 import ContractPreview from '../ContractPreview';
@@ -471,6 +472,7 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
+      <div className="px-5 pt-4"><PushCard uid={p.user.id} text="On te rappelle la veille de chaque échéance, et tu sais tout de suite quand ta demande est acceptée." /></div>
       {notifs.length > 0 && (
         <div className="px-5 pt-4 flex flex-col gap-2">
           {notifs.map(n => (
