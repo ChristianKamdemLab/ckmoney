@@ -30,8 +30,35 @@ export interface Loan {
   amount: number;
   currency: string;
   loanDate: string;
-  repaymentDate: string;
-  
+  repaymentDate: string; // date de la dernière échéance
+
+  // Intérêts conventionnels et échéancier
+  interestRate?: number;                         // % annuel, 0 = prêt gratuit
+  repaymentType?: 'in_fine' | 'monthly';
+  installmentsCount?: number;
+  schedule?: import('./utils/schedule').Installment[];
+  payments?: Payment[];
+
+  // Intérêts de retard : aucun, taux légal, ou taux convenu (plafonné)
+  lateRateMode?: 'none' | 'legal' | 'custom';
+
+  // Attestation du prêteur (prêt occasionnel, non professionnel)
+  lenderAttestation?: string;
+
+  // Contrat figé et signature électronique de l'emprunteur
+  contractVersion?: string;
+  acknowledgmentText?: string;      // reconnaissance de dette
+  contractHash?: string;            // SHA-256 du contrat + reconnaissance
+  amendments?: { type: string; newDate: string; acceptedAt: string; requestedAt?: string }[];
+  amountInWords?: string;           // montant en lettres attendu
+  borrowerAmountWords?: string;     // mention saisie par l'emprunteur (art. 1376)
+  borrowerSignedName?: string;
+  borrowerSignedAt?: string;
+  borrowerSignedHash?: string;      // empreinte du texte au moment de la signature
+  borrowerSignedUserAgent?: string;
+  borrowerUid?: string;
+  lenderUid?: string;
+
   // Status
   status: 'pending_borrower' | 'active' | 'repayment_pending' | 'paid' | 'delay_requested';
   lateInterestRate?: number;
@@ -58,6 +85,18 @@ export interface Loan {
   delayRequestDate?: string; 
 
   createdAt: string;
+}
+
+export interface Payment {
+  id: string;
+  date: string;            // date du paiement (YYYY-MM-DD)
+  amount: number;
+  method: string;
+  status: 'declared' | 'confirmed' | 'rejected';
+  declaredBy: 'borrower' | 'lender';
+  declaredAt: string;
+  confirmedAt?: string;
+  proof?: string;          // capture (data URL), optionnelle
 }
 
 export interface Notification {

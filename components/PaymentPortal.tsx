@@ -1,13 +1,14 @@
 
 import React, { useState, useRef } from 'react';
 import { Loan } from '../types';
-import { calculateDueAmount } from '../utils/calculations';
+import { computeSituation, formatMoney, toISODate } from '../utils/schedule';
+import { LEGAL_INTEREST_RATE } from '../config/legal';
 import { X, Copy, Smartphone, CheckSquare, ArrowRight, Wallet, ExternalLink, ShieldCheck, Upload, AlertTriangle, FileCheck, Info } from 'lucide-react';
 
 interface PaymentPortalProps {
   loan: Loan;
   onClose: () => void;
-  onSuccess: (method: string, proof: string | null) => void;
+  onSuccess: (method: string, proof: string | null, amount: number, date: string) => void;
 }
 
 const PaymentPortal: React.FC<PaymentPortalProps> = ({ loan, onClose, onSuccess }) => {
@@ -16,8 +17,11 @@ const PaymentPortal: React.FC<PaymentPortalProps> = ({ loan, onClose, onSuccess 
   const [proofImage, setProofImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Recalcul en direct pour afficher le total dynamique
-  const calc = calculateDueAmount(loan.amount, loan.repaymentDate, loan.status, loan.lateInterestRate || 0);
+  const s = computeSituation(loan, LEGAL_INTEREST_RATE);
+  const suggested = s.isOverdue ? s.overdueAmount + s.lateInterest : (s.nextInstallment?.outstanding ?? s.totalDueNow);
+  const [amount, setAmount] = useState(String(Math.round(suggested * 100) / 100));
+  const [payDate, setPayDate] = useState(toISODate(new Date()));
+  const amountNum = parseFloat(amount) || 0;
   
   const referenceCode = `REF-${loan.id.substr(0, 6).toUpperCase()}`;
 
@@ -38,8 +42,8 @@ const PaymentPortal: React.FC<PaymentPortalProps> = ({ loan, onClose, onSuccess 
   };
 
   const handleConfirm = () => {
-      if (!confirmed) return;
-      onSuccess(activeTab === 'bank' ? 'Virement Bancaire' : 'Paiement Mobile', proofImage);
+      if (!confirmed || amountNum <= 0) return;
+      onSuccess(activeTab === 'bank' ? 'Virement bancaire' : 'Paiement mobile', proofImage, amountNum, payDate);
   };
 
   return (
@@ -59,19 +63,27 @@ const PaymentPortal: React.FC<PaymentPortalProps> = ({ loan, onClose, onSuccess 
 
         <div className="p-6 overflow-y-auto flex-1">
           {/* Section Résumé Financier */}
-          <div className="text-center mb-8 relative">
-            <p className="text-slate-500 text-sm font-medium mb-1">Total à verser au prêteur</p>
-            <h3 className="text-4xl font-black text-slate-900 tracking-tighter">
-                {calc.totalDue.toLocaleString('fr-FR')} <span className="text-2xl text-slate-400">{loan.currency}</span>
-            </h3>
-            
-            {/* Indicateur de pénalités */}
-            {calc.isOverdue && calc.interestAmount > 0 && (
-                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-rose-50 text-rose-600 rounded-full text-xs font-bold border border-rose-100">
-                    <AlertTriangle size={12} />
-                    <span>Inclut {calc.interestAmount.toFixed(2)} {loan.currency} de pénalités</span>
-                 </div>
+          <div className="text-center mb-6">
+            <p className="text-slate-500 text-sm font-medium mb-1">Reste dû aujourd'hui</p>
+            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{formatMoney(s.totalDueNow, loan.currency)}</h3>
+            {s.lateInterest > 0 && (
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-rose-50 text-rose-600 rounded-full text-xs font-bold border border-rose-100">
+                <AlertTriangle size={12} />
+                <span>Dont {formatMoney(s.lateInterest, loan.currency)} d'intérêts de retard</span>
+              </div>
             )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Montant versé</label>
+              <input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="w-full px-3 py-3 rounded-xl border-2 border-slate-100 focus:border-indigo-500 outline-none font-black text-slate-900" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Date du paiement</label>
+              <input type="date" value={payDate} max={toISODate(new Date())} onChange={e => setPayDate(e.target.value)} className="w-full px-3 py-3 rounded-xl border-2 border-slate-100 focus:border-indigo-500 outline-none font-bold text-slate-900" />
+            </div>
+            <p className="col-span-2 text-[10px] text-slate-400">Vous pouvez payer une échéance, une partie, ou tout rembourser par anticipation sans frais.</p>
           </div>
 
           {/* Onglets */}
@@ -196,7 +208,7 @@ const PaymentPortal: React.FC<PaymentPortalProps> = ({ loan, onClose, onSuccess 
              <div className="bg-indigo-50 p-4 rounded-2xl mb-6 flex gap-3 items-start">
                 <Info className="text-indigo-600 shrink-0 mt-0.5" size={18} />
                 <p className="text-xs text-indigo-900 font-medium leading-relaxed">
-                    <strong>Important :</strong> En confirmant, le calcul des intérêts de retard sera <span className="underline decoration-indigo-300 decoration-2">suspendu provisoirement</span> en attendant que le prêteur valide la réception des fonds.
+                    <strong>Important :</strong> le paiement sera pris en compte à la date indiquée dès que le prêteur aura confirmé l'avoir reçu. Sa confirmation vaut quittance.
                 </p>
              </div>
 
@@ -205,7 +217,7 @@ const PaymentPortal: React.FC<PaymentPortalProps> = ({ loan, onClose, onSuccess 
                      {confirmed && <CheckSquare size={14} className="text-white" />}
                  </div>
                  <p className="text-xs text-slate-600 leading-relaxed select-none">
-                     Je certifie sur l'honneur avoir effectué le paiement intégral.
+                     Je certifie sur l'honneur avoir versé {formatMoney(amountNum, loan.currency)} au prêteur.
                  </p>
              </div>
 

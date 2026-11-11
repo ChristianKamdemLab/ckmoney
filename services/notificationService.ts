@@ -1,116 +1,71 @@
-
 import { db } from "./firebase";
 import { collection, addDoc, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
 import { Notification, Loan } from "../types";
-import { calculateDueAmount } from "../utils/calculations";
+import { computeSituation, formatMoney } from "../utils/schedule";
+import { LEGAL_INTEREST_RATE } from "../config/legal";
 
 const NOTIF_COLLECTION = "notifications";
 
-// Envoi d'une notification (Database)
 export const sendNotification = async (notifData: Omit<Notification, 'id' | 'date' | 'read'>) => {
-    try {
-        await addDoc(collection(db, NOTIF_COLLECTION), {
-            ...notifData,
-            date: new Date().toISOString(),
-            read: false
-        });
-    } catch (e) {
-        console.warn("Offline notification logic not implemented fully", e);
-    }
+  if (!notifData.userId) return;
+  try {
+    await addDoc(collection(db, NOTIF_COLLECTION), {
+      ...notifData,
+      userId: notifData.userId.toLowerCase(),
+      date: new Date().toISOString(),
+      read: false,
+    });
+  } catch (e) {
+    console.warn("Notification non envoyée", e);
+  }
 };
 
-// Récupération des notifications pour un utilisateur
 export const getUserNotifications = async (userEmail: string): Promise<Notification[]> => {
-    try {
-        const q = query(collection(db, NOTIF_COLLECTION), where("userId", "==", userEmail));
-        const snapshot = await getDocs(q);
-        const notifs: Notification[] = [];
-        snapshot.forEach(doc => {
-            notifs.push({ id: doc.id, ...doc.data() } as Notification);
-        });
-        // Tri local car Firestore composite index peut manquer
-        return notifs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    } catch (e) {
-        return [];
-    }
+  try {
+    const q = query(collection(db, NOTIF_COLLECTION), where("userId", "==", userEmail.toLowerCase()));
+    const snapshot = await getDocs(q);
+    const notifs: Notification[] = [];
+    snapshot.forEach(d => notifs.push({ id: d.id, ...d.data() } as Notification));
+    return notifs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  } catch {
+    return [];
+  }
 };
 
 export const markNotificationAsRead = async (notifId: string) => {
-    try {
-        const ref = doc(db, NOTIF_COLLECTION, notifId);
-        await updateDoc(ref, { read: true });
-    } catch (e) {
-        console.error(e);
-    }
+  try {
+    await updateDoc(doc(db, NOTIF_COLLECTION, notifId), { read: true });
+  } catch (e) {
+    console.error(e);
+  }
 };
 
-// --- AUTOMATION ENGINE (Simule un backend cron job) ---
-// Cette fonction doit être appelée au lancement de l'app (useEffect dans App.tsx)
+/** Rappels automatiques pour l'emprunteur, calculés à l'ouverture de l'appli. */
 export const checkAutomaticNotifications = async (loans: Loan[], userEmail: string) => {
-    const today = new Date();
-    today.setHours(0,0,0,0);
+  const email = userEmail.toLowerCase();
+  const existing = await getUserNotifications(email);
+  const hasRecent = (loanId: string, title: string, days = 3) =>
+    existing.some(n => n.loanId === loanId && n.title === title &&
+      new Date(n.date).getTime() > Date.now() - 86_400_000 * days);
 
-    const existingNotifs = await getUserNotifications(userEmail);
+  for (const loan of loans) {
+    if (loan.status !== 'active' || (loan.borrowerEmail || '').toLowerCase() !== email) continue;
+    const s = computeSituation(loan, LEGAL_INTEREST_RATE);
+    const next = s.nextInstallment;
+    if (!next) continue;
+    const daysToNext = Math.round((new Date(next.dueDate).getTime() - Date.now()) / 86_400_000);
 
-    // Fonction helper pour vérifier si une notif de ce type existe déjà pour ce prêt aujourd'hui ou récemment
-    const hasRecentNotif = (loanId: string, titlePartial: string) => {
-        return existingNotifs.some(n => 
-            n.loanId === loanId && 
-            n.title.includes(titlePartial) &&
-            // Éviter de spammer : on regarde si une notif similaire a été envoyée dans les dernières 24h pour les retards
-            (new Date(n.date).getTime() > new Date().getTime() - 86400000 * 3) // 3 jours de cooldown
-        );
-    };
-
-    for (const loan of loans) {
-        // On ne traite que les prêts ACTIFS où l'utilisateur est l'EMPRUNTEUR
-        if (loan.status !== 'active' || loan.borrowerEmail !== userEmail) continue;
-
-        const calc = calculateDueAmount(loan.amount, loan.repaymentDate, loan.status, loan.lateInterestRate || 0);
-        
-        // 1. Rappel J-7
-        if (calc.daysRemaining === 7 && !hasRecentNotif(loan.id, 'J-7')) {
-            await sendNotification({
-                userId: userEmail,
-                loanId: loan.id,
-                type: 'info',
-                title: 'Rappel J-7',
-                message: `📅 Rappel : Votre remboursement de ${loan.amount} ${loan.currency} est prévu dans 7 jours. Pensez à préparer votre virement !`
-            });
-        }
-
-        // 2. Rappel J-1 (Dernier jour)
-        if (calc.daysRemaining === 1 && !hasRecentNotif(loan.id, 'Dernier jour')) {
-            await sendNotification({
-                userId: userEmail,
-                loanId: loan.id,
-                type: 'warning',
-                title: 'Dernier jour',
-                message: `⚠️ Dernier jour ! Votre remboursement est dû demain. Après cette date, la clause de retard de ${loan.lateInterestRate || 0}% s'appliquera.`
-            });
-        }
-
-        // 3. Clause de retard activée (J+1)
-        if (calc.daysLate === 1 && !hasRecentNotif(loan.id, 'Retard activé')) {
-             const dailyCost = (loan.amount * ((loan.lateInterestRate || 0) / 100)) / 365;
-             await sendNotification({
-                userId: userEmail,
-                loanId: loan.id,
-                type: 'danger',
-                title: 'Retard activé',
-                message: `🚨 Échéance dépassée. La clause de retard est activée. Des intérêts de ${dailyCost.toFixed(2)} ${loan.currency} s'ajouteront désormais chaque jour.`
-            });
-        }
-
-        // 4. Point Hebdomadaire sur retard (Tous les 7 jours de retard)
-        if (calc.daysLate > 1 && calc.daysLate % 7 === 0 && !hasRecentNotif(loan.id, 'Point sur votre prêt')) {
-            await sendNotification({
-                userId: userEmail,
-                loanId: loan.id,
-                type: 'danger',
-                title: 'Point sur votre prêt',
-                message: `📉 Point sur votre prêt : Avec le retard (${calc.daysLate} jours), vous devez actuellement un total de ${calc.totalDue.toFixed(2)} ${loan.currency} à ${loan.lenderName}.`
-            });
-        }
+    if (!s.isOverdue && daysToNext <= 7 && daysToNext >= 0 && !hasRecent(loan.id, 'Échéance proche', 8)) {
+      await sendNotification({
+        userId: email, loanId: loan.id, type: 'info', title: 'Échéance proche',
+        message: `📅 Échéance de ${formatMoney(next.outstanding, loan.currency)} le ${new Date(next.dueDate).toLocaleDateString('fr-FR')} pour le prêt de ${loan.lenderName}.`,
+      });
     }
+    if (s.isOverdue && !hasRecent(loan.id, 'Échéance dépassée', 7)) {
+      await sendNotification({
+        userId: email, loanId: loan.id, type: 'danger', title: 'Échéance dépassée',
+        message: `🚨 ${formatMoney(s.overdueAmount, loan.currency)} sont échus depuis ${s.daysLate} jour(s). Reste dû aujourd'hui : ${formatMoney(s.totalDueNow, loan.currency)}.`,
+      });
+    }
+  }
 };

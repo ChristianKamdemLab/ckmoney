@@ -1,10 +1,13 @@
 
 import React, { useState } from 'react';
 import { Loan } from '../types';
-import { calculateDueAmount, formatDate } from '../utils/calculations';
-import { declareRepayment, requestDelay } from '../services/loanService';
+import { formatDate } from '../utils/calculations';
+import { declarePayment, requestDelay } from '../services/loanService';
+import { computeSituation, effectiveLateRate, formatMoney } from '../utils/schedule';
+import { LEGAL_INTEREST_RATE } from '../config/legal';
 import ContractPreview from './ContractPreview';
 import PaymentPortal from './PaymentPortal';
+import LoanLedger from './LoanLedger';
 import { 
   ShieldCheck, Clock, Calendar, AlertTriangle, TrendingUp, 
   Download, CheckCircle2, User, ArrowRight, Loader2, Banknote, CreditCard, Lock, Hourglass
@@ -21,11 +24,21 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
   const [showDelayModal, setShowDelayModal] = useState(false);
   const [newDelayDate, setNewDelayDate] = useState('');
   const [loadingAction, setLoadingAction] = useState(false);
+  const [showLedger, setShowLedger] = useState(false);
   
-  const calc = calculateDueAmount(loan.amount, loan.repaymentDate, loan.status, loan.lateInterestRate || 0);
-  
-  // Coût journalier du retard
-  const dailyPenalty = (loan.amount * ((loan.lateInterestRate || 0) / 100)) / 365;
+  const s = computeSituation(loan, LEGAL_INTEREST_RATE);
+  const lateRate = effectiveLateRate(loan, LEGAL_INTEREST_RATE);
+  const nextDue = s.nextInstallment?.dueDate || loan.repaymentDate;
+  const daysToNext = Math.max(0, Math.ceil((new Date(nextDue).getTime() - Date.now()) / 86_400_000));
+  const calc = {
+    totalDue: s.totalDueNow,
+    isOverdue: s.isOverdue,
+    daysLate: s.daysLate,
+    daysRemaining: daysToNext,
+    interestAmount: s.lateInterest,
+  };
+  // Coût journalier du retard sur les sommes échues
+  const dailyPenalty = (s.overdueAmount * (lateRate / 100)) / 365;
 
   // Calcul du % de temps écoulé pour la barre de progression
   const startDate = new Date(loan.loanDate).getTime();
@@ -54,22 +67,22 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
       statusColor = "bg-rose-500";
       statusBg = "bg-rose-50";
       statusText = "text-rose-700";
-      alertMessage = `🚨 Échéance dépassée. La clause de retard est activée. Des intérêts de ${dailyPenalty.toFixed(2)} ${loan.currency} s'ajoutent désormais chaque jour.`;
+      alertMessage = `🚨 ${formatMoney(s.overdueAmount, loan.currency)} échus et impayés.` + (dailyPenalty > 0 ? ` Des intérêts de retard de ${dailyPenalty.toFixed(2)} ${loan.currency} s'ajoutent chaque jour.` : '');
   } else if (calc.daysRemaining <= 7) {
       statusColor = "bg-amber-500";
       statusBg = "bg-amber-50";
       statusText = "text-amber-700";
       if (calc.daysRemaining <= 1) {
-          alertMessage = "⚠️ Dernier jour ! Votre remboursement est dû demain. Après cette date, la clause de retard s'appliquera.";
+          alertMessage = `⚠️ Votre échéance de ${formatMoney(s.nextInstallment?.outstanding || 0, loan.currency)} est due demain.`;
       } else {
-          alertMessage = `📅 Rappel : Votre remboursement de ${loan.amount} ${loan.currency} est prévu dans ${calc.daysRemaining} jours.`;
+          alertMessage = `📅 Prochaine échéance : ${formatMoney(s.nextInstallment?.outstanding || 0, loan.currency)} dans ${calc.daysRemaining} jours.`;
       }
   }
 
-  const handleDeclarePayment = async (method: string, proof: string | null) => {
+  const handleDeclarePayment = async (method: string, proof: string | null, amount: number, date: string) => {
       setLoadingAction(true);
       try {
-          await declareRepayment(loan.id, method, proof);
+          await declarePayment(loan, { method, proof, amount, date });
           alert("Déclaration envoyée au prêteur !");
           setShowPayModal(false);
           window.location.reload();
@@ -118,9 +131,9 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
             </div>
 
             <div className="text-center space-y-2 relative z-10">
-                <p className="text-slate-400 font-medium">Montant à rembourser</p>
+                <p className="text-slate-400 font-medium">Reste à rembourser</p>
                 <h1 className="text-5xl font-black tracking-tighter">
-                    {calc.totalDue.toLocaleString('fr-FR')} 
+ {calc.totalDue.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} 
                     <span className="text-2xl text-indigo-400 ml-1">{loan.currency}</span>
                 </h1>
                 
@@ -161,8 +174,8 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
         <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-slate-200/50 mb-6">
             <div className="flex justify-between items-end mb-4">
                 <div>
-                    <h3 className="font-black text-slate-900 text-lg">Échéance</h3>
-                    <p className="text-slate-500 text-sm font-medium">{formatDate(loan.repaymentDate)}</p>
+                    <h3 className="font-black text-slate-900 text-lg">{s.schedule.length > 1 ? 'Prochaine échéance' : 'Échéance'}</h3>
+                    <p className="text-slate-500 text-sm font-medium">{formatDate(nextDue)}{s.nextInstallment && s.schedule.length > 1 ? ` · ${formatMoney(s.nextInstallment.outstanding, loan.currency)}` : ''}</p>
                 </div>
                 {calc.isOverdue ? (
                     <div className="text-right">
@@ -194,31 +207,18 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
             </div>
         </div>
 
-        {/* Penalty Simulator Module */}
-        <div className="bg-slate-50 border border-slate-100 p-6 rounded-[2rem] mb-6">
-            <div className="flex items-center gap-2 mb-3">
-                <div className="bg-rose-100 p-1.5 rounded-lg text-rose-600">
-                    <TrendingUp size={16} />
-                </div>
-                <h3 className="font-black text-slate-900 text-sm uppercase tracking-wider">Simulation Clause de Retard</h3>
+        {/* Échéancier */}
+        <button onClick={() => setShowLedger(true)} className="w-full bg-slate-50 border border-slate-100 p-6 rounded-[2rem] mb-6 text-left hover:bg-slate-100 transition-colors">
+            <div className="flex items-center gap-2 mb-2">
+                <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600"><TrendingUp size={16} /></div>
+                <h3 className="font-black text-slate-900 text-sm uppercase tracking-wider">Échéancier et paiements</h3>
             </div>
-            
-            <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                Votre contrat stipule un taux de pénalité de <strong className="text-slate-900">{loan.lateInterestRate}% annuel</strong> en cas de dépassement de la date limite.
+            <p className="text-sm text-slate-600 leading-relaxed">
+                {s.schedule.filter(i => i.outstanding <= 0.004).length}/{s.schedule.length} échéance(s) réglée(s) · reçu {formatMoney(s.confirmedPaid, loan.currency)}
+                {s.pendingDeclared > 0 ? ` · ${formatMoney(s.pendingDeclared, loan.currency)} en attente de confirmation` : ''}.
+                {lateRate > 0 ? ` En cas de retard : ${lateRate.toLocaleString('fr-FR')} % par an sur les sommes échues.` : ' Aucune pénalité de retard conventionnelle.'}
             </p>
-
-            <div className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500">Coût par jour de retard</span>
-                <span className="font-black text-rose-500 text-lg">
-                    {dailyPenalty.toFixed(2)} {loan.currency}
-                </span>
-            </div>
-            {calc.isOverdue && (
-                <p className="text-[10px] text-rose-500 font-bold mt-2 text-center">
-                    Cumul actuel : {(calc.interestAmount).toFixed(2)} {loan.currency} de pénalités
-                </p>
-            )}
-        </div>
+        </button>
 
         {/* Lender Info Card */}
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 mb-8">
@@ -238,14 +238,14 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
 
         {/* Actions */}
         <div className="space-y-4">
-            {loan.status !== 'repayment_pending' && loan.status !== 'paid' && loan.status !== 'delay_requested' && (
+            {loan.status !== 'paid' && loan.status !== 'delay_requested' && !s.isFullyPaid && (
                 <>
                     <button 
                         onClick={() => setShowPayModal(true)}
                         className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3"
                     >
                         <CheckCircle2 size={24} />
-                        Rembourser maintenant
+                        Déclarer un paiement
                     </button>
                     
                     {/* Bouton Demander Délai */}
@@ -259,9 +259,9 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
                 </>
             )}
 
-            {loan.status === 'repayment_pending' && (
+            {s.pendingDeclared > 0 && (
                  <div className="w-full py-5 bg-purple-100 text-purple-700 rounded-2xl font-bold text-sm text-center border-2 border-purple-200 border-dashed">
-                    En attente de confirmation par {loan.lenderName}
+                    {formatMoney(s.pendingDeclared, loan.currency)} en attente de confirmation par {loan.lenderName}
                  </div>
             )}
             
@@ -281,12 +281,16 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
         </div>
       </div>
 
+      {showLedger && (
+          <LoanLedger loan={loan} isLender={false} onClose={() => setShowLedger(false)} onChanged={() => setShowLedger(false)} />
+      )}
+
       {/* MODAL OPTIONS DE PAIEMENT */}
       {showPayModal && (
           <PaymentPortal 
               loan={loan}
               onClose={() => setShowPayModal(false)}
-              onSuccess={(method, proof) => handleDeclarePayment(method, proof)}
+              onSuccess={(method, proof, amount, date) => handleDeclarePayment(method, proof, amount, date)}
           />
       )}
 
@@ -296,7 +300,7 @@ const BorrowerDashboard: React.FC<BorrowerDashboardProps> = ({ loan, onClose }) 
               <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 animate-in zoom-in-95">
                   <h3 className="text-xl font-black text-slate-900 mb-2">Demander un délai</h3>
                   <p className="text-sm text-slate-500 mb-6">
-                      Si le prêteur accepte, un avenant sera généré et les pénalités seront recalculées sur la base de la nouvelle date.
+                      Si le prêteur accepte, les échéances impayées antérieures à cette date y seront reportées (avenant enregistré), et les intérêts de retard recalculés.
                   </p>
 
                   <div className="space-y-4 mb-6">
