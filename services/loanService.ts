@@ -294,7 +294,7 @@ export const signOffer = async (loan: Loan, user: User, b: BorrowerIdentity, sig
 /** L'ami demande un nouveau prêt à un prêteur qu'il connaît, et signe sa demande. */
 export const createRequest = async (args: {
   user: User; lenderUid: string; lenderName: string; identity: BorrowerIdentity; terms: Terms; note: string;
-  amountWords: string; signature: string;
+  amountWords: string; signature: string; receiveLink?: string;
 }) => {
   const now = new Date().toISOString();
   const ref = await addDoc(collection(db, LOANS), clean({
@@ -313,6 +313,7 @@ export const createRequest = async (args: {
     borrowerSignedUserAgent: navigator.userAgent.slice(0, 300),
     amountInWords: amountToFrenchWords(args.terms.amount, args.terms.currency),
     requestNote: args.note.trim() || undefined,
+    borrowerPaymentLink: args.receiveLink?.trim() || undefined,
     status: 'requested',
     initiatedBy: 'borrower',
     createdAt: now,
@@ -494,4 +495,13 @@ export const knownFriends = (loans: Loan[], lenderUid: string): KnownFriend[] =>
       map.set(key, { uid: l.borrowerUid, nickname: l.borrowerNickname || firstName(l.borrowerName), phone: l.borrowerPhone, lastLoan: l });
     });
   return Array.from(map.values()).reverse();
+};
+
+/** Le prêteur indique qu'il a envoyé l'argent ; l'ami est prévenu. */
+export const markFundsSent = async (loan: Loan) => {
+  await updateDoc(doc(db, LOANS, loan.id), { fundsSentAt: new Date().toISOString() });
+  if (loan.borrowerUid) await sendNotification({
+    userId: loan.borrowerUid, loanId: loan.id, type: 'success', title: 'Argent envoyé',
+    message: `${firstName(loan.lenderName)} t'a envoyé ${loan.amount} ${loan.currency}.`,
+  });
 };

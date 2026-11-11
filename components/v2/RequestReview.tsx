@@ -19,9 +19,9 @@ const RequestReview: React.FC<{
   const past = loans.filter(l => l.id !== loan.id && l.borrowerUid === loan.borrowerUid && l.lenderUid === user.id && ['active', 'paid', 'delay_requested'].includes(l.status));
   const paidOnTime = past.filter(l => l.status === 'paid' || !computeSituation(l, LEGAL_INTEREST_RATE).isOverdue).length;
 
-  const act = async (key: string, fn: () => Promise<void>) => {
+  const act = async (key: string, fn: () => Promise<void>, stay = false) => {
     setBusy(key);
-    try { await fn(); onChanged(); onBack(); }
+    try { await fn(); onChanged(); if (!stay) onBack(); }
     catch (e) { console.error(e); setToast("Ça n'a pas marché, réessaie."); setBusy(null); }
   };
 
@@ -41,6 +41,7 @@ const RequestReview: React.FC<{
           ['Il propose', s.length > 1 ? `${s.length} × ${euro2(s[0].amount, loan.currency)}` : `En une fois`],
           [s.length > 1 ? 'Échéances' : 'Date', s.length > 1 ? `du ${dateFr(s[0].dueDate, { day: 'numeric', month: 'short' })} au ${dateFr(s[s.length - 1].dueDate, { day: 'numeric', month: 'short' })}` : dateFr(s[0]?.dueDate || loan.repaymentDate)],
           ['Intérêts · retard', `${loan.interestRate ? `${loan.interestRate} %` : 'Aucun'} · ${loan.lateRateMode === 'none' ? 'rien' : 'taux légal'}`],
+          ['Il veut recevoir sur', loan.borrowerPaymentLink || 'Non précisé'],
           ['Historique avec lui', past.length ? `${past.length} prêt(s), ${paidOnTime === past.length ? 'à jour' : 'retard en cours'}` : 'Premier prêt'],
         ]} />
       </div>
@@ -52,7 +53,7 @@ const RequestReview: React.FC<{
       )}
       <div className="px-6 pt-3"><Note>Accepter vaut ta signature : le contrat est créé avec ton identité et celle de {name}, qui a déjà signé sa demande.</Note></div>
       <div className="mt-auto px-5 pt-4 pb-[max(env(safe-area-inset-bottom),24px)] flex flex-col gap-2.5">
-        <Button disabled={!sig} busy={busy === 'ok'} onClick={() => act('ok', () => acceptRequest(loan, user, profile, sig))}>Accepter et signer</Button>
+        <Button disabled={!sig} busy={busy === 'ok'} onClick={() => act('ok', () => acceptRequest(loan, user, profile, sig), true)}>Accepter et signer</Button>
         <div className="grid grid-cols-2 gap-2.5">
           <Button variant="secondary" onClick={async () => {
             await declineRequest(loan, firstName(profile.fullName)).catch(() => undefined);
