@@ -18,11 +18,24 @@ const clean = <T extends object>(obj: T): T =>
 
 const firstName = (full: string) => (full || '').trim().split(/\s+/)[0] || full;
 
-/** Jeton aléatoire non devinable (≈ 119 bits). */
-const newToken = () => {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-  const bytes = crypto.getRandomValues(new Uint8Array(22));
+/** Partie aléatoire des liens (sans caractères ambigus). */
+const randomPart = (n: number, alphabet = 'abcdefghijkmnpqrstuvwxyz23456789') => {
+  const bytes = crypto.getRandomValues(new Uint8Array(n));
   return Array.from(bytes, b => alphabet[b % alphabet.length]).join('');
+};
+
+/** Prénom ou surnom réduit à des caractères simples pour une adresse web. */
+export const slugify = (s: string) =>
+  (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || 'ami';
+
+/**
+ * Identifiant du lien de signature, lisible et personnel : prénom, montant, puis 8 caractères
+ * aléatoires (≈ 10¹² possibilités) pour qu'il reste impossible à deviner. Ex. charles-150-k7qm2xpa.
+ */
+const newInviteId = (nickname: string, amount: number) => {
+  const amt = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+  return `${slugify(nickname)}-${amt}-${randomPart(8)}`;
 };
 
 export interface Terms {
@@ -82,7 +95,7 @@ export const createOffer = async (args: {
   lenderSignature: string; knownBorrowerUid?: string;
 }): Promise<{ loanId: string; token: string }> => {
   const { user, profile, terms } = args;
-  const token = newToken();
+  const token = newInviteId(args.nickname, terms.amount);
   const loan = clean({
     ...lenderFields(profile, user),
     ...termsFields(terms),
@@ -124,20 +137,47 @@ export const createOffer = async (args: {
   return { loanId: ref.id, token };
 };
 
-export const inviteLinkFor = (token: string) => `${window.location.origin}/?i=${token}`;
+export const inviteLinkFor = (token: string) => `${window.location.origin}/p/${token}`;
 
 // --- CARTE PUBLIQUE DU PRÊTEUR ET LIEN DE DEMANDE ----------------------------
 
 /** Ce que voit un proche qui ouvre le lien de demande : prénom et lien de paiement, rien d'autre. */
-export interface LenderCard { firstName: string; paymentLink?: string; updatedAt: string }
+export interface LenderCard { firstName: string; paymentLink?: string; handle?: string; updatedAt: string }
 
-export const publishLenderCard = async (uid: string, profile: Profile) => {
+/**
+ * Réserve l'adresse courte du prêteur (ex. /christian) dans handles/{nom} → uid.
+ * Si le prénom est déjà pris par un autre prêteur, on ajoute un chiffre (christian2…).
+ */
+const claimHandle = async (uid: string, first: string, current?: string): Promise<string> => {
+  const base = slugify(first);
+  if (current && (current === base || current.startsWith(base))) {
+    const snap = await getDoc(doc(db, "handles", current)).catch(() => null);
+    if (snap?.exists() && snap.data().uid === uid) return current;
+  }
+  for (let i = 0; i < 20; i++) {
+    const h = i === 0 ? base : `${base}${i + 1}`;
+    if (RESERVED.has(h)) continue;
+    const ref = doc(db, "handles", h);
+    const snap = await getDoc(ref).catch(() => null);
+    if (snap?.exists()) { if (snap.data().uid === uid) return h; continue; }
+    try { await setDoc(ref, { uid, createdAt: new Date().toISOString() }); return h; } catch { /* pris entre-temps */ }
+  }
+  return uid;
+};
+const RESERVED = new Set(['p', 'assets', 'icons', 'api', 'app', 'sw', 'manifest', 'index', 'login', 'admin']);
+
+export const publishLenderCard = async (uid: string, profile: Profile): Promise<string> => {
+  const prev = await getLenderCard(uid);
+  const first = firstName(profile.fullName);
+  const handle = await claimHandle(uid, first, prev?.handle);
   const card: LenderCard = clean({
-    firstName: firstName(profile.fullName),
+    firstName: first,
     paymentLink: profile.paymentLink?.trim() || undefined,
+    handle,
     updatedAt: new Date().toISOString(),
   });
   await setDoc(doc(db, "lenders", uid), card);
+  return handle;
 };
 
 export const getLenderCard = async (uid: string): Promise<LenderCard | null> => {
@@ -147,8 +187,16 @@ export const getLenderCard = async (uid: string): Promise<LenderCard | null> => 
   } catch { return null; }
 };
 
+/** Adresse courte → identifiant du prêteur. */
+export const resolveHandle = async (handle: string): Promise<string | null> => {
+  try {
+    const snap = await getDoc(doc(db, "handles", handle.toLowerCase()));
+    return snap.exists() ? (snap.data().uid as string) : null;
+  } catch { return null; }
+};
+
 /** Lien permanent à envoyer une fois à ses proches : ils y font leurs demandes. */
-export const requestLinkFor = (uid: string) => `${window.location.origin}/?d=${uid}`;
+export const requestLinkFor = (handleOrUid: string) => `${window.location.origin}/${handleOrUid}`;
 
 /** Lien de paiement avec le montant déjà rempli quand le service le permet (PayPal.me). */
 export const payUrl = (link: string | undefined, amount?: number, currency = 'EUR'): string | null => {

@@ -1,6 +1,6 @@
 // Service worker CKMoney : rend l'appli installable et ouvre l'écran d'accueil hors ligne.
 // Les données (Firebase) ne sont JAMAIS mises en cache : elles passent toujours par le réseau.
-const CACHE = 'ckmoney-v1';
+const CACHE = 'ckmoney-v2';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -26,7 +26,7 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
-        .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('/', copy)); return res; })
+        .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('/', copy)); } return res; })
         .catch(() => caches.match('/')),
     );
     return;

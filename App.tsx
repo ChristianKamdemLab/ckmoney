@@ -4,7 +4,7 @@ import { auth } from './services/firebase';
 import { Loan, Profile, User, Invite, isProfileComplete } from './types';
 import { getProfile } from './services/profileService';
 import {
-  getUserLoans, getLoanById, getInvite, claimInvite, getLenderCard, publishLenderCard, requestLinkFor, LenderCard, KnownFriend,
+  getUserLoans, getLoanById, getInvite, claimInvite, getLenderCard, publishLenderCard, requestLinkFor, resolveHandle, LenderCard, KnownFriend,
 } from './services/loanService';
 import { checkAutomaticNotifications } from './services/notificationService';
 import { canCreateLoans } from './config/legal';
@@ -27,17 +27,25 @@ const toUser = (u: FirebaseUser): User => ({
   avatar: u.photoURL || undefined,
 });
 
-// Liens WhatsApp : /?i=<jeton> (contrat à signer) et /?d=<prêteur> (lien de demande).
-// On les garde en session pour qu'ils survivent à la connexion.
-const readParam = (key: 'i' | 'd') => {
+// Liens WhatsApp : /p/<prénom-montant-code> (contrat à signer) et /<prénom> (lien de demande).
+// Les anciennes formes /?i=… et /?d=… restent acceptées. On les garde en session pour
+// qu'ils survivent à la connexion.
+const readLinks = (): { i: string | null; d: string | null } => {
   try {
-    const v = new URLSearchParams(window.location.search).get(key);
-    if (v) sessionStorage.setItem(`ck_${key}`, v);
-    return v || sessionStorage.getItem(`ck_${key}`);
-  } catch { return null; }
+    const sp = new URLSearchParams(window.location.search);
+    const path = decodeURIComponent(window.location.pathname).replace(/^\/+|\/+$/g, '');
+    let i = sp.get('i'), d = sp.get('d');
+    const m = path.match(/^p\/([A-Za-z0-9.\-]+)$/);
+    if (m) i = m[1];
+    else if (path && /^[A-Za-z0-9-]{2,40}$/.test(path)) d = path.toLowerCase();
+    if (i) sessionStorage.setItem('ck_i', i);
+    if (d) sessionStorage.setItem('ck_d', d);
+    return { i: i || sessionStorage.getItem('ck_i'), d: d || sessionStorage.getItem('ck_d') };
+  } catch { return { i: null, d: null }; }
 };
+const initialLinks = readLinks();
 const clearParam = (key: 'i' | 'd') => {
-  try { sessionStorage.removeItem(`ck_${key}`); window.history.replaceState({}, '', window.location.pathname); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(`ck_${key}`); window.history.replaceState({}, '', '/'); } catch { /* ignore */ }
 };
 
 class ErrorBoundary extends React.Component<{ children?: ReactNode }, { hasError: boolean }> {
@@ -88,15 +96,26 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<string | null>(null);
 
   // Liens entrants
-  const [inviteToken, setInviteToken] = useState<string | null>(() => readParam('i'));
-  const [requestLender, setRequestLender] = useState<string | null>(() => readParam('d'));
+  const [inviteToken, setInviteToken] = useState<string | null>(initialLinks.i);
+  // Lien de demande : adresse courte (/christian) ou identifiant, résolu en uid du prêteur
+  const [requestRaw] = useState<string | null>(initialLinks.d);
+  const [requestLender, setRequestLender] = useState<string | null>(null);
+  const [handle, setHandle] = useState<string | null>(null);
   const [invite, setInvite] = useState<Invite | null | undefined>(undefined);
   const [lenderCard, setLenderCard] = useState<LenderCard | null | undefined>(undefined);
   const [landingDone, setLandingDone] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => { if (inviteToken) getInvite(inviteToken).then(setInvite).catch(() => setInvite(null)); }, [inviteToken]);
-  useEffect(() => { if (requestLender) getLenderCard(requestLender).then(setLenderCard); }, [requestLender]);
+  useEffect(() => {
+    if (!requestRaw) return;
+    (async () => {
+      const uid = (await resolveHandle(requestRaw)) || requestRaw;
+      const card = await getLenderCard(uid);
+      setRequestLender(uid);
+      setLenderCard(card);
+    })();
+  }, [requestRaw]);
 
   const loadProfile = useCallback(async () => {
     if (!user) return;
@@ -130,7 +149,7 @@ const App: React.FC = () => {
 
   // Carte publique du prêteur (prénom + lien de paiement), lue via le lien de demande
   useEffect(() => {
-    if (user && isLender && isProfileComplete(profile)) publishLenderCard(user.id, profile).catch(e => console.warn('Carte prêteur', e));
+    if (user && isLender && isProfileComplete(profile)) publishLenderCard(user.id, profile).then(setHandle).catch(e => console.warn('Carte prêteur', e));
   }, [user?.id, isLender, profile?.fullName, profile?.paymentLink]);
 
   // Une fois connecté : traiter le lien d'invitation
@@ -174,7 +193,7 @@ const App: React.FC = () => {
           cta="Voir et signer" onContinue={() => setLandingDone(true)} />
       );
     }
-    if (requestLender && !landingDone) {
+    if (requestRaw && !landingDone) {
       if (lenderCard === undefined) return <Splash />;
       if (lenderCard) return (
         <Landing eyebrow={`De la part de ${lenderCard.firstName}`} title={<>Tes demandes à {lenderCard.firstName}, au même endroit</>}
@@ -275,7 +294,7 @@ const App: React.FC = () => {
       {tab === 'home' && <InstallPrompt />}
       <LenderTabs tab={tab} user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
-        onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(user.id)}
+        onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}
         onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined} />
       <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo(0, 0); }} onCreate={() => setOverlay({ k: 'new' })} badge={toHandle} />
       <Toast text={toast} onDone={() => setToast(null)} />

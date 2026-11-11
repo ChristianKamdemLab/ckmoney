@@ -123,6 +123,14 @@ service cloud.firestore {
       allow write: if signedIn() && uid() == lenderId;
     }
 
+    // Adresses courtes des prêteurs (ex. /christian) : lisibles par tous, réservées une fois.
+    match /handles/{handle} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.uid == uid();
+      allow update, delete: if false;
+    }
+
     // Profil personnel (identité, IBAN, signature) : uniquement son propriétaire.
     match /profiles/{userId} {
       allow read, write: if signedIn() && uid() == userId;
