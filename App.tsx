@@ -1,28 +1,24 @@
-import React, { useState, useEffect, useCallback, ErrorInfo, ReactNode } from 'react';
-import { Loan, User, Profile, isProfileComplete } from './types';
-import LoanCard from './components/LoanCard';
-import LoanForm from './components/LoanForm';
-import ContractPreview from './components/ContractPreview';
-import BorrowerDashboard from './components/BorrowerDashboard';
-import AuthScreen from './components/AuthScreen';
-import VerifyEmailScreen from './components/VerifyEmailScreen';
-import BorrowerSign from './components/BorrowerSign';
-import FiscalPanel from './components/FiscalPanel';
-import NotificationCenter from './components/NotificationCenter';
-import LegalDocs from './components/LegalDocs';
-import CKLogo from './components/brand/CKLogo';
-import InstallPrompt from './components/InstallPrompt';
-import ProfileSetup from './components/ProfileSetup';
-import BorrowerHome from './components/BorrowerHome';
-import { getProfile } from './services/profileService';
-import { PlusCircle, LayoutDashboard, ShieldCheck, User as UserIcon, LogOut, Loader2 } from 'lucide-react';
+import React, { useCallback, useEffect, useState, ErrorInfo, ReactNode } from 'react';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth } from './services/firebase';
-import { fetchExchangeRate } from './services/exchangeRate';
-import { getUserLoans, getLoanById } from './services/loanService';
+import { Loan, Profile, User, Invite, isProfileComplete } from './types';
+import { getProfile } from './services/profileService';
+import {
+  getUserLoans, getLoanById, getInvite, claimInvite, getLenderCard, publishLenderCard, requestLinkFor, resolveHandle, LenderCard, KnownFriend,
+} from './services/loanService';
 import { checkAutomaticNotifications } from './services/notificationService';
-import { computeSituation } from './utils/schedule';
-import { LEGAL_INTEREST_RATE, canCreateLoans, LENDER_ALLOWLIST } from './config/legal';
+import { canCreateLoans } from './config/legal';
+import { Screen, TabBar, Button, Note, Toast, C, euro2, dateFr } from './components/v2/ui';
+import LenderTabs from './components/v2/LenderTabs';
+import NewLoanFlow from './components/v2/NewLoanFlow';
+import LoanDetail from './components/v2/LoanDetail';
+import RequestReview from './components/v2/RequestReview';
+import Auth from './components/v2/Auth';
+import { Landing, BorrowerSignFlow, RequestFlow, BorrowerSpace, IdentityEditor } from './components/v2/FriendFlows';
+import ProfileSetup from './components/ProfileSetup';
+import LegalDocs from './components/LegalDocs';
+import InstallPrompt from './components/InstallPrompt';
+import CKLogo from './components/brand/CKLogo';
 
 const toUser = (u: FirebaseUser): User => ({
   id: u.uid,
@@ -31,455 +27,287 @@ const toUser = (u: FirebaseUser): User => ({
   avatar: u.photoURL || undefined,
 });
 
-// Lien d'invitation : https://…/?pret=<id>
-const readInviteId = () => {
-  try { return new URLSearchParams(window.location.search).get('pret'); } catch { return null; }
+// Liens WhatsApp : /p/<prénom-montant-code> (contrat à signer) et /<prénom> (lien de demande).
+// Les anciennes formes /?i=… et /?d=… restent acceptées. On les garde en session pour
+// qu'ils survivent à la connexion.
+const readLinks = (): { i: string | null; d: string | null } => {
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const path = decodeURIComponent(window.location.pathname).replace(/^\/+|\/+$/g, '');
+    let i = sp.get('i'), d = sp.get('d');
+    const m = path.match(/^p\/([A-Za-z0-9.\-]+)$/);
+    if (m) i = m[1];
+    else if (path && /^[A-Za-z0-9-]{2,40}$/.test(path)) d = path.toLowerCase();
+    if (i) sessionStorage.setItem('ck_i', i);
+    if (d) sessionStorage.setItem('ck_d', d);
+    return { i: i || sessionStorage.getItem('ck_i'), d: d || sessionStorage.getItem('ck_d') };
+  } catch { return { i: null, d: null }; }
 };
-const clearInviteParam = () => {
-  try { window.history.replaceState({}, '', window.location.pathname); } catch { /* ignore */ }
+const initialLinks = readLinks();
+const clearParam = (key: 'i' | 'd') => {
+  try { sessionStorage.removeItem(`ck_${key}`); window.history.replaceState({}, '', '/'); } catch { /* ignore */ }
 };
 
-// --- 0. ERROR BOUNDARY ---
-interface ErrorBoundaryProps {
-  children?: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState;
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
-  }
-
+class ErrorBoundary extends React.Component<{ children?: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('Erreur inattendue', error, info); }
   render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-center">
-          <div className="bg-white p-8 rounded-[2rem] shadow-xl max-w-md w-full">
-            <h1 className="text-xl font-black text-slate-900 mb-2">Une erreur est survenue</h1>
-            <p className="text-sm text-slate-500 mb-6">L'application a rencontré un problème inattendu.</p>
-            <button 
-              onClick={() => {
-                  localStorage.clear();
-                  window.location.reload();
-              }} 
-              className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest text-xs"
-            >
-              Réinitialiser et Recharger
-            </button>
-          </div>
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <Screen>
+        <div className="flex-1 flex flex-col justify-center px-6 gap-4">
+          <h1 className="text-[24px] font-bold">Un souci est survenu</h1>
+          <p className="text-[15px]" style={{ color: C.mute }}>L'appli a rencontré une erreur inattendue. Tes données ne sont pas perdues.</p>
+          <Button onClick={() => window.location.reload()}>Recharger</Button>
         </div>
-      );
-    }
-    return this.props.children;
+      </Screen>
+    );
   }
 }
+
+type Overlay =
+  | { k: 'loan'; id: string }
+  | { k: 'sign'; id: string }
+  | { k: 'new'; prefill?: { friend?: KnownFriend; amount?: number } }
+  | { k: 'request'; uid: string; name: string }
+  | { k: 'profile' }
+  | { k: 'identity' }
+  | { k: 'borrower' }
+  | { k: 'legal'; v: 'cgu' | 'privacy' };
+
+const Splash = () => (
+  <Screen><div className="flex-1 flex items-center justify-center"><div className="animate-pulse"><CKLogo size="lg" /></div></div></Screen>
+);
 
 const App: React.FC = () => {
-  // --- 1. INITIALISATION ---
-  // L'état de connexion vient de Firebase (et non plus du stockage local).
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [, setAuthTick] = useState(0); // force un rendu après vérification de l'email
-  const [inviteId, setInviteId] = useState<string | null>(readInviteId);
-  const [inviteError, setInviteError] = useState<string | null>(null);
   useEffect(() => onAuthStateChanged(auth, u => { setFbUser(u); setAuthReady(true); }), []);
-  const user: User | null = fbUser && fbUser.emailVerified ? toUser(fbUser) : null;
+  const user: User | null = fbUser ? toUser(fbUser) : null;
+  const isLender = !!user && canCreateLoans(user.email);
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [viewChoice, setViewChoice] = useState<'lender' | 'borrower' | null>(null);
-  const [createAfterProfile, setCreateAfterProfile] = useState(false);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'home' | 'loans' | 'activity' | 'profile'>('home');
+  const [overlay, setOverlay] = useState<Overlay | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Liens entrants
+  const [inviteToken, setInviteToken] = useState<string | null>(initialLinks.i);
+  // Lien de demande : adresse courte (/christian) ou identifiant, résolu en uid du prêteur
+  const [requestRaw] = useState<string | null>(initialLinks.d);
+  const [requestLender, setRequestLender] = useState<string | null>(null);
+  const [handle, setHandle] = useState<string | null>(null);
+  const [invite, setInvite] = useState<Invite | null | undefined>(undefined);
+  const [lenderCard, setLenderCard] = useState<LenderCard | null | undefined>(undefined);
+  const [landingDone, setLandingDone] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  useEffect(() => { if (inviteToken) getInvite(inviteToken).then(setInvite).catch(() => setInvite(null)); }, [inviteToken]);
   useEffect(() => {
-    if (!user) { setProfile(null); setProfileLoaded(false); return; }
-    getProfile(user.id).then(p => setProfile(p)).catch(() => setProfile(null)).finally(() => setProfileLoaded(true));
+    if (!requestRaw) return;
+    (async () => {
+      const uid = (await resolveHandle(requestRaw)) || requestRaw;
+      const card = await getLenderCard(uid);
+      setRequestLender(uid);
+      setLenderCard(card);
+    })();
+  }, [requestRaw]);
+
+  const loadProfile = useCallback(async () => {
+    if (!user) return;
+    const p = await getProfile(user.id).catch(() => null);
+    setProfile(p);
+    setProfileLoaded(true);
   }, [user?.id]);
 
-  const [loans, setLoans] = useState<Loan[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'paid' | 'pending'>('all');
-  const [loadingLoans, setLoadingLoans] = useState(false);
-  const [autoPrint, setAutoPrint] = useState(false); 
-  const [legalView, setLegalView] = useState<'cgu' | 'privacy' | null>(null); // State pour les pages légales
-  
-  // Dashboard Stats State
-  const [stats, setStats] = useState({ outstanding: 0, recovered: 0 });
-  const [isStatsLoading, setIsStatsLoading] = useState(false);
-
-  useEffect(() => {
-    // On ne supprime PAS 'ckmoney_loans_backup' : il peut contenir d'anciens prêts jamais synchronisés.
-    try { localStorage.removeItem('ckmoney_user'); } catch { /* ignore */ }
-    if (!user) setLoans([]);
-  }, [user?.email]);
-
-  // --- 2. LOGIQUE DASHBOARD ---
-  const userEmail = user?.email;
   const refreshLoans = useCallback(async () => {
-    if (userEmail) {
-        setLoadingLoans(true);
-        try {
-            const fetchedLoans = await getUserLoans(userEmail);
-            setLoans(fetchedLoans);
-            // Rafraîchit le prêt ouvert, s'il y en a un
-            setSelectedLoan(prev => prev ? (fetchedLoans.find(l => l.id === prev.id) || prev) : prev);
-            checkAutomaticNotifications(fetchedLoans, userEmail);
-        } catch (e) {
-            console.error("Erreur refresh loans", e);
-        } finally {
-            setLoadingLoans(false);
-        }
-    }
-  }, [userEmail]);
+    if (!user) return;
+    try {
+      const l = await getUserLoans(user.id);
+      setLoans(l);
+      checkAutomaticNotifications(l, user.id).catch(() => undefined);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, [user?.id]);
 
-  // Ouverture d'un prêt depuis un lien d'invitation
   useEffect(() => {
-    if (!user || !inviteId) return;
-    getLoanById(inviteId)
-      .then(loan => {
-        if (loan) { setSelectedLoan(loan); setInviteId(null); clearInviteParam(); }
-        else setInviteError("Ce contrat est introuvable.");
-      })
-      .catch(() => setInviteError(`Ce contrat est réservé à l'adresse email indiquée par le prêteur. Vous êtes connecté avec ${user.email}.`));
-  }, [user?.email, inviteId]);
+    if (!user) { setProfile(null); setProfileLoaded(false); setLoans([]); setLoading(true); return; }
+    loadProfile();
+    refreshLoans();
+  }, [user?.id]);
 
-  // Trigger refresh quand l'utilisateur change ou est défini initialement
+  // Rafraîchir quand l'appli revient au premier plan (une demande a pu arriver)
   useEffect(() => {
-    if (user) {
-        refreshLoans();
-    }
-  }, [refreshLoans, userEmail]);
+    const onVis = () => { if (document.visibilityState === 'visible') refreshLoans(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [refreshLoans]);
 
-  // Recalcul stats
+  // Carte publique du prêteur (prénom + lien de paiement), lue via le lien de demande
   useEffect(() => {
-    if (loans.length > 0) {
-        const updateStats = async () => {
-          setIsStatsLoading(true);
-          try {
-              const sumsByCurrency: Record<string, { active: number, paid: number }> = {};
-              
-              loans.filter(l => l.lenderEmail === userEmail).forEach(loan => {
-                if (!sumsByCurrency[loan.currency]) {
-                  sumsByCurrency[loan.currency] = { active: 0, paid: 0 };
-                }
-                if (loan.status === 'pending_borrower') return;
-                const s = computeSituation(loan, LEGAL_INTEREST_RATE);
-                sumsByCurrency[loan.currency].active += s.totalDueNow;
-                sumsByCurrency[loan.currency].paid += s.confirmedPaid;
-              });
+    if (user && isLender && isProfileComplete(profile)) publishLenderCard(user.id, profile).then(setHandle).catch(e => console.warn('Carte prêteur', e));
+  }, [user?.id, isLender, profile?.fullName, profile?.paymentLink]);
 
-              let totalOutstanding = 0;
-              let totalRecovered = 0;
+  // Une fois connecté : traiter le lien d'invitation
+  useEffect(() => {
+    if (!user || !inviteToken) return;
+    claimInvite(inviteToken, user)
+      .then(async loanId => { clearParam('i'); setInviteToken(null); await refreshLoans(); setOverlay({ k: 'sign', id: loanId }); })
+      .catch(e => {
+        clearParam('i'); setInviteToken(null);
+        const m = (e as Error).message;
+        setLinkError(m === 'deja_utilise' ? "Ce lien a déjà été utilisé par quelqu'un d'autre. Demande à la personne de t'en renvoyer un."
+          : m === 'propre_lien' ? "C'est ton propre lien : envoie-le à ton proche pour qu'il signe."
+          : "Ce lien n'est plus valable. Demande à la personne de t'en renvoyer un.");
+      });
+  }, [user?.id, inviteToken]);
 
-              await Promise.all(Object.keys(sumsByCurrency).map(async (currency) => {
-                const { active, paid } = sumsByCurrency[currency];
-                if (active > 0) totalOutstanding += await fetchExchangeRate(active, currency);
-                if (paid > 0) totalRecovered += await fetchExchangeRate(paid, currency);
-              }));
+  // …et le lien de demande
+  useEffect(() => {
+    if (!user || !requestLender || lenderCard === undefined) return;
+    clearParam('d'); setRequestLender(null);
+    if (requestLender === user.id) { setToast("C'est ton lien de demande : envoie-le à tes proches."); return; }
+    if (!lenderCard) { setLinkError("Ce lien de demande n'est pas valable."); return; }
+    setOverlay({ k: 'request', uid: requestLender, name: lenderCard.firstName });
+  }, [user?.id, requestLender, lenderCard]);
 
-              setStats({ outstanding: totalOutstanding, recovered: totalRecovered });
-          } catch(e) {
-              console.error("Erreur stats", e);
-          } finally {
-              setIsStatsLoading(false);
-          }
-        };
-        updateStats();
-    }
-  }, [loans]);
+  const logout = async () => { await signOut(auth); setOverlay(null); setTab('home'); window.scrollTo(0, 0); };
+  const close = () => { setOverlay(null); window.scrollTo(0, 0); };
+  const openLoan = (l: Loan) => { setOverlay(l.status === 'pending_borrower' && l.borrowerUid === user?.id ? { k: 'sign', id: l.id } : { k: 'loan', id: l.id }); window.scrollTo(0, 0); };
 
-  // --- ACTIONS ---
-  const handleLogin = (_newUser: User) => { /* l'état est mis à jour par onAuthStateChanged */ };
-  
-  const handleLogout = () => { signOut(auth); setSelectedLoan(null); };
-  const lenderLoans = loans.filter(l => l.lenderEmail === user?.email);
-  const borrowerLoans = loans.filter(l => (l.borrowerEmail || '').toLowerCase() === user?.email);
-  const openCreate = () => {
-    if (!isProfileComplete(profile)) { setEditingProfile(true); setCreateAfterProfile(true); return; }
-    setIsFormOpen(true);
-  };
-  const mayLend = canCreateLoans(user?.email);
-  
-  const handleViewContract = (loan: Loan) => {
-      setIsFormOpen(false);
-      setSelectedLoan(loan);
-      setAutoPrint(true);
-  };
-
-  // Vue par défaut : espace emprunteur pour qui n'a fait qu'emprunter
-  const currentView = viewChoice ?? (borrowerLoans.length > 0 && lenderLoans.length === 0 ? 'borrower' : 'lender');
-  const filteredLoans = lenderLoans.filter(loan => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'pending') return loan.status === 'pending_borrower';
-    return loan.status === activeTab;
-  });
-
-  // --- RENDU ---
-  
-  // 1. Login
-  if (!authReady) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" size={40} /></div>;
-  }
-  if (fbUser && !fbUser.emailVerified) {
-    return <VerifyEmailScreen firebaseUser={fbUser} onVerified={() => setAuthTick(t => t + 1)} />;
-  }
+  // ---------- Avant connexion
+  if (!authReady) return <Splash />;
   if (!user) {
-    return <AuthScreen onLogin={handleLogin} inviteMode={!!inviteId} />;
-  }
-
-  // 1 bis. Profil du prêteur, à compléter une seule fois
-  // Affiché à la première connexion d'un prêteur déclaré (VITE_LENDER_EMAILS),
-  // ou au premier clic sur « Créer », ou depuis « Mon profil ».
-  const declaredLender = LENDER_ALLOWLIST.includes(user.email);
-  if (mayLend && !inviteId && profileLoaded && (editingProfile || (declaredLender && !isProfileComplete(profile)))) {
-    return <ProfileSetup user={user} initial={profile}
-             onSaved={p => { setProfile(p); setEditingProfile(false); if (createAfterProfile) { setCreateAfterProfile(false); setIsFormOpen(true); } }}
-             onCancel={isProfileComplete(profile) || createAfterProfile ? () => { setEditingProfile(false); setCreateAfterProfile(false); } : undefined} />;
-  }
-
-  // 2. Pages Légales
-  if (legalView) {
-    return <LegalDocs view={legalView} onClose={() => setLegalView(null)} />;
-  }
-
-  // 3. Modales
-  if (selectedLoan) {
-      const isBorrower = (selectedLoan.borrowerEmail || '').toLowerCase() === user.email;
-      if (isBorrower && selectedLoan.status === 'pending_borrower') {
-          return <BorrowerSign loan={selectedLoan} user={user} onClose={() => setSelectedLoan(null)}
-                   onSigned={async () => { const l = await getLoanById(selectedLoan.id); setSelectedLoan(null); await refreshLoans(); if (l) { setAutoPrint(false); setSelectedLoan(l); } }} />;
-      }
-      if (isBorrower) {
-          return <BorrowerDashboard loan={selectedLoan} onClose={() => { setSelectedLoan(null); refreshLoans(); }} />;
-      }
-      return (
-        <ContractPreview 
-            loan={selectedLoan} 
-            autoPrint={autoPrint} 
-            onClose={() => { setSelectedLoan(null); setAutoPrint(false); }} 
-        />
+    if (inviteToken && !landingDone) {
+      if (invite === undefined) return <Splash />;
+      if (invite) return (
+        <Landing eyebrow="Contrat de prêt" title={<>{invite.lenderFirstName} te prête</>} amount={euro2(invite.amount, invite.currency)}
+          rows={[
+            ['Remboursement', invite.scheduleSummary === 'En une fois' ? `En une fois, le ${dateFr(invite.firstDueDate)}` : `${invite.scheduleSummary}, à partir du ${dateFr(invite.firstDueDate, { day: 'numeric', month: 'long' })}`],
+            ['Intérêts', invite.interestRate ? `${invite.interestRate.toLocaleString('fr-FR')} % par an` : 'Aucun'],
+          ]}
+          cta="Voir et signer" onContinue={() => setLandingDone(true)} />
       );
+    }
+    if (requestRaw && !landingDone) {
+      if (lenderCard === undefined) return <Splash />;
+      if (lenderCard) return (
+        <Landing eyebrow={`De la part de ${lenderCard.firstName}`} title={<>Tes demandes à {lenderCard.firstName}, au même endroit</>}
+          bullets={[
+            'Choisis le montant et la date à laquelle tu rembourses.',
+            `Signe ta demande avec le doigt : ${lenderCard.firstName} la reçoit tout de suite.`,
+            `Tu suis ce que tu dois et tu règles en un geste${lenderCard.paymentLink && /paypal/i.test(lenderCard.paymentLink) ? ' avec PayPal' : ''}.`,
+          ]}
+          cta="Commencer" onContinue={() => setLandingDone(true)} />
+      );
+    }
+    return (
+      <ErrorBoundary>
+        <Auth
+          context={invite ? `Connecte-toi pour signer le prêt de ${invite.lenderFirstName}.` : lenderCard ? `Connecte-toi pour faire ta demande à ${lenderCard.firstName}.` : undefined}
+          onBack={landingDone ? () => setLandingDone(false) : undefined} />
+      </ErrorBoundary>
+    );
   }
 
-  // 4. Dashboard
-  return (
+  if (!profileLoaded) return <Splash />;
+
+  // ---------- Erreur de lien
+  if (linkError) return (
+    <Screen>
+      <div className="flex-1 flex flex-col justify-center px-6 gap-4">
+        <CKLogo size="md" />
+        <Note tone="warn">{linkError}</Note>
+        <Button onClick={() => setLinkError(null)}>Continuer</Button>
+      </div>
+    </Screen>
+  );
+
+  // ---------- Premier passage du prêteur : son identité pour les contrats
+  if (isLender && !isProfileComplete(profile) && !overlay) {
+    const hasBorrowerSide = loans.some(l => l.borrowerUid === user.id);
+    if (!hasBorrowerSide) return <ProfileSetup user={user} initial={profile} onSaved={p => setProfile(p)} />;
+  }
+
+  const findLoan = (id: string) => loans.find(l => l.id === id);
+
+  // ---------- Écrans superposés
+  if (overlay) {
+    const content = (() => {
+      switch (overlay.k) {
+        case 'legal': return <LegalDocs view={overlay.v} onClose={close} />;
+        case 'profile': return <ProfileSetup user={user} initial={profile} onSaved={p => { setProfile(p); close(); setToast('Informations enregistrées'); }} onCancel={close} />;
+        case 'identity': return <IdentityEditor user={user} profile={profile} onClose={close} onSaved={() => { loadProfile(); setToast('Informations enregistrées'); }} />;
+        case 'new':
+          if (!isProfileComplete(profile)) return <ProfileSetup user={user} initial={profile} onSaved={p => setProfile(p)} onCancel={close} />;
+          return <NewLoanFlow user={user} profile={profile} loans={loans} prefill={overlay.prefill} onClose={close}
+            onDone={id => { refreshLoans().then(() => setOverlay({ k: 'loan', id })); }} />;
+        case 'request':
+          return <RequestFlow user={user} profile={profile} lenderUid={overlay.uid} lenderFirstName={overlay.name}
+            onBack={close} onDone={() => { refreshLoans(); setOverlay(isLender ? { k: 'borrower' } : null); }} onProfileChanged={loadProfile} />;
+        case 'sign': {
+          const l = findLoan(overlay.id);
+          if (!l) return <LoanLoader id={overlay.id} onLoaded={refreshLoans} onMissing={close} />;
+          if (l.status !== 'pending_borrower') return <LoanDetail loan={l} user={user} profile={profile} onBack={close} onChanged={refreshLoans} />;
+          return <BorrowerSignFlow loan={l} user={user} profile={profile} onBack={close} onProfileChanged={loadProfile}
+            onDone={() => { refreshLoans(); setOverlay({ k: 'loan', id: l.id }); }} />;
+        }
+        case 'loan': {
+          const l = findLoan(overlay.id);
+          if (!l) return <LoanLoader id={overlay.id} onLoaded={refreshLoans} onMissing={close} />;
+          if (l.status === 'requested' && l.lenderUid === user.id) {
+            if (!isProfileComplete(profile)) return <ProfileSetup user={user} initial={profile} onSaved={p => setProfile(p)} onCancel={close} />;
+            return <RequestReview loan={l} user={user} profile={profile} loans={loans} onBack={close} onChanged={refreshLoans}
+              onModify={(friend, amount) => setOverlay({ k: 'new', prefill: { friend, amount } })} />;
+          }
+          return <LoanDetail loan={l} user={user} profile={profile} onBack={close} onChanged={refreshLoans} />;
+        }
+        case 'borrower':
+          return <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
+            onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
+            onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onBack={isLender ? close : undefined} />;
+      }
+    })();
+    return <ErrorBoundary>{content}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
+  }
+
+  // ---------- Ami (pas prêteur) : son espace
+  if (!isLender) return (
     <ErrorBoundary>
-        <div className="min-h-screen flex flex-col bg-slate-50/50">
-          {/* Header */}
-          <header className="bg-white border-b border-slate-200 sticky top-0 z-40 no-print">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-              <CKLogo subtitle="Prêts entre proches" />
-              
-              <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-full border border-slate-100">
-                   <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold">
-                     {user.avatar ? <img src={user.avatar} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" /> : <UserIcon size={16} />}
-                   </div>
-                   <span className="text-sm font-bold text-slate-700">{user.name}</span>
-                </div>
-                
-                {borrowerLoans.length > 0 && (mayLend || lenderLoans.length > 0) && (
-                  <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl">
-                    {(['lender', 'borrower'] as const).map(v => (
-                      <button key={v} onClick={() => setViewChoice(v)} className={`px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider ${currentView === v ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>
-                        {v === 'lender' ? 'Mes prêts' : 'Mes emprunts'}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <NotificationCenter user={user} onRefreshLoans={refreshLoans} />
-
-                {mayLend && isProfileComplete(profile) && (
-                  <button onClick={() => setEditingProfile(true)} title="Mon profil" className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
-                    <UserIcon size={20} />
-                  </button>
-                )}
-
-                <button onClick={handleLogout} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                  <LogOut size={20} />
-                </button>
-
-                {mayLend && (
-                <button
-                  onClick={openCreate}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
-                >
-                  <PlusCircle size={20} />
-                  <span className="hidden sm:inline">Créer</span>
-                </button>
-                )}
-              </div>
-            </div>
-          </header>
-
-          {/* Main Content */}
-          <InstallPrompt />
-
-          {currentView === 'borrower' ? (
-            <BorrowerHome loans={borrowerLoans} user={user} loading={loadingLoans} onOpen={setSelectedLoan}
-              onSwitchToLender={mayLend || lenderLoans.length > 0 ? () => setViewChoice('lender') : undefined} />
-          ) : (
-          <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full no-print">
-            <div className="mb-8">
-               <h2 className="serif text-3xl font-semibold text-slate-900">Bonjour, {(profile?.fullName || user.name).split(' ')[0]}</h2>
-               <p className="text-slate-500 font-medium">Vos prêts entre proches, avec des contrats en règle.</p>
-            </div>
-
-            {inviteError && (
-              <div className="mb-8 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-sm text-rose-800 flex justify-between items-start gap-4">
-                <span>{inviteError} Déconnectez-vous puis reconnectez-vous avec la bonne adresse.</span>
-                <button onClick={() => { setInviteError(null); setInviteId(null); clearInviteParam(); }} className="font-bold text-rose-600">OK</button>
-              </div>
-            )}
-
-            {/* Dashboard Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
-                <div className="absolute -top-4 -right-4 p-8 opacity-5 group-hover:opacity-10 transition-all transform group-hover:scale-110">
-                  <LayoutDashboard size={120} />
-                </div>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Total suivi</p>
-                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-2">
-                  {isStatsLoading ? <Loader2 className="animate-spin text-slate-300" size={32} /> : (stats.outstanding + stats.recovered).toLocaleString('fr-FR')} 
-                  <span className="text-sm text-indigo-500 font-black flex flex-col leading-none"><span>€</span></span>
-                </div>
-              </div>
-              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm border-b-8 border-b-amber-400">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Reste dû</p>
-                <div className="text-4xl font-black text-amber-500 tracking-tighter flex items-center gap-2">
-                  {isStatsLoading ? <Loader2 className="animate-spin text-amber-200" size={32} /> : stats.outstanding.toLocaleString('fr-FR')}
-                  <span className="text-sm text-slate-400 font-bold">€</span>
-                </div>
-              </div>
-              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm border-b-8 border-b-emerald-400">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Remboursements reçus</p>
-                <div className="text-4xl font-black text-emerald-500 tracking-tighter flex items-center gap-2">
-                  {isStatsLoading ? <Loader2 className="animate-spin text-emerald-200" size={32} /> : stats.recovered.toLocaleString('fr-FR')}
-                  <span className="text-sm text-slate-400 font-bold">€</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
-              <div className="flex bg-slate-200/40 p-1.5 rounded-2xl w-full sm:w-auto backdrop-blur-sm overflow-x-auto">
-                {(['all', 'pending', 'active', 'paid'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 sm:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                      activeTab === tab ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    {tab === 'all' ? 'Tous' : tab === 'pending' ? 'En Attente' : tab === 'active' ? 'Actifs' : 'Soldés'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Loan Grid */}
-            {loadingLoans ? (
-                 <div className="text-center py-20"><Loader2 className="animate-spin mx-auto text-indigo-600" size={40} /></div>
-            ) : filteredLoans.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredLoans.map(loan => (
-                  <LoanCard 
-                    key={loan.id} 
-                    loan={loan} 
-                    currentUserEmail={user.email}
-                    onClick={setSelectedLoan}
-                    onChanged={refreshLoans}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-slate-100 border-dashed">
-                <div className="w-24 h-24 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
-                  <ShieldCheck size={48} className="text-slate-200" />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Aucun prêt trouvé</h3>
-                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Vous n'avez aucun contrat en cours pour le moment.</p>
-                {mayLend && <button
-                  onClick={openCreate}
-                  className="inline-flex items-center gap-2 bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200"
-                >
-                  Nouveau Contrat
-                </button>}
-              </div>
-            )}
-
-            {/* Obligations fiscales */}
-            {lenderLoans.length > 0 && (
-              <div className="mt-12"><FiscalPanel loans={loans} userEmail={user.email} /></div>
-            )}
-
-            {/* Guide Section */}
-            <div className="mt-8">
-              <div className="bg-white border border-slate-100 rounded-[2.5rem] p-10 shadow-sm">
-                 <h4 className="font-black text-slate-900 text-xl mb-6 tracking-tight flex items-center gap-2">
-                     <ShieldCheck className="text-indigo-500" /> Comment ça marche ?
-                 </h4>
-                 <div className="space-y-4">
-                     {[
-                       ['Rédigez', "Montant, échéancier, intérêts éventuels et clause de retard : le contrat et la reconnaissance de dette sont générés à partir d'un modèle fixe, puis vous signez."],
-                       ['Envoyez le lien', "Votre ami se connecte avec l'adresse que vous avez indiquée, relit, écrit la somme en lettres et signe. Le texte signé est figé par une empreinte numérique."],
-                       ['Suivez', "Il déclare ses paiements, vous les confirmez : l'échéancier, le reste dû et les éventuels intérêts de retard se mettent à jour."],
-                       ['Déclarez', "Au-delà de 5 000 € prêtés à une même personne dans l'année, l'appli vous rappelle le formulaire 2062."],
-                     ].map(([title, text], i) => (
-                       <div key={title} className="flex items-start gap-4">
-                         <div className="w-8 h-8 shrink-0 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-900">{i + 1}</div>
-                         <p className="text-sm text-slate-600 font-medium"><strong className="text-slate-900">{title} :</strong> {text}</p>
-                       </div>
-                     ))}
-                 </div>
-              </div>
-            </div>
-          </main>
-          )}
-
-          {/* Modals */}
-          {isFormOpen && (
-            <LoanForm 
-              onClose={() => setIsFormOpen(false)} 
-              user={user} 
-              profile={profile}
-              existingLoans={lenderLoans}
-              onSuccess={refreshLoans}
-              onViewContract={handleViewContract}
-            />
-          )}
-          
-          {/* Footer */}
-          <footer className="bg-white border-t border-slate-100 py-16 no-print mt-auto">
-            <div className="max-w-7xl mx-auto px-4 text-center space-y-4">
-              <p className="text-[10px] text-slate-400 max-w-md mx-auto leading-relaxed">
-                Outil personnel de gestion de prêts occasionnels entre proches. CKMoney n'est ni une banque ni un intermédiaire et ne détient aucun fonds. Les modèles ne remplacent pas le conseil d'un professionnel du droit.
-              </p>
-              <div className="flex justify-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <button onClick={() => setLegalView('cgu')} className="hover:text-slate-900 transition-colors">Conditions Générales</button>
-                  <button onClick={() => setLegalView('privacy')} className="hover:text-slate-900 transition-colors">Confidentialité</button>
-              </div>
-              <p className="text-xs text-slate-400 font-medium">© {new Date().getFullYear()} CKMoney.</p>
-            </div>
-          </footer>
-        </div>
+      <InstallPrompt />
+      <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
+        onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
+        onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} />
+      <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
   );
+
+  // ---------- Prêteur
+  const toHandle = loans.filter(l => l.lenderUid === user.id && (l.status === 'requested' || l.status === 'delay_requested' || (l.payments || []).some(p => p.status === 'declared'))).length;
+  const hasBorrowerSide = loans.some(l => l.borrowerUid === user.id);
+  return (
+    <ErrorBoundary>
+      {tab === 'home' && <InstallPrompt />}
+      <LenderTabs tab={tab} user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
+        onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
+        onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}
+        onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined} />
+      <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo(0, 0); }} onCreate={() => setOverlay({ k: 'new' })} badge={toHandle} />
+      <Toast text={toast} onDone={() => setToast(null)} />
+    </ErrorBoundary>
+  );
+};
+
+/** Prêt pas encore dans la liste (ouvert depuis un lien) : on recharge. */
+const LoanLoader: React.FC<{ id: string; onLoaded: () => Promise<void>; onMissing: () => void }> = ({ id, onLoaded, onMissing }) => {
+  useEffect(() => {
+    getLoanById(id).then(l => (l ? onLoaded() : onMissing())).catch(onMissing);
+  }, [id]);
+  return <Splash />;
 };
 
 export default App;

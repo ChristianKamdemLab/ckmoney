@@ -52,7 +52,7 @@ const LegalDocs: React.FC<LegalDocsProps> = ({ view, onClose }) => {
                     <h3 className="text-xl font-bold text-slate-900 mb-3">3. Taux d'intérêt</h3>
                     <p>
                         Le prêt est gratuit par défaut. Un taux conventionnel peut être fixé par écrit (article 1907 du Code civil) ; l'application le plafonne
-                        par prudence au seuil de l'usure le plus bas applicable aux prêts personnels, et plafonne de même les intérêts de retard. Les intérêts perçus sont imposables pour le prêteur.
+                        au seuil de l'usure applicable au montant prêté (article L314-6 du Code de la consommation), et plafonne de même les intérêts de retard. Les intérêts perçus sont imposables pour le prêteur.
                     </p>
                  </section>
 

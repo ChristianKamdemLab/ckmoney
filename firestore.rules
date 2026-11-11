@@ -1,114 +1,149 @@
 rules_version = '2';
 
-// Règles de sécurité CKMoney.
-// Principe : un prêt n'est visible que par son prêteur et son emprunteur,
-// identifiés par leur adresse email VÉRIFIÉE. Personne d'autre ne peut lire
-// les identités, adresses ou IBAN.
+// Règles de sécurité CKMoney (v2 : prêts reliés aux comptes par identifiant, invitations par lien personnel).
+// Un prêt n'est visible que par son prêteur et son emprunteur. L'ami se relie à un prêt
+// en ouvrant le lien personnel reçu sur WhatsApp : le premier compte qui l'utilise devient
+// l'emprunteur, et le lien ne sert plus à personne d'autre ensuite.
 // Déploiement : console Firebase > Firestore Database > Règles > coller ce fichier > Publier.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() {
-      return request.auth != null
-        && request.auth.token.email != null
-        && request.auth.token.email_verified == true;
-    }
-    function myEmail() { return request.auth.token.email; }
-    function isLenderOf(d) { return signedIn() && d.lenderEmail == myEmail(); }
-    function isBorrowerOf(d) { return signedIn() && d.get('borrowerEmail', '') == myEmail(); }
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function isLenderOf(d) { return signedIn() && d.get('lenderUid', '') == uid(); }
+    function isBorrowerOf(d) { return signedIn() && d.get('borrowerUid', '') == uid(); }
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function loanDoc(id) { return get(/databases/$(database)/documents/loans/$(id)).data; }
 
-    // Champs que seul l'emprunteur peut écrire (sa signature).
-    function borrowerSignatureFields() {
-      return ['borrowerAmountWords', 'borrowerSignedName', 'borrowerSignature', 'borrowerSignedAt',
-              'borrowerSignedHash', 'borrowerSignedUserAgent', 'borrowerUid'];
+    // Conditions de l'offre : figées dès qu'une partie a signé.
+    function termsFields() {
+      return ['amount', 'currency', 'loanDate', 'repaymentDate', 'schedule', 'interestRate', 'repaymentType',
+              'installmentsCount', 'lateRateMode', 'lateInterestRate', 'termsHash', 'lenderUid', 'borrowerUid'];
     }
-    // Clauses figées dès que l'emprunteur a signé.
-    function contractFields() {
-      return ['contractText', 'acknowledgmentText', 'contractHash', 'amount', 'currency', 'loanDate',
-              'interestRate', 'repaymentType', 'installmentsCount', 'lateRateMode', 'lateInterestRate',
-              'lenderName', 'lenderBirthDate', 'lenderBirthPlace', 'lenderAddress',
-              'borrowerName', 'borrowerBirthDate', 'borrowerBirthPlace', 'borrowerAddress',
-              'lenderSignature', 'amountInWords'];
+    // Ce que l'emprunteur écrit en signant : son identité, sa mention et sa signature, le texte final.
+    function borrowerSignFields() {
+      return ['borrowerName', 'borrowerCivility', 'borrowerBirthDate', 'borrowerBirthPlace', 'borrowerAddress',
+              'borrowerCountry', 'borrowerEmail', 'borrowerAmountWords', 'borrowerSignedName', 'borrowerSignature',
+              'borrowerSignedAt', 'borrowerSignedHash', 'borrowerSignedUserAgent', 'contractText',
+              'acknowledgmentText', 'contractHash', 'contractVersion', 'amountInWords', 'status', 'signedDate'];
     }
 
     match /loans/{loanId} {
       allow read: if isLenderOf(resource.data) || isBorrowerOf(resource.data);
 
-      allow create: if isLenderOf(request.resource.data)
+      // Le prêteur crée une offre (avec ou sans emprunteur déjà connu).
+      allow create: if signedIn()
+        && request.resource.data.lenderUid == uid()
         && request.resource.data.status == 'pending_borrower'
-        && request.resource.data.lenderUid == request.auth.uid
-        && request.resource.data.amount is number
-        && request.resource.data.amount > 0
-        && !request.resource.data.keys().hasAny(borrowerSignatureFields());
+        && request.resource.data.amount is number && request.resource.data.amount > 0
+        && request.resource.data.initiatedBy == 'lender';
 
-      // Prêteur : gestion du prêt, sans toucher à la signature de l'emprunteur,
-      // ni aux clauses une fois le contrat signé (hors report d'échéance accepté).
+      // L'ami fait une demande à un prêteur, par son lien de demande (le prêteur a une carte publique).
+      allow create: if signedIn()
+        && request.resource.data.borrowerUid == uid()
+        && request.resource.data.lenderUid != uid()
+        && exists(/databases/$(database)/documents/lenders/$(request.resource.data.lenderUid))
+        && request.resource.data.status == 'requested'
+        && request.resource.data.amount is number && request.resource.data.amount > 0
+        && request.resource.data.initiatedBy == 'borrower';
+
+      // Prêteur : gère son prêt, accepte ou refuse une demande, sans toucher aux
+      // conditions une fois signées ni à la signature de l'emprunteur.
       allow update: if isLenderOf(resource.data)
-        && request.resource.data.lenderEmail == resource.data.lenderEmail
-        && request.resource.data.get('borrowerEmail', '') == resource.data.get('borrowerEmail', '')
-        && !changed().hasAny(borrowerSignatureFields())
-        && (resource.data.status == 'pending_borrower' || !changed().hasAny(contractFields()));
+        && request.resource.data.lenderUid == resource.data.lenderUid
+        && request.resource.data.get('borrowerUid', '') == resource.data.get('borrowerUid', '')
+        && !changed().hasAny(['borrowerAmountWords', 'borrowerSignature', 'borrowerSignedAt', 'borrowerSignedHash', 'borrowerSignedName'])
+        && (
+          resource.data.status == 'pending_borrower' && resource.data.get('borrowerSignedAt', null) == null
+          || !changed().hasAny(termsFields())
+          // Report accepté à la demande de l'emprunteur : seules les dates bougent.
+          || resource.data.status == 'delay_requested' && request.resource.data.status == 'active'
+             && changed().hasOnly(['status', 'delayProposedDate', 'delayRequestDate', 'schedule', 'repaymentDate', 'amendments'])
+        );
 
-      // Emprunteur : 1) signature unique du contrat, à l'identique du texte présenté ;
-      //              2) demande de report d'échéance.
-      allow update: if isBorrowerOf(resource.data) && (
-        (
-          resource.data.status == 'pending_borrower'
-          && request.resource.data.status == 'active'
-          && changed().hasOnly(borrowerSignatureFields().concat(['status', 'signedDate']))
-          && request.resource.data.borrowerSignedHash == resource.data.contractHash
-          && request.resource.data.borrowerUid == request.auth.uid
-        ) || (
-          resource.data.status == 'active'
-          && request.resource.data.status == 'delay_requested'
-          && changed().hasOnly(['status', 'delayProposedDate', 'delayRequestDate'])
-        )
-      );
+      // Ami : 1) se relie au prêt avec le lien personnel ;
+      allow update: if signedIn()
+        && resource.data.get('borrowerUid', null) == null
+        && resource.data.status == 'pending_borrower'
+        && request.resource.data.borrowerUid == uid()
+        && changed().hasOnly(['borrowerUid', 'claimToken'])
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.claimToken)).data.loanId == loanId
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.claimToken)).data.claimedBy == uid();
 
-      allow delete: if isLenderOf(resource.data) && resource.data.status == 'pending_borrower';
+      //      2) signe l'offre du prêteur, sans en changer les conditions ;
+      allow update: if isBorrowerOf(resource.data)
+        && resource.data.status == 'pending_borrower'
+        && request.resource.data.status == 'active'
+        && changed().hasOnly(borrowerSignFields())
+        && !changed().hasAny(termsFields());
+
+      //      3) demande un report d'échéance.
+      allow update: if isBorrowerOf(resource.data)
+        && resource.data.status == 'active'
+        && request.resource.data.status == 'delay_requested'
+        && changed().hasOnly(['status', 'delayProposedDate', 'delayRequestDate']);
+
+      allow delete: if isLenderOf(resource.data) && resource.data.status in ['pending_borrower', 'declined'];
 
       match /payments/{paymentId} {
-        function loan() { return get(/databases/$(database)/documents/loans/$(loanId)).data; }
-
-        allow read: if isLenderOf(loan()) || isBorrowerOf(loan());
-
-        allow create: if (
-            isBorrowerOf(loan())
-            && request.resource.data.status == 'declared'
-            && request.resource.data.declaredBy == 'borrower'
-          ) || (
-            isLenderOf(loan())
-            && request.resource.data.declaredBy == 'lender'
-          );
-
-        // Seul le prêteur confirme ou refuse un paiement déclaré.
-        allow update: if isLenderOf(loan())
+        allow read: if isLenderOf(loanDoc(loanId)) || isBorrowerOf(loanDoc(loanId));
+        allow create: if (isBorrowerOf(loanDoc(loanId))
+            && request.resource.data.status == 'declared' && request.resource.data.declaredBy == 'borrower')
+          || (isLenderOf(loanDoc(loanId)) && request.resource.data.declaredBy == 'lender');
+        allow update: if isLenderOf(loanDoc(loanId))
           && resource.data.status == 'declared'
           && changed().hasOnly(['status', 'confirmedAt'])
           && request.resource.data.status in ['confirmed', 'rejected'];
-
         allow delete: if false;
       }
     }
 
-    // Profil personnel (identité, IBAN, signature) : uniquement son propriétaire.
-    match /profiles/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+    // Invitations : lisibles par quiconque détient le jeton (identifiant secret, jamais listé).
+    match /invites/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.lenderUid == uid()
+        && loanDoc(request.resource.data.loanId).lenderUid == uid()
+        && request.resource.data.claimedBy == null;
+      // Le premier compte qui ouvre le lien le réclame ; ensuite il est verrouillé.
+      allow update: if signedIn()
+        && resource.data.claimedBy == null
+        && request.resource.data.claimedBy == uid()
+        && changed().hasOnly(['claimedBy'])
+        && uid() != resource.data.lenderUid;
+      allow delete: if signedIn() && resource.data.lenderUid == uid();
     }
 
-    match /notifications/{notifId} {
-      function loanOf(id) { return get(/databases/$(database)/documents/loans/$(id)).data; }
+    // Carte publique du prêteur (prénom, lien de paiement) : lue par ses proches via le lien de demande.
+    match /lenders/{lenderId} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if signedIn() && uid() == lenderId;
+    }
 
-      allow read: if signedIn() && resource.data.userId == myEmail();
-      allow update: if signedIn() && resource.data.userId == myEmail()
-        && changed().hasOnly(['read']);
-      // On ne peut notifier que l'autre partie (ou soi-même) d'un prêt auquel on participe.
+    // Adresses courtes des prêteurs (ex. /christian) : lisibles par tous, réservées une fois.
+    match /handles/{handle} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.uid == uid();
+      allow update, delete: if false;
+    }
+
+    // Profil personnel (identité, IBAN, signature) : uniquement son propriétaire.
+    match /profiles/{userId} {
+      allow read, write: if signedIn() && uid() == userId;
+    }
+
+    // Notifications : chacun lit les siennes ; on ne peut notifier que l'autre partie d'un prêt commun.
+    match /notifications/{notifId} {
+      allow read: if signedIn() && resource.data.userId == uid();
+      allow update: if signedIn() && resource.data.userId == uid() && changed().hasOnly(['read']);
       allow create: if signedIn()
-        && (isLenderOf(loanOf(request.resource.data.loanId)) || isBorrowerOf(loanOf(request.resource.data.loanId)))
-        && request.resource.data.userId in [loanOf(request.resource.data.loanId).lenderEmail,
-                                            loanOf(request.resource.data.loanId).get('borrowerEmail', '')];
+        && (isLenderOf(loanDoc(request.resource.data.loanId)) || isBorrowerOf(loanDoc(request.resource.data.loanId)))
+        && request.resource.data.userId in [loanDoc(request.resource.data.loanId).lenderUid,
+                                            loanDoc(request.resource.data.loanId).get('borrowerUid', '')];
       allow delete: if false;
     }
   }
