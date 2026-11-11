@@ -57,6 +57,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
   const [customMonths, setCustomMonths] = useState(4);
   const [firstDue, setFirstDue] = useState(addMonths(today, 1));
   const [loanDate, setLoanDate] = useState(today);
+  const alreadyGiven = loanDate < today;
   const [currency, setCurrency] = useState('EUR');
   const [rate, setRate] = useState(0);
   const [lateMode, setLateMode] = useState<'legal' | 'none' | 'custom'>('legal');
@@ -127,7 +128,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
   const totalInterest = schedule.reduce((a, i) => a + i.interest, 0);
 
   const signature = profile.signature || drawnSig;
-  const canSign = amount > 0 && !!friendLabel && schedule.length > 0 && !!signature && rate <= cap && (lateMode !== 'custom' || (lateRate > 0 && lateRate <= cap));
+  const canSign = amount > 0 && !!friendLabel && schedule.length > 0 && !!signature && rate <= cap && schedule.every(i => i.dueDate >= today) && (lateMode !== 'custom' || (lateRate > 0 && lateRate <= cap));
 
   const submit = async () => {
     setBusy(true);
@@ -226,6 +227,22 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
           <Chips value={plan} onChange={v => setPlan(v as any)} options={[{ id: 'once', label: 'En une fois' }, { id: 'm3', label: '3 mois' }, { id: 'm6', label: '6 mois' }, { id: 'custom', label: 'Sur mesure' }]} />
         </div>
         <div className="px-6 pt-4">
+          <Card className="p-4 flex flex-col gap-3">
+            <div className="text-sm font-semibold">L'argent</div>
+            <Chips value={alreadyGiven ? 'before' : 'now'} onChange={v => setLoanDate(v === 'now' ? today : (alreadyGiven ? loanDate : addMonths(today, -1)))}
+              options={[{ id: 'now', label: 'Je le donne maintenant' }, { id: 'before', label: 'Déjà donné' }]} />
+            {alreadyGiven && (
+              <>
+                <label className="flex justify-between items-center text-sm gap-3">
+                  <span style={{ color: C.mute }}>Donné le</span>
+                  <input type="date" value={loanDate} max={today} onChange={e => setLoanDate(e.target.value || today)} className="font-semibold bg-transparent text-right" />
+                </label>
+                <div className="text-[13px] leading-snug" style={{ color: C.mute }}>Indique ce qu'il te doit encore. Le contrat met au propre ce prêt déjà versé, avec un échéancier pour la suite.</div>
+              </>
+            )}
+          </Card>
+        </div>
+        <div className="px-6 pt-3">
           <Card className="p-4 flex flex-col gap-3.5">
             {schedule.length > 0 && (
               <div className="flex justify-between items-baseline">
@@ -236,7 +253,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
             {plan === 'once' ? (
               <label className="flex justify-between items-center text-sm gap-3">
                 <span style={{ color: C.mute }}>Au plus tard le</span>
-                <input type="date" value={onceDate} min={addMonths(loanDate, 0)} onChange={e => setOnceDate(e.target.value)} className="font-semibold bg-transparent text-right" />
+                <input type="date" value={onceDate} min={today} onChange={e => setOnceDate(e.target.value)} className="font-semibold bg-transparent text-right" />
               </label>
             ) : (
               <>
@@ -248,7 +265,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
                 )}
                 <label className="flex justify-between items-center text-sm gap-3">
                   <span style={{ color: C.mute }}>Première échéance</span>
-                  <input type="date" value={firstDue} min={loanDate} onChange={e => setFirstDue(e.target.value)} className="font-semibold bg-transparent text-right" />
+                  <input type="date" value={firstDue} min={today} onChange={e => setFirstDue(e.target.value)} className="font-semibold bg-transparent text-right" />
                 </label>
                 {last && <div className="flex justify-between text-sm"><span style={{ color: C.mute }}>Dernière</span><span className="font-semibold">{dateFr(last.dueDate)}</span></div>}
               </>
@@ -278,7 +295,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
             </div>
           )}
           <p className="text-[13px] leading-[1.5]" style={{ color: C.mute }}>
-            En signant, j'atteste prêter mes propres fonds à titre personnel et occasionnel. {friendLabel} relira le contrat avant de signer à son tour.
+            En signant, j'atteste {alreadyGiven ? 'avoir prêté' : 'prêter'} mes propres fonds à titre personnel et occasionnel. {friendLabel} relira le contrat avant de signer à son tour.
           </p>
           {error && <Note tone="danger" icon="alert">{error}</Note>}
         </div>
@@ -298,10 +315,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
                 <input type="range" min={0.5} max={cap} step={0.25} value={lateRate} onChange={e => setLateRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
               </Field>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Date du versement" htmlFor="ld">
-                <input id="ld" type="date" value={loanDate} onChange={e => setLoanDate(e.target.value)} className={inputClass} style={inputStyle} />
-              </Field>
+            <div>
               <Field label="Devise" htmlFor="cur">
                 <select id="cur" value={currency} onChange={e => setCurrency(e.target.value)} className={inputClass} style={inputStyle}>
                   {CURRENCIES.map(c => <option key={c}>{c}</option>)}
@@ -317,7 +331,9 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
 
   // ---------- Étape 4 : envoi
   const link = result ? inviteLinkFor(result.token) : '';
-  const message = `Salut ${friendLabel}, voici le contrat pour les ${euro(amount, currency)} (${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}). Tu peux le lire et le signer ici : ${link}`;
+  const message = alreadyGiven
+    ? `Salut ${friendLabel}, comme on en a parlé, je mets au propre les ${euro(amount, currency)} que je t'ai prêtés le ${dateFr(loanDate)} : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}. Tu peux le lire et le signer ici : ${link}`
+    : `Salut ${friendLabel}, voici le contrat pour les ${euro(amount, currency)} (${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}). Tu peux le lire et le signer ici : ${link}`;
   const wa = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
   return (
     <Screen>
