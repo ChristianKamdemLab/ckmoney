@@ -130,7 +130,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
         </div>
       ) : (<>
       {/* Actions */}
-      <div className="px-6 pt-6 grid grid-cols-4 gap-2">
+      <div className={`px-6 pt-6 grid ${isLender && pending ? "grid-cols-3" : "grid-cols-4"} gap-2`}>
         {isLender ? (
           <>
             {!pending && <Action icon="check" label="Encaisser" primary onClick={() => setSheet('pay')} />}

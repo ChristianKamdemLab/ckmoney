@@ -4,6 +4,7 @@ import { ArrowLeft, Download } from 'lucide-react';
 import { amountWordsMatch } from '../utils/frenchNumbers';
 import { formatMoney, parseISODate, scheduleForLoan, effectiveLateRate } from '../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../config/legal';
+import { buildLoanContract } from '../utils/contract';
 
 interface ContractPreviewProps {
   loan: Loan;
@@ -173,7 +174,12 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({ loan, onClose, autoPr
             <p className="text-[8.5pt] -mt-3 mb-4" style={{ color: MUTE }}>Total à rembourser : {formatMoney(total, loan.currency)}, dont {formatMoney(total - loan.amount, loan.currency)} d’intérêts.</p>
           ) : null}
 
-          {loan.contractText ? <RenderText text={loan.contractText} skipTitleLines={2} /> : <p>Contrat en cours de chargement…</p>}
+          {loan.contractText
+            ? <RenderText text={loan.contractText} skipTitleLines={2} />
+            : <>
+                <p style={{ fontStyle: 'italic', color: '#6B6F80' }}>Projet de contrat : l'identité de l'emprunteur sera complétée au moment où il signe.</p>
+                <RenderText text={buildLoanContract({ ...loan, borrowerName: loan.borrowerSignedName || loan.borrowerName || '___', schedule })} skipTitleLines={2} />
+              </>}
 
           {/* Signatures */}
           <div className="grid grid-cols-2 gap-6 mt-4 pt-3" style={{ borderTop: `.5pt solid ${RULE}`, breakInside: 'avoid' }}>
