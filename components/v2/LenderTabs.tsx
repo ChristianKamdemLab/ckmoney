@@ -57,9 +57,9 @@ const LoanRow: React.FC<{ loan: Loan; onOpen: (l: Loan) => void; first?: boolean
 const priority = (l: Loan) => {
   const s = computeSituation(l, LEGAL_INTEREST_RATE);
   if (l.status === 'requested') return 0;
+  if (l.status === 'pending_borrower') return 4;
   if (l.status === 'delay_requested' || (l.payments || []).some(p => p.status === 'declared')) return 1;
   if (s.isOverdue) return 2;
-  if (l.status === 'pending_borrower') return 4;
   return 3;
 };
 
@@ -81,7 +81,7 @@ const LenderTabs: React.FC<Props> = (p) => {
   useEffect(() => { if (p.tab === 'activity') getUserNotifications(p.user.id).then(setNotifs); }, [p.tab, p.user.id]);
 
   const sorted = open.slice().sort((a, b) => priority(a) - priority(b));
-  const overdueCount = open.filter(l => computeSituation(l, LEGAL_INTEREST_RATE).isOverdue).length;
+  const overdueCount = open.filter(l => ['active', 'delay_requested'].includes(l.status) && computeSituation(l, LEGAL_INTEREST_RATE).isOverdue).length;
   const greeting = firstName(p.profile?.fullName || p.user.name);
 
 
