@@ -34,7 +34,7 @@ interface Props {
   user: User;
   profile: Profile;
   loans: Loan[];
-  prefill?: { friend?: KnownFriend; amount?: number; schedule?: string };
+  prefill?: { friend?: KnownFriend; amount?: number; schedule?: string; dueDate?: string; counterOf?: string };
   onClose: () => void;
   onDone: (loanId: string) => void;
 }
@@ -52,8 +52,8 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
   const [phone, setPhone] = useState('');
   // Étape 3 : remboursement
   const today = toISODate(new Date());
-  const [plan, setPlan] = useState<'once' | 'm3' | 'm6' | 'custom'>('m3');
-  const [onceDate, setOnceDate] = useState(addMonths(today, 3));
+  const [plan, setPlan] = useState<'once' | 'm3' | 'm6' | 'custom'>(prefill?.dueDate ? 'once' : 'm3');
+  const [onceDate, setOnceDate] = useState(prefill?.dueDate && prefill.dueDate > today ? prefill.dueDate : addMonths(today, 3));
   const [customMonths, setCustomMonths] = useState(4);
   const [firstDue, setFirstDue] = useState(addMonths(today, 1));
   const [loanDate, setLoanDate] = useState(today);
@@ -137,7 +137,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
       const terms: Terms = { amount, currency, loanDate, schedule, interestRate: rate, lateRateMode: lateMode, lateInterestRate: lateRate };
       const r = await createOffer({
         user, profile, terms, nickname: friendLabel, phone: fullPhone || undefined,
-        lenderSignature: signature, knownBorrowerUid: friend?.uid,
+        lenderSignature: signature, knownBorrowerUid: friend?.uid, counterOf: prefill?.counterOf, borrowerPaymentLink: friend?.lastLoan?.borrowerPaymentLink,
       });
       setResult(r);
       setStep(4);
@@ -332,7 +332,9 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
 
   // ---------- Étape 4 : envoi
   const link = result ? inviteLinkFor(result.token) : '';
-  const message = alreadyGiven
+  const message = prefill?.counterOf
+    ? `Salut ${friendLabel}, pour ta demande de ${euro(amount, currency)}, je te propose plutôt : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `remboursement le ${dateFr(schedule[0].dueDate)}`}${rate ? `, ${rate.toLocaleString('fr-FR')} % d'intérêts par an` : ', sans intérêt'}. Si ça te va, signe ici : ${link}`
+    : alreadyGiven
     ? `Salut ${friendLabel}, comme on en a parlé, je mets au propre les ${euro(amount, currency)} que je t'ai prêtés le ${dateFr(loanDate)} : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `${schedule[0].dueDate < toISODate(new Date()) ? 'remboursement prévu le' : 'à rembourser le'} ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}. Tu peux le lire et le signer ici : ${link}`
     : `Salut ${friendLabel}, voici le contrat pour les ${euro(amount, currency)} (${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}). Tu peux le lire et le signer ici : ${link}`;
   const wa = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;

@@ -270,6 +270,7 @@ export const RequestFlow: React.FC<{
   const [parts, setParts] = useState<1 | 2 | 3>(1);
   const [due, setDue] = useState(nextFriday());
   const [note, setNote] = useState('');
+  const [receive, setReceive] = useState(profile?.paymentLink || '');
   const [identity, setIdentity] = useState<BorrowerIdentity>(identityOf(profile, user));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -345,8 +346,11 @@ export const RequestFlow: React.FC<{
               ))}
             </Card>
           )}
+          <Field label="Où veux-tu recevoir l'argent ?" htmlFor="rcv" hint="Ton lien PayPal.me (ex. paypal.me/charles), Lydia, Revolut ou ton IBAN. Il te l'enverra en un geste.">
+            <input id="rcv" value={receive} onChange={e => setReceive(e.target.value)} autoCapitalize="none" autoComplete="off" className={inputClass} style={inputStyle} placeholder="paypal.me/ton-nom" />
+          </Field>
           <Field label={`Un mot pour ${lenderFirstName} (facultatif)`} htmlFor="note">
-            <textarea id="note" rows={2} maxLength={280} value={note} onChange={e => setNote(e.target.value)} className="w-full rounded-[14px] bg-white px-4 py-3 text-base outline-none border-[1.5px] focus:border-[#1C2551] resize-none" style={inputStyle} placeholder="Pour quoi, ou par quel moyen tu préfères recevoir" />
+            <textarea id="note" rows={2} maxLength={280} value={note} onChange={e => setNote(e.target.value)} className="w-full rounded-[14px] bg-white px-4 py-3 text-base outline-none border-[1.5px] focus:border-[#1C2551] resize-none" style={inputStyle} placeholder="Pour quoi, par exemple" />
           </Field>
           <Note>Sans intérêt. Si tu dépasses la date, des intérêts de retard au taux légal ({LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an) s'ajoutent, et tu recevras un rappel.</Note>
         </div>
@@ -368,7 +372,8 @@ export const RequestFlow: React.FC<{
         setBusy(true); setError(null);
         try {
           const terms: Terms = { amount, currency: 'EUR', loanDate: today, schedule, interestRate: 0, lateRateMode: 'legal', lateInterestRate: 0 };
-          await createRequest({ user, lenderUid, lenderName: lenderFirstName, identity, terms, note, amountWords: words, signature: sig });
+          await createRequest({ user, lenderUid, lenderName: lenderFirstName, identity, terms, note, amountWords: words, signature: sig, receiveLink: receive });
+          if (receive.trim() && receive.trim() !== profile?.paymentLink) mergeProfile(user.id, { paymentLink: receive.trim() }).catch(() => undefined);
           mergeProfile(user.id, { signature: sig }).catch(() => undefined);
           setStep('done');
         } catch (e) { console.error(e); setError("La demande n'a pas pu être envoyée. Réessaie."); }

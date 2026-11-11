@@ -70,7 +70,7 @@ class ErrorBoundary extends React.Component<{ children?: ReactNode }, { hasError
 type Overlay =
   | { k: 'loan'; id: string }
   | { k: 'sign'; id: string }
-  | { k: 'new'; prefill?: { friend?: KnownFriend; amount?: number } }
+  | { k: 'new'; prefill?: { friend?: KnownFriend; amount?: number; dueDate?: string; counterOf?: string } }
   | { k: 'request'; uid: string; name: string }
   | { k: 'profile' }
   | { k: 'identity' }
@@ -273,7 +273,7 @@ const App: React.FC = () => {
           if (l.status === 'requested' && l.lenderUid === user.id) {
             if (!isProfileComplete(profile)) return <ProfileSetup user={user} initial={profile} onSaved={p => setProfile(p)} onCancel={close} />;
             return <RequestReview loan={l} user={user} profile={profile} loans={loans} onBack={close} onChanged={refreshLoans}
-              onModify={(friend, amount) => setOverlay({ k: 'new', prefill: { friend, amount } })} />;
+              onModify={(friend, amount, dueDate) => setOverlay({ k: 'new', prefill: { friend, amount, dueDate, counterOf: l.id } })} />;
           }
           return <LoanDetail loan={l} user={user} profile={profile} onBack={close} onChanged={refreshLoans} />;
         }

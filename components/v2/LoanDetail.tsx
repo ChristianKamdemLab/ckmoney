@@ -5,7 +5,7 @@ import { computeSituation, effectiveLateRate, toISODate } from '../../utils/sche
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
 import {
   recordPaymentByLender, reviewPayment, markLoanPaid, declarePayment, requestDelay, respondToDelay, deleteOffer, inviteLinkFor,
-  getLenderCard, payUrl, payProvider,
+  getLenderCard, payUrl, payProvider, markFundsSent,
 } from '../../services/loanService';
 import ContractPreview from '../ContractPreview';
 
@@ -187,6 +187,31 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
               </a>
             )}
             <div className="text-xs mt-2" style={{ color: C.mute }}>Une fois payé, appuie sur « J'ai payé » pour que {other} le confirme.</div>
+          </Card>
+        )}
+        {isLender && loan.status === 'active' && !loan.fundsSentAt && !(loan.payments || []).length && loan.loanDate >= (loan.createdAt || '').slice(0, 10) && (
+          <Card className="p-4">
+            <div className="text-[15px] font-semibold">Envoie {euro2(loan.amount, loan.currency)} à {other}</div>
+            {(() => {
+              const link = loan.borrowerPaymentLink?.trim();
+              const iban = link && /^[A-Z]{2}\d{2}[A-Z0-9 ]{10,}$/i.test(link.replace(/\s/g, '')) ? link : null;
+              const url = link && !iban ? payUrl(link, loan.amount, loan.currency) : null;
+              return (
+                <>
+                  <div className="text-sm mt-1 leading-relaxed" style={{ color: C.text2 }}>
+                    {url ? <>Il veut le recevoir sur {payProvider(link)}. Le montant est déjà rempli.</>
+                      : iban ? <>Par virement sur son IBAN : <strong className="font-mono">{iban}</strong></>
+                      : <>Il n'a pas indiqué où recevoir l'argent. Envoie-le avec ton appli PayPal ou par virement, ou demande-lui son lien.</>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    {url ? <a href={url} target="_blank" rel="noopener noreferrer" className="h-12 rounded-[14px] flex items-center justify-center text-[15px] font-bold text-white" style={{ background: C.ink }}>Envoyer</a>
+                      : iban ? <Button onClick={() => { navigator.clipboard?.writeText(iban.replace(/\s/g, '')); setToast('IBAN copié'); }}>Copier l'IBAN</Button>
+                      : <a href={`https://wa.me/${(loan.borrowerPhone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Salut ${other}, c'est validé pour les ${euro2(loan.amount, loan.currency)}. Envoie-moi ton lien PayPal.me (ou ton IBAN) et je t'envoie ça.`)}`} target="_blank" rel="noopener noreferrer" className="h-12 rounded-[14px] flex items-center justify-center text-[15px] font-bold text-white" style={{ background: C.green }}>Lui demander</a>}
+                    <button disabled={busy === 'sent'} onClick={() => run('sent', () => markFundsSent(loan), 'Noté, c\'est envoyé')} className="h-12 rounded-[14px] text-[15px] font-bold" style={{ background: C.soft, color: C.ink }}>C'est envoyé</button>
+                  </div>
+                </>
+              );
+            })()}
           </Card>
         )}
         {pending && isLender && <Note icon="clock">{other} n'a pas encore signé. Tu peux lui renvoyer le lien avec « Relancer ».</Note>}
