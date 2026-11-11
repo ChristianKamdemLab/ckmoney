@@ -108,7 +108,8 @@ const App: React.FC = () => {
   const [isStatsLoading, setIsStatsLoading] = useState(false);
 
   useEffect(() => {
-    try { localStorage.removeItem('ckmoney_user'); localStorage.removeItem('ckmoney_loans_backup'); } catch { /* ignore */ }
+    // On ne supprime PAS 'ckmoney_loans_backup' : il peut contenir d'anciens prêts jamais synchronisés.
+    try { localStorage.removeItem('ckmoney_user'); } catch { /* ignore */ }
     if (!user) setLoans([]);
   }, [user?.email]);
 
