@@ -69,7 +69,8 @@ export interface Loan {
   claimToken?: string;         // jeton utilisé par l'ami pour se relier au prêt
   termsHash?: string;          // empreinte des conditions (offre)
   requestNote?: string;
-  fundsSentAt?: string;         // le prêteur a envoyé l'argent
+  fundsSentAt?: string;
+  counterOf?: string;           // contre-proposition à la demande n°…         // le prêteur a envoyé l'argent
   borrowerPaymentLink?: string; // où l'ami veut recevoir l'argent (PayPal.me, Lydia, Revolut, IBAN…)        // message de l'ami avec sa demande
   initiatedBy?: 'lender' | 'borrower';
   lateInterestRate?: number;

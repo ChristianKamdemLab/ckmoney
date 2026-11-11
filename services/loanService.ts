@@ -92,7 +92,7 @@ export const scheduleSummary = (s: Installment[], currency: string) => {
  */
 export const createOffer = async (args: {
   user: User; profile: Profile; terms: Terms; nickname: string; phone?: string;
-  lenderSignature: string; knownBorrowerUid?: string;
+  lenderSignature: string; knownBorrowerUid?: string; counterOf?: string; borrowerPaymentLink?: string;
 }): Promise<{ loanId: string; token: string }> => {
   const { user, profile, terms } = args;
   const token = newInviteId(args.nickname, terms.amount);
@@ -104,6 +104,8 @@ export const createOffer = async (args: {
     borrowerName: args.nickname.trim(),
     borrowerPhone: args.phone || undefined,
     borrowerUid: args.knownBorrowerUid || undefined,
+    counterOf: args.counterOf || undefined,
+    borrowerPaymentLink: args.borrowerPaymentLink || undefined,
     lenderSignature: args.lenderSignature,
     lenderAttestation: `Prêt personnel et occasionnel attesté le ${new Date().toISOString()}`,
     amountInWords: amountToFrenchWords(terms.amount, terms.currency),
@@ -130,8 +132,11 @@ export const createOffer = async (args: {
   await setDoc(doc(db, "invites", token), invite);
   if (args.knownBorrowerUid) {
     await sendNotification({
-      userId: args.knownBorrowerUid, loanId: ref.id, type: 'action_required', title: 'Contrat à signer',
-      message: `${firstName(profile.fullName)} te prête ${terms.amount} ${terms.currency}. Ouvre CKMoney pour signer.`,
+      userId: args.knownBorrowerUid, loanId: ref.id, type: 'action_required',
+      title: args.counterOf ? 'Contre-proposition' : 'Contrat à signer',
+      message: args.counterOf
+        ? `${firstName(profile.fullName)} te propose d'autres conditions pour ${terms.amount} ${terms.currency}. Ouvre CKMoney pour les voir et signer.`
+        : `${firstName(profile.fullName)} te prête ${terms.amount} ${terms.currency}. Ouvre CKMoney pour signer.`,
     });
   }
   return { loanId: ref.id, token };
@@ -351,9 +356,9 @@ export const acceptRequest = async (loan: Loan, user: User, profile: Profile, le
   }
 };
 
-export const declineRequest = async (loan: Loan, lenderFirstName: string) => {
+export const declineRequest = async (loan: Loan, lenderFirstName: string, silent = false) => {
   await updateDoc(doc(db, LOANS, loan.id), { status: 'declined' });
-  if (loan.borrowerUid) {
+  if (loan.borrowerUid && !silent) {
     await sendNotification({
       userId: loan.borrowerUid, loanId: loan.id, type: 'warning', title: 'Demande non retenue',
       message: `${lenderFirstName} n'a pas pu accepter ta demande de ${loan.amount} ${loan.currency}.`,
