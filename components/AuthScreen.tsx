@@ -1,19 +1,20 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { HandCoins, ArrowRight, Loader2, AlertCircle, WifiOff } from 'lucide-react';
-import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { ArrowRight, Loader2, AlertCircle, FileSignature } from 'lucide-react';
+import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { auth, googleProvider } from "../services/firebase";
+import CKLogo from './brand/CKLogo';
 
 interface AuthScreenProps {
   onLogin: (user: User) => void;
+  inviteMode?: boolean; // arrivée par un lien de signature
 }
 
-const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
+const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, inviteMode }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [showOfflineOption, setShowOfflineOption] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -21,19 +22,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     password: ''
   });
 
-  const handleOfflineLogin = () => {
-      onLogin({
-        id: 'local_' + Date.now(),
-        name: formData.name || 'Utilisateur Local',
-        email: formData.email || 'offline@ckmoney.app',
-        avatar: `https://ui-avatars.com/api/?name=${formData.name || 'Local'}&background=slate&color=white`
-     });
-  };
-
   const handleGoogleLogin = async () => {
     setLoading(true);
     setErrorMsg(null);
-    setShowOfflineOption(false);
 
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -65,9 +56,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
 
       setErrorMsg(msg);
       setLoading(false);
-      // On affiche le bouton "Mode Secours" uniquement si une erreur survient, 
-      // pour permettre à l'utilisateur de tester quand même s'il le souhaite activement.
-      setShowOfflineOption(true);
     }
   };
 
@@ -75,22 +63,23 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
-    setShowOfflineOption(false);
 
     try {
         let user;
         if (isLogin) {
             // Connexion Réelle
-            const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+            const userCredential = await signInWithEmailAndPassword(auth, formData.email.trim(), formData.password);
             user = userCredential.user;
         } else {
             // Inscription Réelle
-            const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+            const userCredential = await createUserWithEmailAndPassword(auth, formData.email.trim(), formData.password);
             user = userCredential.user;
             // Mise à jour du nom
             if (formData.name) {
                 await updateProfile(user, { displayName: formData.name });
             }
+            // Vérification obligatoire de l'adresse avant tout accès aux prêts
+            await sendEmailVerification(user, { url: window.location.href });
         }
 
         onLogin({
@@ -109,9 +98,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         else if (error.code === 'auth/email-already-in-use') msg = "Email déjà utilisé.";
         else if (error.code === 'auth/weak-password') msg = "Mot de passe trop court (6 car. min).";
         else if (error.code === 'auth/invalid-email') msg = "Email invalide.";
+        else if (error.code === 'auth/invalid-credential') msg = "Email ou mot de passe incorrect.";
         else if (error.code === 'auth/network-request-failed' || error.code === 'auth/internal-error') {
             msg = "Erreur de connexion au serveur.";
-            setShowOfflineOption(true);
         }
         
         setErrorMsg(msg);
@@ -121,27 +110,21 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-      <div className="mb-8 text-center">
-        <div className="bg-slate-900 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-slate-200">
-          <HandCoins className="text-white" size={32} />
-        </div>
-        <h1 className="text-3xl font-black tracking-tight text-slate-900 leading-none mb-1">
-          CK<span className="text-indigo-600">Money</span>
-        </h1>
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-400 font-bold">By Christian Kamdem</p>
+      <div className="mb-8 flex justify-center">
+        <CKLogo size="lg" subtitle="Une app CKLabs" />
       </div>
 
       <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
         <div className="p-8">
           <div className="flex gap-4 p-1 bg-slate-100 rounded-2xl mb-8">
             <button
-              onClick={() => { setIsLogin(true); setErrorMsg(null); setShowOfflineOption(false); }}
+              onClick={() => { setIsLogin(true); setErrorMsg(null); }}
               className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${isLogin ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Connexion
             </button>
             <button
-              onClick={() => { setIsLogin(false); setErrorMsg(null); setShowOfflineOption(false); }}
+              onClick={() => { setIsLogin(false); setErrorMsg(null); }}
               className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${!isLogin ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Inscription
@@ -149,20 +132,19 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
           </div>
 
           <div className="space-y-4">
+            {inviteMode && (
+              <div className="p-4 bg-indigo-50 text-indigo-800 text-xs font-bold rounded-xl flex items-start gap-2 border border-indigo-100">
+                <FileSignature size={16} className="shrink-0 mt-0.5" />
+                <span>Un contrat de prêt vous attend. Connectez-vous ou créez un compte avec l'adresse email à laquelle le prêteur vous l'a envoyé.</span>
+              </div>
+            )}
             {errorMsg && (
               <div className="p-4 bg-rose-50 text-rose-600 text-xs font-bold rounded-xl flex flex-col gap-2 border border-rose-100 animate-in fade-in">
                 <div className="flex items-start gap-2">
                     <AlertCircle size={16} className="shrink-0 mt-0.5" />
                     <span>{errorMsg}</span>
                 </div>
-                {showOfflineOption && (
-                    <button 
-                        onClick={handleOfflineLogin}
-                        className="mt-2 w-full py-2 bg-rose-100 text-rose-700 rounded-lg text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 hover:bg-rose-200 transition-colors"
-                    >
-                        <WifiOff size={14} /> Mode Hors Ligne (Test)
-                    </button>
-                )}
+
               </div>
             )}
 
@@ -249,8 +231,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
       </div>
       
       <p className="mt-8 text-xs text-slate-400 font-medium max-w-xs text-center leading-relaxed">
-        En continuant, vous acceptez nos conditions d'utilisation et notre politique de confidentialité. 
-        <br/>Plateforme sécurisée par CKMoney.
+        En continuant, vous acceptez les conditions d'utilisation et la politique de confidentialité de CKMoney,
+        outil personnel de gestion de prêts entre proches.
       </p>
     </div>
   );

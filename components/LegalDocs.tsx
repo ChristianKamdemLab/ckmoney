@@ -32,28 +32,51 @@ const LegalDocs: React.FC<LegalDocsProps> = ({ view, onClose }) => {
 
               <div className="space-y-8 text-slate-600 leading-relaxed">
                  <section>
-                    <h3 className="text-xl font-bold text-slate-900 mb-3">1. Indépendance de la plateforme</h3>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">1. Nature de l'outil</h3>
                     <p>
-                        CKMoney est un outil technique permettant la génération de reconnaissances de dette entre particuliers. 
-                        CKMoney n'est ni une banque, ni un organisme de crédit, ni un intermédiaire financier. 
-                        L'application n'est pas responsable de la véracité des informations saisies, de la solvabilité de l'emprunteur, ou des éventuels défauts de remboursement.
+                        CKMoney est un outil personnel qui aide un particulier à formaliser et suivre les prêts occasionnels qu'il consent à des proches.
+                        CKMoney n'est ni une banque, ni un établissement de crédit, ni un intermédiaire en financement participatif : il ne reçoit, ne détient
+                        et ne transfère aucun fonds. Les paiements se font directement entre les parties.
                     </p>
                  </section>
 
                  <section>
-                    <h3 className="text-xl font-bold text-slate-900 mb-3">2. Respect du Taux d'Usure</h3>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">2. Prêts occasionnels uniquement</h3>
                     <p>
-                        Le prêteur est seul responsable du respect de la législation en vigueur concernant les taux d'intérêt. 
-                        Il est rappelé que le prêt entre particuliers ne doit pas dépasser le taux d'usure légal publié trimestriellement par la Banque de France (ou l'autorité compétente du pays de signature). 
-                        Toute clause fixant un taux usuraire est réputée non écrite.
+                        Les opérations de crédit à titre habituel sont réservées aux établissements agréés (article L. 511-5 du Code monétaire et financier).
+                        Le prêteur atteste, pour chaque prêt, agir à titre personnel et occasionnel. L'application l'alerte lorsque le nombre de prêts consentis sur douze mois devient élevé.
                     </p>
                  </section>
 
                  <section>
-                    <h3 className="text-xl font-bold text-slate-900 mb-3">3. Valeur Juridique</h3>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">3. Taux d'intérêt</h3>
                     <p>
-                        Les documents générés par CKMoney sont des modèles de reconnaissance de dette régis par les articles 1376 et suivants du Code Civil. 
-                        Pour être valables, ils doivent être signés par les deux parties. La mention manuscrite ("Lu et approuvé") est fortement recommandée sur la version papier.
+                        Le prêt est gratuit par défaut. Un taux conventionnel peut être fixé par écrit (article 1907 du Code civil) ; l'application le plafonne
+                        par prudence au seuil de l'usure le plus bas applicable aux prêts personnels, et plafonne de même les intérêts de retard. Les intérêts perçus sont imposables pour le prêteur.
+                    </p>
+                 </section>
+
+                 <section>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">4. Valeur des documents</h3>
+                    <p>
+                        Le contrat et la reconnaissance de dette sont rédigés à partir d'un modèle fixe et signés électroniquement (articles 1366 et 1367 du Code civil).
+                        L'emprunteur saisit lui-même la somme en toutes lettres (article 1376). Le texte signé est figé par une empreinte SHA-256 conservée avec la date de chaque signature.
+                        Il s'agit d'une signature électronique simple : en cas de contestation, il appartient au prêteur d'en démontrer la fiabilité. Pour un montant important, un acte notarié ou une signature électronique qualifiée offre une sécurité supérieure.
+                    </p>
+                 </section>
+
+                 <section>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">5. Déclaration fiscale</h3>
+                    <p>
+                        Au-delà de 5 000 € prêtés entre les mêmes personnes au cours d'une année civile, le prêt doit être déclaré au moyen du formulaire n° 2062 (article 242 ter du Code général des impôts).
+                        L'application signale ces cas mais n'effectue aucune déclaration à la place des parties.
+                    </p>
+                 </section>
+
+                 <section>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">6. Limites</h3>
+                    <p>
+                        Les modèles et calculs sont fournis à titre d'aide et ne constituent pas un conseil juridique ou fiscal. Les taux de référence (usure, intérêt légal) sont mis à jour manuellement et doivent être vérifiés.
                     </p>
                  </section>
               </div>
@@ -69,18 +92,26 @@ const LegalDocs: React.FC<LegalDocsProps> = ({ view, onClose }) => {
 
               <div className="space-y-8 text-slate-600 leading-relaxed">
                  <section>
-                    <h3 className="text-xl font-bold text-slate-900 mb-3">1. Stockage Local (Local Storage)</h3>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">1. Données traitées</h3>
                     <p>
-                        CKMoney privilégie une approche "Privacy-First". 
-                        Les informations sensibles telles que votre IBAN ou vos brouillons de contrats sont stockées prioritairement dans la mémoire locale de votre navigateur (LocalStorage).
+                        Identité, date et lieu de naissance, adresse et email des parties, coordonnées de paiement du prêteur (IBAN, lien de paiement), montants,
+                        échéances, paiements déclarés et signatures. Ces données sont nécessaires à l'établissement et à la preuve du contrat.
                     </p>
                  </section>
 
                  <section>
-                    <h3 className="text-xl font-bold text-slate-900 mb-3">2. Traitement des Données</h3>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">2. Hébergement et accès</h3>
                     <p>
-                        Les données transmises à nos serveurs (pour la génération PDF ou le cloud backup) sont chiffrées. 
-                        Nous ne vendons aucune donnée personnelle à des tiers. Les contrats générés sont privés et accessibles uniquement par le prêteur et l'emprunteur désignés.
+                        Les données sont stockées dans Google Firebase (Firestore). Des règles de sécurité limitent l'accès à chaque prêt à son prêteur et à son emprunteur,
+                        identifiés par une adresse email vérifiée. Aucune donnée n'est vendue ni transmise à des tiers.
+                    </p>
+                 </section>
+
+                 <section>
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">3. Durée de conservation et droits</h3>
+                    <p>
+                        Les données sont conservées jusqu'à cinq ans après le remboursement complet, durée de prescription de l'action en paiement (article 2224 du Code civil).
+                        Vous pouvez demander l'accès, la rectification ou l'effacement de vos données au prêteur, dans la limite de ce qui est nécessaire à la preuve du contrat (RGPD, articles 15 à 17).
                     </p>
                  </section>
               </div>

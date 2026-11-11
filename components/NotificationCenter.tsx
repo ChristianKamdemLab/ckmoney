@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, Check, X, Info, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { Notification, User } from '../types';
 import { getUserNotifications, markNotificationAsRead } from '../services/notificationService';
-import { respondToDelay, confirmPayment } from '../services/loanService';
+import { respondToDelay, confirmPendingPayments } from '../services/loanService';
 
 interface NotificationCenterProps {
   user: User;
@@ -34,10 +34,16 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ user, onRefresh
   };
 
   const handleAction = async (notif: Notification, accept: boolean) => {
-      if (notif.actionType === 'review_delay') {
-          await respondToDelay(notif.loanId, accept);
-      } else if (notif.actionType === 'review_payment' && accept) {
-          await confirmPayment(notif.loanId);
+      try {
+          if (notif.actionType === 'review_delay') {
+              await respondToDelay(notif.loanId, accept);
+          } else if (notif.actionType === 'review_payment' && accept) {
+              await confirmPendingPayments(notif.loanId);
+          }
+      } catch (e) {
+          console.error(e);
+          alert("L'action n'a pas pu être enregistrée.");
+          return;
       }
       
       // Marquer comme lu et rafraichir
@@ -97,7 +103,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ user, onRefresh
                                                     onClick={() => handleAction(n, true)}
                                                     className="flex-1 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase rounded-lg hover:bg-slate-800"
                                                 >
-                                                    {n.actionType === 'review_payment' ? 'Confirmer reçu' : 'Accepter'}
+                                                    {n.actionType === 'review_payment' ? 'Confirmer la réception' : 'Accepter'}
                                                 </button>
                                                 {n.actionType !== 'review_payment' && (
                                                     <button 

@@ -1,26 +1,36 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Loan } from '../types';
-import { calculateDueAmount, formatDate } from '../utils/calculations';
+import { formatDate } from '../utils/calculations';
+import { computeSituation, formatMoney } from '../utils/schedule';
+import { LEGAL_INTEREST_RATE } from '../config/legal';
+import { inviteLinkFor } from './LoanForm';
 import { fetchExchangeRate } from '../services/exchangeRate';
 import { activateLoanWithContract } from '../services/loanService';
-import { Calendar, User, CreditCard, AlertCircle, CheckCircle2, Coins, TrendingUp, Loader2, Clock, Upload, FileText, Check, MessageCircle, Calculator, BellRing } from 'lucide-react';
-import PenaltyCalculator from './PenaltyCalculator';
+import { Calendar, User, CreditCard, AlertCircle, Loader2, Clock, Upload, FileText, MessageCircle, BellRing, ListChecks, Link2, Check } from 'lucide-react';
+import LoanLedger from './LoanLedger';
 
 interface LoanCardProps {
   loan: Loan;
+  currentUserEmail: string;
   onClick: (loan: Loan) => void;
-  onMarkAsPaid: (id: string) => void;
+  onChanged: () => void;
 }
 
-const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
+const LoanCard: React.FC<LoanCardProps> = ({ loan, currentUserEmail, onClick, onChanged }) => {
   const [eurEquivalent, setEurEquivalent] = useState<number | null>(null);
   const [loadingRate, setLoadingRate] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
+  const [showLedger, setShowLedger] = useState(false);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const calculation = calculateDueAmount(loan.amount, loan.repaymentDate, loan.status, loan.lateInterestRate || 0);
+  const isLender = (loan.lenderEmail || '').toLowerCase() === currentUserEmail.toLowerCase();
+  const s = computeSituation(loan, LEGAL_INTEREST_RATE);
+  const calculation = { isOverdue: s.isOverdue, totalDue: s.totalDueNow, interestAmount: s.lateInterest };
+  const nextDue = s.nextInstallment?.dueDate || loan.repaymentDate;
+  const inviteLink = inviteLinkFor(loan.id);
+  const counterpart = isLender ? loan.borrowerName : loan.lenderName;
 
   useEffect(() => {
     if (loan.currency !== 'EUR' && loan.status !== 'paid') {
@@ -41,7 +51,8 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
             const base64 = reader.result as string;
             try {
                 await activateLoanWithContract(loan.id, base64);
-                window.location.reload(); // Simple reload to refresh state
+                setUploading(false);
+                onChanged();
             } catch (err) {
                 alert("Erreur lors de l'envoi du fichier.");
                 setUploading(false);
@@ -58,11 +69,11 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
   // Le texte a été adapté pour indiquer que le PDF suit le message.
   let whatsappText = '';
   if (isPending) {
-      whatsappText = `Salut ${loan.borrowerName}, pour notre prêt de ${loan.amount} ${loan.currency}, je t'envoie le contrat PDF à signer juste après ce message.`;
+      whatsappText = `Salut ${loan.borrowerName}, voici le contrat pour notre prêt de ${loan.amount} ${loan.currency}. Tu peux le lire et le signer ici en te connectant avec ${loan.borrowerEmail} : ${inviteLink}`;
   } else if (calculation.isOverdue) {
-      whatsappText = `Salut ${loan.borrowerName}, sauf erreur de ma part, le remboursement de ${loan.amount} ${loan.currency} était prévu le ${formatDate(loan.repaymentDate)}. Avec les pénalités de retard, le montant s'élève aujourd'hui à ${calculation.totalDue.toFixed(2)} ${loan.currency}. Merci de me tenir au courant.`;
+      whatsappText = `Salut ${loan.borrowerName}, sauf erreur de ma part, ${formatMoney(s.overdueAmount, loan.currency)} étaient attendus pour le prêt de ${loan.amount} ${loan.currency}. Le reste dû s'élève aujourd'hui à ${formatMoney(s.totalDueNow, loan.currency)}. Tu peux suivre l'échéancier ici : ${inviteLink}`;
   } else {
-      whatsappText = `Salut ${loan.borrowerName}, petit rappel pour le prêt de ${loan.amount} ${loan.currency} prévu pour le ${formatDate(loan.repaymentDate)}.`;
+      whatsappText = `Salut ${loan.borrowerName}, petit rappel : prochaine échéance de ${formatMoney(s.nextInstallment?.outstanding || 0, loan.currency)} le ${formatDate(nextDue)}.`;
   }
 
   const whatsappLink = loan.borrowerPhone 
@@ -80,10 +91,10 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
             </div>
             <div>
               <h3 className="font-black text-slate-900 text-lg tracking-tight">
-                  {loan.borrowerName}
+                  {counterpart}
               </h3>
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
-                  {isPending ? 'Contrat à signer' : 'Contrat Actif'}
+                  {isLender ? 'Vous prêtez' : 'Vous empruntez'} · {isPending ? 'à signer' : loan.interestRate ? `${loan.interestRate} %/an` : 'sans intérêt'}
               </p>
             </div>
           </div>
@@ -92,7 +103,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
             isPending ? 'bg-amber-100 text-amber-700' :
             calculation.isOverdue ? 'bg-rose-100 text-rose-700 animate-pulse' : 'bg-indigo-100 text-indigo-700'
           }`}>
-            {loan.status === 'paid' ? 'Soldé' : isPending ? 'En Attente' : calculation.isOverdue ? 'En Retard' : 'Actif'}
+            {loan.status === 'paid' ? 'Soldé' : isPending ? 'À signer' : calculation.isOverdue ? 'En Retard' : s.pendingDeclared > 0 ? 'À confirmer' : 'Actif'}
           </div>
         </div>
 
@@ -105,19 +116,29 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
             <span className="font-black text-slate-900">{loan.amount.toLocaleString('fr-FR')} {loan.currency}</span>
           </div>
 
+          {!isPending && loan.status !== 'paid' && (
+            <div className="flex items-center justify-between text-slate-600">
+              <div className="flex items-center gap-3">
+                <ListChecks size={18} className="text-slate-300" />
+                <span className="text-sm font-bold">Reste dû</span>
+              </div>
+              <span className="font-black text-indigo-600">{formatMoney(s.totalDueNow, loan.currency)}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-slate-600">
             <div className="flex items-center gap-3">
               <Calendar size={18} className="text-slate-300" />
-              <span className="text-sm font-bold">Échéance</span>
+              <span className="text-sm font-bold">{s.schedule.length > 1 ? `Échéance (${s.schedule.length} mois)` : 'Échéance'}</span>
             </div>
-            <span className="text-sm font-bold text-slate-900">{formatDate(loan.repaymentDate)}</span>
+            <span className="text-sm font-bold text-slate-900">{formatDate(nextDue)}</span>
           </div>
           
           {calculation.isOverdue && loan.status !== 'paid' && (
-              <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 flex justify-between items-center cursor-pointer hover:bg-rose-100 transition-colors" onClick={() => setShowCalculator(true)}>
+              <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 flex justify-between items-center cursor-pointer hover:bg-rose-100 transition-colors" onClick={() => setShowLedger(true)}>
                   <div className="flex items-center gap-2 text-rose-700 text-xs font-bold">
                       <AlertCircle size={14} />
-                      <span>Pénalités incluses</span>
+                      <span>Retard {s.daysLate} j · intérêts</span>
                   </div>
                   <span className="text-xs font-black text-rose-600">
                       +{calculation.interestAmount.toFixed(2)} {loan.currency}
@@ -136,7 +157,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
               </button>
           </div>
           
-          <a 
+          {isLender && <a 
             href={whatsappLink}
             target="_blank"
             rel="noopener noreferrer"
@@ -149,24 +170,20 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
             title="Ouvre WhatsApp avec un message pré-rempli. Vous devrez joindre le PDF manuellement."
           >
             {calculation.isOverdue ? <BellRing size={14} /> : <MessageCircle size={14} />} 
-            {calculation.isOverdue ? 'Relancer (Retard)' : 'Message WhatsApp'}
-          </a>
+            {calculation.isOverdue ? 'Relancer (Retard)' : isPending ? 'Envoyer le lien (WhatsApp)' : 'Message WhatsApp'}
+          </a>}
 
-          {/* SIMULATEUR: Visible pour tout prêt non remboursé, même en attente de signature */}
-          {loan.status !== 'paid' && (
-            <button 
-                onClick={(e) => {
-                    e.stopPropagation();
-                    setShowCalculator(true);
-                }}
-                className="w-full py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2"
+          {isLender && isPending && (
+            <button
+              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(inviteLink); setCopied(true); }}
+              className="w-full py-3 bg-slate-50 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
             >
-                <Calculator size={14} />
-                Simuler les Pénalités
+              {copied ? <Check size={14} /> : <Link2 size={14} />}
+              {copied ? 'Lien copié' : 'Copier le lien de signature'}
             </button>
           )}
 
-          {isPending ? (
+          {isPending ? isLender && (
               <>
                  <input 
                     type="file" 
@@ -181,27 +198,27 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onClick, onMarkAsPaid }) => {
                     className="w-full px-4 py-3 bg-amber-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
                  >
                     {uploading ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
-                    Déposer Contrat Signé
+                    Ou déposer un contrat papier signé
                  </button>
               </>
-          ) : loan.status !== 'paid' && (
+          ) : (
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                onMarkAsPaid(loan.id);
+                setShowLedger(true);
               }}
               className="w-full px-4 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
             >
-              <CheckCircle2 size={14} />
-              Marquer Remboursé
+              <ListChecks size={14} />
+              Échéancier et paiements{isLender && s.pendingDeclared > 0 ? ' · à confirmer' : ''}
             </button>
           )}
         </div>
       </div>
     </div>
     
-    {showCalculator && (
-        <PenaltyCalculator loan={loan} onClose={() => setShowCalculator(false)} />
+    {showLedger && (
+        <LoanLedger loan={loan} isLender={isLender} onClose={() => setShowLedger(false)} onChanged={() => { setShowLedger(false); onChanged(); }} />
     )}
     </>
   );
