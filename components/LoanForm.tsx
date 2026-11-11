@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Loan, User } from '../types';
+import { Loan, User, Profile, isProfileComplete } from '../types';
 import { X, Loader2, User as UserIcon, Send, CreditCard, CheckCircle2, Copy, Printer, ArrowRight, ArrowLeft, Coins, Lock, FileText, UserPlus, AlertTriangle, MessageCircle, Phone } from 'lucide-react';
 import SignaturePad from './SignaturePad';
 import { createLoanRequest } from '../services/loanService';
@@ -18,6 +18,7 @@ interface LoanFormProps {
   onClose: () => void;
   user: User; // Le prêteur connecté
   existingLoans?: Loan[];
+  profile?: Profile | null;
   onSuccess?: () => void;
   onViewContract?: (loan: Loan) => void;
 }
@@ -51,12 +52,20 @@ const InputGroup = ({ label, children }: { label: string, children?: React.React
   </div>
 );
 
-const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], onSuccess, onViewContract }) => {
+const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], profile, onSuccess, onViewContract }) => {
+  const hasProfile = isProfileComplete(profile);
+  // Avec un profil complet, on saute les étapes « Vous » et « Paiement ».
+  const STEPS = hasProfile ? [3, 4, 5, 6] : [1, 2, 3, 4, 5, 6];
+  const STEP_LABELS: Record<number, string> = { 1: 'Vous', 2: 'Paiement', 3: 'Votre proche', 4: 'Le prêt', 5: 'Retard', 6: 'Signature' };
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1 to 6
+  const [step, setStep] = useState(STEPS[0]);
+  const stepIdx = STEPS.indexOf(step);
+  const goNext = () => setStep(STEPS[Math.min(stepIdx + 1, STEPS.length - 1)]);
+  const goPrev = () => setStep(STEPS[Math.max(stepIdx - 1, 0)]);
   const [createdLoan, setCreatedLoan] = useState<Loan | null>(null);
   const [lenderSignature, setLenderSignature] = useState('');
   const [attested, setAttested] = useState(false);
+  const [drawOwn, setDrawOwn] = useState(false);
   const [copied, setCopied] = useState(false);
   
   // Payment Handle Logic
@@ -69,12 +78,12 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
 
   const [formData, setFormData] = useState({
     // Prêteur
-    lenderCivility: 'M.' as 'M.' | 'Mme',
-    lenderBirthDate: '',
-    lenderBirthPlace: '', 
+    lenderCivility: (profile?.civility || 'M.') as 'M.' | 'Mme',
+    lenderBirthDate: profile?.birthDate || '',
+    lenderBirthPlace: profile?.birthPlace || '', 
     lenderCountry: '',
-    lenderAddress: '',
-    lenderIban: '',
+    lenderAddress: profile?.address || '',
+    lenderIban: profile?.iban || '',
     
     // Emprunteur (Saisi par le prêteur)
     borrowerName: '',
@@ -123,6 +132,10 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
   }, [existingLoans, borrowerKey, loanYear, amountNum, formData.currency]);
   const cumulativeEur = priorYearTotal + eurAmount;
   const recentLoans = loansInLast12Months(existingLoans, user.email);
+  // Proches déjà enregistrés (dernier prêt connu pour chaque adresse)
+  const knownBorrowers = Array.from(new Map(
+    existingLoans.filter(l => l.borrowerEmail).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(l => [l.borrowerEmail, l] as const),
+  ).values());
 
   // Extraction auto du pays (Prêteur)
   useEffect(() => {
@@ -178,7 +191,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
 
   const handleNext = () => {
       if (validateStep(step)) {
-          setStep(step + 1);
+          goNext();
       } else {
           alert("Veuillez remplir correctement tous les champs obligatoires.");
       }
@@ -202,7 +215,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
       const loanData: any = {
         // Lender
         lenderUid: user.id,
-        lenderName: user.name,
+        lenderName: profile?.fullName || user.name,
         lenderEmail: user.email.toLowerCase(),
         lenderCivility: formData.lenderCivility,
         lenderBirthDate: formData.lenderBirthDate,
@@ -211,7 +224,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
         lenderAddress: formData.lenderAddress,
         lenderSignature: lenderSignature,
         lenderIban: formData.lenderIban,
-        lenderPaymentLink: getFullPaymentLink(),
+        lenderPaymentLink: hasProfile ? (profile?.paymentLink || '') : getFullPaymentLink(),
 
         // Borrower (Saisi par le prêteur)
         borrowerName: formData.borrowerName,
@@ -335,12 +348,9 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
           <div>
              <h2 className="text-lg font-black text-slate-900">Nouveau Contrat</h2>
              <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mt-1 text-slate-400">
-                 <span className={step === 1 ? "text-indigo-600" : ""}>1.Vous</span>/
-                 <span className={step === 2 ? "text-indigo-600" : ""}>2.Pay</span>/
-                 <span className={step === 3 ? "text-indigo-600" : ""}>3.Lui</span>/
-                 <span className={step === 4 ? "text-indigo-600" : ""}>4.Prêt</span>/
-                 <span className={step === 5 ? "text-indigo-600" : ""}>5.Retard</span>/
-                 <span className={step === 6 ? "text-indigo-600" : ""}>6.Sign</span>
+                 {STEPS.map((n, i) => (
+                   <span key={n} className={step === n ? 'text-indigo-600' : ''}>{i + 1}. {STEP_LABELS[n]}{i < STEPS.length - 1 ? ' / ' : ''}</span>
+                 ))}
              </div>
           </div>
           <button onClick={onClose} className="p-2 bg-slate-50 rounded-full text-slate-400 hover:text-slate-600"><X size={20} /></button>
@@ -428,8 +438,20 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
                 <div className="space-y-5 animate-in slide-in-from-right-8 duration-300">
                     <div className="bg-indigo-50 p-4 rounded-2xl flex items-center gap-3 text-indigo-800 mb-2">
                         <UserPlus size={20} />
-                        <span className="font-bold text-sm">Informations de l'Ami (Emprunteur)</span>
+                        <span className="font-bold text-sm">Votre proche (l'emprunteur)</span>
                     </div>
+
+                    {knownBorrowers.length > 0 && (
+                        <InputGroup label="Proche déjà enregistré">
+                            <select defaultValue="" onChange={e => {
+                                const b = knownBorrowers.find(k => k.borrowerEmail === e.target.value);
+                                if (b) setFormData({ ...formData, borrowerCivility: b.borrowerCivility, borrowerName: b.borrowerName, borrowerEmail: b.borrowerEmail || '', borrowerBirthDate: b.borrowerBirthDate, borrowerBirthPlace: b.borrowerBirthPlace, borrowerCountry: b.borrowerCountry || '', borrowerAddress: b.borrowerAddress });
+                            }} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white outline-none">
+                                <option value="">— Nouveau proche —</option>
+                                {knownBorrowers.map(b => <option key={b.borrowerEmail} value={b.borrowerEmail}>{b.borrowerName} ({b.borrowerEmail})</option>)}
+                            </select>
+                        </InputGroup>
+                    )}
 
                     <InputGroup label="Civilité">
                         <select value={formData.borrowerCivility} onChange={e => setFormData({...formData, borrowerCivility: e.target.value as any})} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white outline-none">
@@ -622,7 +644,19 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
                         En signant, vous validez le contrat. <strong>{formData.borrowerName}</strong> recevra un lien pour le relire, écrire la somme en lettres et signer à son tour.
                     </p>
                     <div className="border-t border-slate-100 pt-4">
-                        <SignaturePad label="Signez dans le cadre" onSave={setLenderSignature} />
+                        {profile?.signature && !drawOwn ? (
+                            <div className="space-y-3">
+                                <div className={`p-4 rounded-2xl border-2 flex items-center justify-between gap-4 ${lenderSignature ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-200'}`}>
+                                    <img src={profile.signature} alt="Votre signature" className="h-16 object-contain" />
+                                    {lenderSignature
+                                        ? <span className="text-xs font-bold text-emerald-700 flex items-center gap-1"><CheckCircle2 size={14} /> Signé</span>
+                                        : <button type="button" onClick={() => setLenderSignature(profile.signature!)} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-wide">Signer</button>}
+                                </div>
+                                <button type="button" onClick={() => { setDrawOwn(true); setLenderSignature(''); }} className="text-xs font-bold text-slate-500">Signer à la main à la place</button>
+                            </div>
+                        ) : (
+                            <SignaturePad label="Signez dans le cadre" onSave={setLenderSignature} />
+                        )}
                     </div>
                 </div>
             )}
@@ -632,13 +666,13 @@ const LoanForm: React.FC<LoanFormProps> = ({ onClose, user, existingLoans = [], 
         {/* Footer Actions */}
         <div className="p-6 border-t border-slate-100 bg-white z-20">
             <div className="flex gap-3">
-                {step > 1 && (
-                    <button onClick={() => setStep(step - 1)} className="px-5 py-4 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+                {stepIdx > 0 && (
+                    <button onClick={goPrev} className="px-5 py-4 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
                         <ArrowLeft size={20} />
                     </button>
                 )}
                 
-                {step < 6 ? (
+                {step !== 6 ? (
                     <button onClick={handleNext} className="flex-1 py-4 bg-slate-900 text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
                         Suivant <ArrowRight size={18} />
                     </button>

@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { HandCoins, ArrowRight, Loader2, AlertCircle, FileSignature } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, FileSignature } from 'lucide-react';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { auth, googleProvider } from "../services/firebase";
+import CKLogo from './brand/CKLogo';
 
 interface AuthScreenProps {
   onLogin: (user: User) => void;
@@ -109,14 +110,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, inviteMode }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-      <div className="mb-8 text-center">
-        <div className="bg-slate-900 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-slate-200">
-          <HandCoins className="text-white" size={32} />
-        </div>
-        <h1 className="text-3xl font-black tracking-tight text-slate-900 leading-none mb-1">
-          CK<span className="text-indigo-600">Money</span>
-        </h1>
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-400 font-bold">By Christian Kamdem</p>
+      <div className="mb-8 flex justify-center">
+        <CKLogo size="lg" subtitle="Une app CKLabs" />
       </div>
 
       <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500">

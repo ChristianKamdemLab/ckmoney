@@ -93,6 +93,11 @@ service cloud.firestore {
       }
     }
 
+    // Profil personnel (identité, IBAN, signature) : uniquement son propriétaire.
+    match /profiles/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
     match /notifications/{notifId} {
       function loanOf(id) { return get(/databases/$(database)/documents/loans/$(id)).data; }
 

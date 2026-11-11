@@ -126,3 +126,19 @@ export interface User {
   email: string;
   avatar?: string;
 }
+
+/** Profil du prêteur, saisi une seule fois (collection profiles/{uid}). */
+export interface Profile {
+  civility: 'M.' | 'Mme';
+  fullName: string;
+  birthDate: string;
+  birthPlace: string;   // « Ville, Pays »
+  address: string;
+  iban?: string;
+  paymentLink?: string;
+  signature?: string;   // signature dessinée, réutilisable
+  updatedAt?: string;
+}
+
+export const isProfileComplete = (p: Profile | null | undefined): p is Profile =>
+  !!p && !!p.fullName && !!p.birthDate && !!p.birthPlace && p.birthPlace.includes(',') && !!p.address;
