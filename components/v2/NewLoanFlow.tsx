@@ -128,7 +128,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
   const totalInterest = schedule.reduce((a, i) => a + i.interest, 0);
 
   const signature = profile.signature || drawnSig;
-  const canSign = amount > 0 && !!friendLabel && schedule.length > 0 && !!signature && rate <= cap && schedule.every(i => i.dueDate >= today) && (lateMode !== 'custom' || (lateRate > 0 && lateRate <= cap));
+  const canSign = amount > 0 && !!friendLabel && schedule.length > 0 && !!signature && rate <= cap && (alreadyGiven ? schedule.every(i => i.dueDate >= loanDate) : schedule.every(i => i.dueDate >= today)) && (lateMode !== 'custom' || (lateRate > 0 && lateRate <= cap));
 
   const submit = async () => {
     setBusy(true);
@@ -237,6 +237,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
                   <span style={{ color: C.mute }}>Donné le</span>
                   <input type="date" value={loanDate} max={today} onChange={e => setLoanDate(e.target.value || today)} className="font-semibold bg-transparent text-right" />
                 </label>
+                {schedule.some(i => i.dueDate < today) && <Note tone="warn">Une échéance est déjà passée : {friendLabel} sera en retard dès sa signature, avec les intérêts de retard prévus depuis cette date.</Note>}
                 <div className="text-[13px] leading-snug" style={{ color: C.mute }}>Indique ce qu'il te doit encore. Le contrat met au propre ce prêt déjà versé, avec un échéancier pour la suite.</div>
               </>
             )}
@@ -253,7 +254,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
             {plan === 'once' ? (
               <label className="flex justify-between items-center text-sm gap-3">
                 <span style={{ color: C.mute }}>Au plus tard le</span>
-                <input type="date" value={onceDate} min={today} onChange={e => setOnceDate(e.target.value)} className="font-semibold bg-transparent text-right" />
+                <input type="date" value={onceDate} min={alreadyGiven ? loanDate : today} onChange={e => setOnceDate(e.target.value)} className="font-semibold bg-transparent text-right" />
               </label>
             ) : (
               <>
@@ -265,7 +266,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
                 )}
                 <label className="flex justify-between items-center text-sm gap-3">
                   <span style={{ color: C.mute }}>Première échéance</span>
-                  <input type="date" value={firstDue} min={today} onChange={e => setFirstDue(e.target.value)} className="font-semibold bg-transparent text-right" />
+                  <input type="date" value={firstDue} min={alreadyGiven ? loanDate : today} onChange={e => setFirstDue(e.target.value)} className="font-semibold bg-transparent text-right" />
                 </label>
                 {last && <div className="flex justify-between text-sm"><span style={{ color: C.mute }}>Dernière</span><span className="font-semibold">{dateFr(last.dueDate)}</span></div>}
               </>
@@ -332,7 +333,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
   // ---------- Étape 4 : envoi
   const link = result ? inviteLinkFor(result.token) : '';
   const message = alreadyGiven
-    ? `Salut ${friendLabel}, comme on en a parlé, je mets au propre les ${euro(amount, currency)} que je t'ai prêtés le ${dateFr(loanDate)} : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}. Tu peux le lire et le signer ici : ${link}`
+    ? `Salut ${friendLabel}, comme on en a parlé, je mets au propre les ${euro(amount, currency)} que je t'ai prêtés le ${dateFr(loanDate)} : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `${schedule[0].dueDate < toISODate(new Date()) ? 'remboursement prévu le' : 'à rembourser le'} ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}. Tu peux le lire et le signer ici : ${link}`
     : `Salut ${friendLabel}, voici le contrat pour les ${euro(amount, currency)} (${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}). Tu peux le lire et le signer ici : ${link}`;
   const wa = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
   return (
