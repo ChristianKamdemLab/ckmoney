@@ -2,40 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Screen, TopBar, Button, Chips, Note, Card as Box, Avatar, Field, Toast, Icon, inputClass, inputStyle, C, firstName } from './ui';
 import { Card, Play } from '../../games/fapfap';
 import { TableView, TableModel, FELT } from './JamboTable';
+import { Felt, NameStep } from './GameKit';
 import { ensurePlayer, jambo, watchTable, watchHand, tableLink, savedName, saveName, OnlineTable, ERRORS } from '../../services/jamboOnline';
 
 // Jambo en ligne : une table, un lien WhatsApp, chacun joue depuis son téléphone.
 // Le serveur arbitre ; si quelqu'un ne joue pas en 30 s, l'ordinateur joue à sa place.
 
 const errorText = (e: unknown) => ERRORS[(e as Error)?.message] || 'Un souci de connexion. Réessaie.';
-
-const Felt: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="mx-5 mt-2 rounded-[24px] px-6 pt-6 pb-6 text-white" style={{ background: FELT }}>{children}</div>
-);
-
-/** Prénom avant de créer ou de rejoindre une table. */
-const NameStep: React.FC<{ title: string; desc: string; cta: string; initial: string; busy: boolean; error: string | null; onBack: () => void; onSubmit: (name: string) => void }> = ({ title, desc, cta, initial, busy, error, onBack, onSubmit }) => {
-  const [name, setName] = useState(initial);
-  return (
-    <Screen>
-      <TopBar onBack={onBack} title="Jambo en ligne" />
-      <Felt>
-        <div className="text-[13px] font-semibold" style={{ color: C.ochre }}>Fap Fap entre amis</div>
-        <h1 className="serif text-[28px] font-semibold leading-[1.1] mt-1">{title}</h1>
-        <p className="text-[14px] leading-relaxed mt-2" style={{ color: 'rgba(255,255,255,.75)' }}>{desc}</p>
-      </Felt>
-      <form className="px-5 pt-6 flex flex-col gap-4 flex-1" onSubmit={e => { e.preventDefault(); if (name.trim()) onSubmit(name.trim()); }}>
-        <Field label="Ton prénom" htmlFor="jn" hint="C'est le nom que verront les autres joueurs.">
-          <input id="jn" autoComplete="given-name" maxLength={20} value={name} onChange={e => setName(e.target.value)} className={inputClass} style={inputStyle} />
-        </Field>
-        {error && <Note tone="danger">{error}</Note>}
-        <div className="mt-auto pb-[max(env(safe-area-inset-bottom),24px)]">
-          <Button type="submit" busy={busy} disabled={!name.trim()}>{cta}</Button>
-        </div>
-      </form>
-    </Screen>
-  );
-};
 
 /** Salle d'attente : on partage le lien, l'hôte ajoute l'ordinateur s'il veut, puis lance. */
 const Lobby: React.FC<{ t: OnlineTable; uid: string; onLeave: () => void }> = ({ t, uid, onLeave }) => {
@@ -237,7 +210,7 @@ const JamboOnline: React.FC<{ code?: string; target?: number; defaultName: strin
 
   // Créer une table
   if (!code) return (
-    <NameStep title="Ta table de Fap Fap" desc="Donne ton prénom, puis envoie le lien de la table à tes amis." cta="Créer la table"
+    <NameStep topTitle="Jambo en ligne" eyebrow="Fap Fap entre amis" title="Ta table de Fap Fap" desc="Donne ton prénom, puis envoie le lien de la table à tes amis." cta="Créer la table"
       initial={name} busy={busy} error={error} onBack={exit} onSubmit={create} />
   );
 
@@ -258,7 +231,7 @@ const JamboOnline: React.FC<{ code?: string; target?: number; defaultName: strin
       </Screen>
     );
     return (
-      <NameStep title={`La table de ${hostName || 'ton ami'}`} desc={`Table ${table.code} · ${table.seats.length} joueur${table.seats.length > 1 ? 's' : ''} sur 4 · partie en ${table.target} points.`}
+      <NameStep topTitle="Jambo en ligne" eyebrow="Fap Fap entre amis" title={`La table de ${hostName || 'ton ami'}`} desc={`Table ${table.code} · ${table.seats.length} joueur${table.seats.length > 1 ? 's' : ''} sur 4 · partie en ${table.target} points.`}
         cta="M'asseoir à la table" initial={name} busy={busy} error={error} onBack={exit} onSubmit={join} />
     );
   }

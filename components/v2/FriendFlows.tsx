@@ -410,7 +410,7 @@ export const BorrowerSpace: React.FC<{
   onOpenLoan: (l: Loan) => void; onRequest: (lenderUid: string, lenderFirstName: string) => void;
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
   onOpenContract: (l: Loan) => void;
-  onArticles?: () => void; onJambo?: () => void;
+  onArticles?: () => void; onJambo?: () => void; onBac?: () => void;
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);
   const open = mine.filter(l => ['active', 'delay_requested', 'pending_borrower', 'requested'].includes(l.status));
@@ -537,7 +537,7 @@ export const BorrowerSpace: React.FC<{
         </>
       )}
 
-      {p.onArticles && p.onJambo && <Discover onArticles={p.onArticles} onJambo={p.onJambo} />}
+      {p.onArticles && p.onJambo && p.onBac && <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} />}
 
       {closed.length > 0 && (
         <>

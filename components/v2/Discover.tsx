@@ -8,7 +8,7 @@ const MiniCard: React.FC<{ r: number; red?: boolean; rot: number; x: number }> =
     style={{ transform: `rotate(${rot}deg)`, right: x, top: 12, color: red ? C.red : C.ink }}>{r}</div>
 );
 
-const Discover: React.FC<{ onArticles: () => void; onJambo: () => void }> = ({ onArticles, onJambo }) => (
+const Discover: React.FC<{ onArticles: () => void; onJambo: () => void; onBac: () => void }> = ({ onArticles, onJambo, onBac }) => (
   <>
     <div className="px-5 pt-7 pb-3 text-[17px] font-bold">À découvrir</div>
     <div className="px-5 grid grid-cols-2 gap-2.5">
@@ -22,6 +22,13 @@ const Discover: React.FC<{ onArticles: () => void; onJambo: () => void }> = ({ o
         <MiniCard r={10} rot={8} x={18} />
         <div className="serif text-[19px] font-semibold leading-tight">Jambo</div>
         <div className="text-[12.5px] mt-0.5" style={{ color: 'rgba(255,255,255,.7)' }}>Fap Fap, seul ou entre amis</div>
+      </button>
+      <button onClick={onBac} className="col-span-2 relative text-left rounded-2xl p-4 flex items-center gap-4 overflow-hidden" style={{ background: C.card, color: C.ink }}>
+        <div className="w-14 h-14 rounded-xl flex items-center justify-center serif text-[34px] font-semibold shrink-0" style={{ background: C.ink, color: C.ochre }}>B</div>
+        <div className="flex-1 min-w-0">
+          <div className="serif text-[19px] font-semibold leading-tight">Baccalauréat</div>
+          <div className="text-[12.5px] mt-0.5" style={{ color: C.mute }}>Le petit bac entre amis, sans feuille ni stylo</div>
+        </div>
       </button>
     </div>
   </>
