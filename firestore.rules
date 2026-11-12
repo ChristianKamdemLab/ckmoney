@@ -141,6 +141,13 @@ service cloud.firestore {
       allow read, write: if signedIn() && uid() == userId;
     }
 
+    // Articles de l'auteur : lisibles par tout compte connecté une fois publiés ; ses brouillons par lui seul.
+    // Écrits uniquement par le serveur (api/articles), qui vérifie que c'est bien l'auteur autorisé.
+    match /articles/{articleId} {
+      allow read: if signedIn() && (resource.data.status == 'published' || resource.data.authorUid == uid());
+      allow write: if false;
+    }
+
     // Notifications : chacun lit les siennes ; on ne peut notifier que l'autre partie d'un prêt commun.
     match /notifications/{notifId} {
       allow read: if signedIn() && resource.data.userId == uid();

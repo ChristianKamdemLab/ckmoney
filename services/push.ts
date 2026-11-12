@@ -50,7 +50,7 @@ export const pushNotification = async (notificationId: string) => {
   } catch { /* le push est un plus : l'appli reste la référence */ }
 };
 
-const callApi = async (path: string, body: object = {}) => {
+export const callApi = async (path: string, body: object = {}) => {
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error('auth');
   const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` }, body: JSON.stringify(body) });

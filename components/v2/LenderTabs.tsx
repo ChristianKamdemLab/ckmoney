@@ -4,6 +4,7 @@ import { Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, 
 import CKLogo from '../brand/CKLogo';
 import FiscalPanel from '../FiscalPanel';
 import PushCard from './PushCard';
+import Discover from './Discover';
 import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
 import { computeSituation } from '../../utils/schedule';
@@ -25,6 +26,8 @@ interface Props {
   onLogout: () => void;
   onLegal: (v: 'cgu' | 'privacy') => void;
   onBorrowerSpace?: () => void;
+  onArticles: () => void;
+  onJambo: () => void;
   requestLink: string;
 }
 
@@ -151,6 +154,7 @@ const LenderTabs: React.FC<Props> = (p) => {
       {p.onBorrowerSpace && (
         <div className="px-5 pt-4"><Button variant="secondary" onClick={p.onBorrowerSpace}>Voir ce que je dois</Button></div>
       )}
+      <Discover onArticles={p.onArticles} onJambo={p.onJambo} />
       {shareSheet}
     </Screen>
   );
