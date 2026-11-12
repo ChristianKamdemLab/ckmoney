@@ -70,7 +70,9 @@ const RulesSheet: React.FC<{ open: boolean; onClose: () => void }> = ({ open, on
 
 // ---------- Mise en place
 
-const Setup: React.FC<{ onStart: (bots: number, target: number) => void; onBack: () => void }> = ({ onStart, onBack }) => {
+const shareText = () => `Viens jouer au Fap Fap contre l'ordinateur. Gratuit, sans compte, on joue pour des points : ${window.location.origin}/jambo`;
+
+const Setup: React.FC<{ onStart: (bots: number, target: number) => void; onBack?: () => void; guest?: boolean }> = ({ onStart, onBack, guest }) => {
   const [bots, setBots] = useState('2');
   const [target, setTarget] = useState('10');
   const [rules, setRules] = useState(false);
@@ -97,11 +99,16 @@ const Setup: React.FC<{ onStart: (bots: number, target: number) => void; onBack:
           <div className="text-[13px] font-semibold mb-2" style={{ color: C.text2 }}>Partie en</div>
           <Chips options={[{ id: '5', label: '5 points' }, { id: '10', label: '10 points' }, { id: '15', label: '15 points' }]} value={target} onChange={setTarget} />
         </div>
-        <Note>On joue pour des points, jamais pour de l'argent. Bientôt : défier tes proches en ligne.</Note>
+        <Note>{guest ? "Gratuit et sans compte. On joue pour des points, jamais pour de l'argent." : "On joue pour des points, jamais pour de l'argent. Bientôt : défier tes proches en ligne."}</Note>
       </div>
       <div className="mt-auto px-5 pt-6 pb-[max(env(safe-area-inset-bottom),24px)] flex flex-col gap-2.5">
         <Button onClick={() => onStart(Number(bots), Number(target))}>Distribuer</Button>
+        <a href={`https://wa.me/?text=${encodeURIComponent(shareText())}`} target="_blank" rel="noopener noreferrer"
+          className="h-12 rounded-2xl flex items-center justify-center gap-2 text-[15px] font-semibold" style={{ background: C.card, color: C.ink }}>
+          <Icon name="chat" size={20} /> Inviter quelqu'un à jouer
+        </a>
         <Button variant="ghost" onClick={() => setRules(true)}>Revoir les règles</Button>
+        {guest && <div className="text-[12px] text-center" style={{ color: C.mute }}>Une app CKLabs</div>}
       </div>
       <RulesSheet open={rules} onClose={() => setRules(false)} />
     </Screen>
@@ -286,14 +293,14 @@ export const JamboTable: React.FC<{ initial: Game; onQuit: () => void; onReplay:
   );
 };
 
-const Jambo: React.FC<{ playerName: string; onBack: () => void }> = ({ playerName, onBack }) => {
+const Jambo: React.FC<{ playerName: string; onBack?: () => void; guest?: boolean }> = ({ playerName, onBack, guest }) => {
   const [game, setGame] = useState<{ g: Game; key: number; bots: number; target: number } | null>(null);
   const start = (bots: number, target: number) => {
     const names = [{ name: firstName(playerName) || 'Toi', human: true }, ...BOTS.slice(0, bots).map(name => ({ name, human: false }))];
     setGame({ g: newGame(names, target), key: Date.now(), bots, target });
     window.scrollTo(0, 0);
   };
-  if (!game) return <Setup onStart={start} onBack={onBack} />;
+  if (!game) return <Setup onStart={start} onBack={onBack} guest={guest} />;
   return <JamboTable key={game.key} initial={game.g} onQuit={() => setGame(null)} onReplay={() => start(game.bots, game.target)} />;
 };
 
