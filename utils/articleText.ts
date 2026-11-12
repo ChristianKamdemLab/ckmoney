@@ -94,7 +94,8 @@ export const linesToArticle = (raw: PdfLine[]): { title: string; blocks: Block[]
   const join = (ls: PdfLine[]) => ls.reduce((acc, l) => {
     const t = l.text.trim();
     if (!acc) return t;
-    return acc.endsWith('-') && /^\p{Ll}/u.test(t) ? acc + t : `${acc} ${t}`;
+    // Trait d'union en fin de ligne collé à un mot (« ex- » / « Twitter ») : on recolle sans espace
+    return /\p{L}-$/u.test(acc) ? acc + t : `${acc} ${t}`;
   }, '').replace(/\s+/g, ' ').trim();
 
   let title = '';

@@ -21,7 +21,7 @@ const Discover: React.FC<{ onArticles: () => void; onJambo: () => void }> = ({ o
         <MiniCard r={3} red rot={-12} x={46} />
         <MiniCard r={10} rot={8} x={18} />
         <div className="serif text-[19px] font-semibold leading-tight">Jambo</div>
-        <div className="text-[12.5px] mt-0.5" style={{ color: 'rgba(255,255,255,.7)' }}>Fap Fap contre l'ordinateur</div>
+        <div className="text-[12.5px] mt-0.5" style={{ color: 'rgba(255,255,255,.7)' }}>Fap Fap, seul ou entre amis</div>
       </button>
     </div>
   </>
