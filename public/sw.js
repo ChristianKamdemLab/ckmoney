@@ -27,7 +27,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         // Seule l'appli sert de secours hors ligne (pas les pages publiques des jeux).
-        .then((res) => { if (res.ok && !['/jambo', '/bac'].includes(url.pathname)) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('/', copy)); } return res; })
+        .then((res) => { if (res.ok && !['/jambo', '/bac', '/wiseman'].includes(url.pathname)) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('/', copy)); } return res; })
         .catch(() => caches.match('/')),
     );
     return;

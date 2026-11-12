@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Le Wiseman · trouve l’intrus</title>
+    <meta name="description" content="Un mot secret chacun, un intrus parmi vous. Jeu entre amis, chacun sur son téléphone, sans compte.">
+    <meta property="og:title" content="Le Wiseman · trouve l’intrus">
+    <meta property="og:description" content="Rejoins la table : un indice chacun, puis on vote pour démasquer l’intrus.">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#16204A">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-title" content="Wiseman">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..800;1,8..60,400..700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Figtree', system-ui, sans-serif; background-color: #F8F7F3; color: #22263A; -webkit-font-smoothing: antialiased; }
+        .serif { font-family: 'Source Serif 4', Georgia, serif; }
+        @keyframes sheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/wiseman.tsx"></script>
+</body>
+</html>
