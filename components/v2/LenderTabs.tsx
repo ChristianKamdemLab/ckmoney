@@ -5,6 +5,7 @@ import CKLogo from '../brand/CKLogo';
 import FiscalPanel from '../FiscalPanel';
 import PushCard from './PushCard';
 import Discover from './Discover';
+import { InstallCard, InstallButton } from './Install';
 import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
 import { computeSituation } from '../../utils/schedule';
@@ -136,6 +137,7 @@ const LenderTabs: React.FC<Props> = (p) => {
           <Icon name="chat" size={20} /> Partager mon lien de demande
         </button>
       </div>
+      <InstallCard />
       {ratesOutdated() && (
         <div className="px-5 pt-4"><Note tone="warn">Les taux légaux enregistrés dans l'appli datent d'avant le {dateFr(RATES_VALID_UNTIL, { day: 'numeric', month: 'long', year: 'numeric' })}. La mise à jour préparée par l'agent de veille attend ta validation sur GitHub.</Note></div>
       )}
@@ -241,6 +243,7 @@ const LenderTabs: React.FC<Props> = (p) => {
           ))}
         </Card>
         {p.profile?.paymentLink ? <Note>Tes proches voient un bouton « Payer » vers {/paypal/i.test(p.profile.paymentLink) ? 'ton PayPal, avec le montant déjà rempli' : 'ton lien de paiement'}.</Note> : <Note tone="warn">Ajoute ton lien PayPal.me dans tes informations : tes proches auront un bouton « Payer » avec le montant déjà rempli.</Note>}
+        <InstallButton className="w-full" />
         <Button variant="danger" onClick={p.onLogout}><Icon name="logout" size={20} /> Se déconnecter</Button>
         <p className="text-xs text-center px-4 pt-2 leading-relaxed" style={{ color: C.mute }}>
           CKMoney est un outil personnel de suivi de prêts entre proches. Il ne détient aucun fonds et ne remplace pas le conseil d'un professionnel du droit.

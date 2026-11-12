@@ -19,7 +19,6 @@ import { Landing, BorrowerSignFlow, RequestFlow, BorrowerSpace, IdentityEditor }
 import ProfileSetup from './components/ProfileSetup';
 import LegalDocs from './components/LegalDocs';
 import ContractPreview from './components/ContractPreview';
-import InstallPrompt from './components/InstallPrompt';
 import CKLogo from './components/brand/CKLogo';
 // Articles et Jambo : chargés seulement quand on les ouvre
 const ArticlesScreen = lazy(() => import('./components/v2/Articles'));
@@ -314,7 +313,6 @@ const App: React.FC = () => {
   // ---------- Ami (pas prêteur) : son espace
   if (!isLender) return (
     <ErrorBoundary>
-      <InstallPrompt />
       <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
         onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
@@ -328,7 +326,6 @@ const App: React.FC = () => {
   const hasBorrowerSide = loans.some(l => l.borrowerUid === user.id);
   return (
     <ErrorBoundary>
-      {tab === 'home' && <InstallPrompt />}
       <LenderTabs tab={tab} user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
         onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}

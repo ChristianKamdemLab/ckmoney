@@ -3,6 +3,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { initInstall } from './services/install';
+
+// L'invite d'installation d'Android n'arrive qu'une fois, au chargement : on la garde tout de suite.
+initInstall();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
