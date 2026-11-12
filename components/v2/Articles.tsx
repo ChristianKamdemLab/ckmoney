@@ -173,6 +173,10 @@ const Editor: React.FC<{ initial?: Article; onBack: () => void; onSaved: (id?: s
         {mode === 'write' ? (
           <>
             <Field label="Titre" htmlFor="at"><input id="at" value={d.title} onChange={e => setD({ ...d, title: e.target.value })} className={inputClass} style={inputStyle} /></Field>
+            <Field label="Date de l'article" htmlFor="ad" hint="Le jour où tu l'as écrit. Vide : la date de publication. Les articles sont classés du plus récent au plus ancien.">
+              <input id="ad" type="date" value={(d.publishedAt || '').slice(0, 10)} max={new Date().toISOString().slice(0, 10)}
+                onChange={e => setD({ ...d, publishedAt: e.target.value ? `${e.target.value}T12:00:00.000Z` : undefined })} className={inputClass} style={inputStyle} />
+            </Field>
             <Field label="Texte" htmlFor="ab" hint={<>Une ligne = un paragraphe. Commence une ligne par <b>##</b> pour un intertitre, par <b>-</b> pour une puce.</>}>
               <textarea id="ab" value={d.body} onChange={e => setD({ ...d, body: e.target.value })} rows={16}
                 className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551] min-h-[45dvh]" style={inputStyle} />
