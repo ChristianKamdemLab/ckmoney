@@ -9,6 +9,10 @@
       "destination": "/bac.html"
     },
     {
+      "source": "/wiseman",
+      "destination": "/wiseman.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

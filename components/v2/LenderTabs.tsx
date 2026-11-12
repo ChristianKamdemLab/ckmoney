@@ -29,6 +29,7 @@ interface Props {
   onArticles: () => void;
   onJambo: () => void;
   onBac: () => void;
+  onWiseman: () => void;
   requestLink: string;
 }
 
@@ -157,7 +158,7 @@ const LenderTabs: React.FC<Props> = (p) => {
       {p.onBorrowerSpace && (
         <div className="px-5 pt-4"><Button variant="secondary" onClick={p.onBorrowerSpace}>Voir ce que je dois</Button></div>
       )}
-      <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} />
+      <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} />
       {shareSheet}
     </Screen>
   );
