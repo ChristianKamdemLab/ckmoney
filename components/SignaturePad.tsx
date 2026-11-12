@@ -132,10 +132,10 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, label }) => {
         <button 
           type="button" 
           onClick={clear}
-          className="text-slate-400 hover:text-red-500 transition-colors p-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+          className="text-slate-500 hover:text-red-500 transition-colors px-2 py-1.5 -mr-2 flex items-center gap-1.5 text-[13px] font-semibold"
           title="Effacer"
         >
-          <Eraser size={12} /> Effacer
+          <Eraser size={14} /> Effacer
         </button>
       </div>
       {/* Container agrandi (h-48 au lieu de h-32) et bordure plus visible */}
@@ -154,7 +154,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, label }) => {
         />
         {!isDrawing && (
             <div className="absolute bottom-3 right-3 pointer-events-none opacity-30 text-[10px] text-slate-400 font-medium bg-white px-2 py-1 rounded-md">
-            Signez ici
+            Signe ici
             </div>
         )}
       </div>

@@ -239,7 +239,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
   // ---------- Étape 3 : remboursement et signature
   if (step === 3) {
     const last = schedule[schedule.length - 1];
-    const lateLabel = lateMode === 'legal' ? 'taux légal si retard' : lateMode === 'none' ? 'pas de pénalité' : `${lateRate.toLocaleString('fr-FR')} % si retard`;
+    const lateLabel = lateMode === 'legal' ? 'taux légal si retard' : lateMode === 'none' ? 'sans intérêts de retard' : `${lateRate.toLocaleString('fr-FR')} % si retard`;
     return (
       <Screen>
         <TopBar onBack={() => setStep(prefill?.amount ? 1 : 2)} progress={[3, 3]} />
@@ -340,8 +340,8 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
               <span style={{ transform: advanced ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}><Icon name="chevron" size={18} /></span>
             </button>
             {advanced && (<>
-            <Field label="En cas de retard">
-              <Chips value={lateMode} onChange={v => setLateMode(v as any)} options={[{ id: 'legal', label: 'Taux légal' }, { id: 'none', label: 'Rien' }, { id: 'custom', label: 'Mon taux' }]} />
+            <Field label="Intérêts de retard">
+              <Chips value={lateMode} onChange={v => setLateMode(v as any)} options={[{ id: 'legal', label: 'Taux légal' }, { id: 'none', label: 'Aucun' }, { id: 'custom', label: 'Mon taux' }]} />
             </Field>
             {lateMode === 'legal' && <Note>Intérêts au taux légal ({LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an aujourd'hui) sur les sommes en retard. C'est le réglage le plus sûr.</Note>}
             {lateMode === 'custom' && (
@@ -375,8 +375,10 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
     : alreadyGiven
     ? `Salut ${friendLabel}, comme on en a parlé, je mets au propre les ${euro(amount, currency)} que je t'ai prêtés le ${dateFr(loanDate)} : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `${schedule[0].dueDate < toISODate(new Date()) ? 'remboursement prévu le' : 'à rembourser le'} ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}. Tu peux le lire et le signer ici : ${link}`
     : `Salut ${friendLabel}, voici le contrat pour les ${euro(amount, currency)} (${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}). Tu peux le lire et le signer ici : ${link}`;
-  const extras = penaltyRate ? ` En cas de retard : pénalité de ${penaltyRate} % et intérêts de retard.` : '';
-  const wa = `https://wa.me/${fullPhone}?text=${encodeURIComponent(editLoan ? `Salut ${friendLabel}, j'ai mis à jour le contrat (${euro(amount, currency)}).${extras} Le lien reste le même : ${link}` : message.replace(/ Tu peux le lire| Si ça te va/, m => `${extras}${m}`))}`;
+  const extras = penaltyRate ? ` En cas de retard : pénalité de ${penaltyRate.toLocaleString('fr-FR')} %${lateMode !== 'none' ? ' et intérêts de retard' : ''}.` : '';
+  // Le message réellement envoyé : c'est lui que montre l'aperçu.
+  const sent = editLoan ? `Salut ${friendLabel}, j'ai mis à jour le contrat (${euro(amount, currency)}).${extras} Le lien reste le même : ${link}` : message.replace(/ Tu peux le lire| Si ça te va/, m => `${extras}${m}`);
+  const wa = `https://wa.me/${fullPhone}?text=${encodeURIComponent(sent)}`;
   return (
     <Screen>
       <TopBar right={<button onClick={() => result && onDone(result.loanId)} aria-label="Fermer" className="w-11 h-11 flex items-center justify-center"><Icon name="close" /></button>} />
@@ -391,7 +393,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
       <div className="px-6 pt-7 flex flex-col gap-1.5">
         <div className="text-[13px] font-semibold" style={{ color: C.mute }}>Aperçu du message</div>
         <div className="self-end max-w-[300px] px-3.5 py-3 text-sm leading-[1.45] rounded-[14px_14px_4px_14px]" style={{ background: '#DCF8C6', color: '#1B2B1E' }}>
-          {message.replace(link, '')}<span className="block mt-1.5 font-semibold break-all" style={{ color: '#0B6E99' }}>{link}</span>
+          {sent.replace(link, '')}<span className="block mt-1.5 font-semibold break-all" style={{ color: '#0B6E99' }}>{link}</span>
         </div>
       </div>
       {!friend?.uid && (

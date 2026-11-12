@@ -28,7 +28,7 @@ const ReceiveFields: React.FC<{ value: ReceiveInfo; onChange: (r: ReceiveInfo) =
       )}
       {r.method === 'virement' && (
         <>
-          <Field label="IBAN" htmlFor="iban" hint={ibanTyped && !isValidIban(r.value) ? "Cet IBAN n'est pas valide, vérifie-le." : 'Ton RIB : il te fait un virement instantané.'}>
+          <Field label="IBAN" htmlFor="iban" hint={ibanTyped && !isValidIban(r.value) ? "Cet IBAN n'est pas valide, vérifie-le." : ibanTyped ? `${formatIban(r.value)} : IBAN valide, il te fait un virement instantané.` : 'Ton RIB : il te fait un virement instantané.'}>
             <input id="iban" value={r.value} onChange={e => onChange({ ...r, value: e.target.value.toUpperCase() })} autoCapitalize="characters" autoComplete="off"
               className={inputClass} style={{ ...inputStyle, fontFamily: 'ui-monospace, monospace', letterSpacing: '0.02em' }} placeholder="FR76 3000 …" />
           </Field>

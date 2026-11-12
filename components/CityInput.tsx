@@ -99,7 +99,7 @@ const CityInput: React.FC<CityInputProps> = ({ label, value, onChange, required 
         <input 
           required={required}
           type="text" 
-          placeholder="Commencez à taper (ex: Paris)" 
+          placeholder="Commence à taper (ex. Paris)" 
           value={query}
           onChange={handleSearch}
           onFocus={() => {

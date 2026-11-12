@@ -99,7 +99,7 @@ const LegalDocs: React.FC<LegalDocsProps> = ({ view, onClose }) => {
                     <h3 className="text-[17px] font-bold mb-1.5">3. Durée de conservation et droits</h3>
                     <p>
                         Les données sont conservées jusqu'à cinq ans après le remboursement complet, durée de prescription de l'action en paiement (article 2224 du Code civil).
-                        Vous pouvez demander l'accès, la rectification ou l'effacement de vos données au prêteur, dans la limite de ce qui est nécessaire à la preuve du contrat (RGPD, articles 15 à 17).
+                        Tu peux demander l'accès, la rectification ou l'effacement de tes données au prêteur, dans la limite de ce qui est nécessaire à la preuve du contrat (RGPD, articles 15 à 17).
                     </p>
                  </section>
               </div>
