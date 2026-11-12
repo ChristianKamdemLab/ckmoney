@@ -4,6 +4,7 @@ import { Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, 
 import CKLogo from '../brand/CKLogo';
 import FiscalPanel from '../FiscalPanel';
 import PushCard from './PushCard';
+import { sendTestReminder } from '../../services/push';
 import { computeSituation } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
 import { fetchExchangeRate } from '../../services/exchangeRate';
@@ -210,6 +211,14 @@ const LenderTabs: React.FC<Props> = (p) => {
           {[
             ['Mes informations pour les contrats', p.onEditProfile],
             ['Mon lien de demande', () => setShareOpen(true)],
+            ["M'envoyer un rappel de test", async () => {
+              setToast('Envoi en cours…');
+              try {
+                const r = await sendTestReminder();
+                setToast(r.status !== 200 ? "L'envoi a échoué" : r.data.reason === 'gmail_non_configure' ? "Gmail n'est pas encore configuré"
+                  : r.data.mail ? `E-mail envoyé à ${r.data.to}${r.data.pushed ? ' + notification' : ''}` : "L'e-mail n'a pas pu partir : vérifie le mot de passe d'application");
+              } catch { setToast("L'envoi a échoué"); }
+            }],
             ...(p.onBorrowerSpace ? [['Ce que je dois', p.onBorrowerSpace] as const] : []),
             ['Conditions d’utilisation', () => p.onLegal('cgu')],
             ['Confidentialité', () => p.onLegal('privacy')],

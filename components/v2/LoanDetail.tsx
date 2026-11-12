@@ -8,6 +8,7 @@ import {
   getLenderCard, payUrl, payProvider, markFundsSent,
 } from '../../services/loanService';
 import ContractPreview from '../ContractPreview';
+import { sendReminderNow } from '../../services/push';
 
 interface Props {
   loan: Loan;
@@ -48,7 +49,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
   const lateRate = effectiveLateRate(loan, LEGAL_INTEREST_RATE);
   const other = isLender ? (loan.borrowerNickname || firstName(loan.borrowerName)) : firstName(loan.lenderName);
   const pending = loan.status === 'pending_borrower';
-  const [sheet, setSheet] = useState<null | 'pay' | 'delay' | 'more'>(null);
+  const [sheet, setSheet] = useState<null | 'pay' | 'delay' | 'more' | 'remind'>(null);
   const [showContract, setShowContract] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -145,7 +146,8 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
         {isLender ? (
           <>
             {!pending && <Action icon="check" label="Encaisser" primary onClick={() => setSheet('pay')} />}
-            <Action icon="chat" label="Relancer" href={wa} onClick={() => undefined} />
+            {pending ? <Action icon="chat" label="Relancer" href={wa} onClick={() => undefined} />
+              : <Action icon="chat" label="Relancer" onClick={() => setSheet('remind')} />}
             <Action icon="file" label="Contrat" onClick={() => setShowContract(true)} />
             <Action icon="dots" label="Plus" onClick={() => setSheet('more')} />
           </>
@@ -343,6 +345,25 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
       </Sheet>
 
       {/* Plus */}
+      <Sheet open={sheet === 'remind'} onClose={() => setSheet(null)} title={`Relancer ${other}`}>
+        <div className="flex flex-col gap-2.5">
+          <Button busy={busy === 'remind'} onClick={async () => {
+            setBusy('remind');
+            try {
+              const r = await sendReminderNow(loan.id);
+              setToast(r.status === 200 ? `Rappel envoyé${r.data.mailed ? ' par e-mail' : ''}${r.data.pushed ? (r.data.mailed ? ' et notification' : ' par notification') : ''}${!r.data.mailed && !r.data.pushed ? ' dans son appli' : ''}`
+                : r.status === 429 ? "Déjà relancé aujourd'hui" : r.status === 409 ? "Il n'a pas encore signé" : "Le rappel n'a pas pu partir");
+              setSheet(null);
+            } catch { setToast("Le rappel n'a pas pu partir"); }
+            setBusy(null);
+          }}>Envoyer un rappel maintenant</Button>
+          <div className="text-[13px] text-center -mt-1" style={{ color: C.mute }}>Par notification et par e-mail, avec le bouton Payer. Un par jour au plus.</div>
+          <a href={wa} target="_blank" rel="noopener noreferrer" className="h-14 rounded-2xl flex items-center justify-center gap-2 text-base font-bold text-white" style={{ background: C.green }}>
+            <Icon name="chat" /> Relancer sur WhatsApp
+          </a>
+        </div>
+      </Sheet>
+
       <Sheet open={sheet === 'more'} onClose={() => { setSheet(null); setConfirmDel(false); }} title="Plus">
         <div className="flex flex-col gap-2.5">
           {pending && loan.inviteToken && (

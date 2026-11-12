@@ -49,3 +49,17 @@ export const pushNotification = async (notificationId: string) => {
     });
   } catch { /* le push est un plus : l'appli reste la référence */ }
 };
+
+const callApi = async (path: string, body: object = {}) => {
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) throw new Error('auth');
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` }, body: JSON.stringify(body) });
+  const data = await r.json().catch(() => ({}));
+  return { status: r.status, data };
+};
+
+/** Le prêteur s'envoie un rappel d'exemple (e-mail + notification). */
+export const sendTestReminder = () => callApi('/api/test-mail');
+
+/** Le prêteur envoie tout de suite un rappel à son proche (notification + e-mail). */
+export const sendReminderNow = (loanId: string) => callApi('/api/remind', { loanId });
