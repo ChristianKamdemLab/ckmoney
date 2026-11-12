@@ -76,6 +76,36 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
     const base = s.schedule.filter(i => i.outstanding > 0.004 && (i.lateFrom || i.dueDate) < delayDate).reduce((a, i) => a + i.outstanding, 0);
     return Math.round(base * lateRate / 100 * days / 365 * 100) / 100;
   })();
+  /** Ce que le proche devra payer à une date donnée : sommes dues à cette date + intérêts de retard courus. */
+  const quoteAt = (date?: string) => {
+    if (!date) return null;
+    const q = computeSituation(loan, LEGAL_INTEREST_RATE, new Date(date + 'T12:00:00'));
+    const principal = Math.round(q.schedule.filter(i => i.dueDate <= date || (i.lateFrom && i.lateFrom <= date)).reduce((a, i) => a + i.outstanding, 0) * 100) / 100 || q.overdueAmount;
+    const interest = Math.round(q.lateInterest * 100) / 100;
+    const start = unpaidFrom ? (unpaidFrom.lateFrom || unpaidFrom.dueDate) : undefined;
+    return { principal, interest, total: Math.round((principal + interest) * 100) / 100, start };
+  };
+  const QuoteTable: React.FC<{ date: string }> = ({ date }) => {
+    const q = quoteAt(date);
+    if (!q) return null;
+    const rows: [string, string][] = [
+      ['Nouvelle date', dateFr(date)],
+      ['Somme due', euro2(q.principal, loan.currency)],
+      ...(loan.interestRate ? [['Intérêts du prêt', `${loan.interestRate.toLocaleString('fr-FR')} % par an (compris dans les échéances)`] as [string, string]] : []),
+      ['Taux de retard', lateRate ? `${lateRate.toLocaleString('fr-FR')} % par an${loan.lateRateMode === 'legal' ? ' (taux légal)' : ''}${q.start ? `, depuis le ${dateFr(q.start, { day: 'numeric', month: 'long' })}` : ''}` : 'Aucun'],
+      ['Intérêts de retard', euro2(q.interest, loan.currency)],
+      ['Total à payer', euro2(q.total, loan.currency)],
+    ];
+    return (
+      <div className="rounded-2xl overflow-hidden mt-3" style={{ border: `1px solid ${C.line}` }}>
+        {rows.map(([k, v], i) => (
+          <div key={k} className="flex justify-between gap-3 px-3.5 py-2.5 text-sm" style={{ borderTop: i ? `1px solid ${C.line}` : undefined, background: i === rows.length - 1 ? C.soft : '#fff', fontWeight: i === rows.length - 1 ? 700 : 400 }}>
+            <span style={{ color: i === rows.length - 1 ? C.ink : C.mute }}>{k}</span><span className="text-right">{v}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
   const payLink = payUrl(lenderLink, dueNow, loan.currency);
   const dailyLate = lateRate && s.overdueAmount > 0 ? Math.round(s.overdueAmount * lateRate / 100 / 365 * 100) / 100 : 0;
 
@@ -229,7 +259,8 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
         {loan.status === 'delay_requested' && loan.delayProposedDate && (
           <Card className="p-4">
             <div className="text-[15px] font-semibold">{isLender ? `${other} demande un délai` : 'Délai demandé'}</div>
-            <div className="text-sm mt-1" style={{ color: C.mute }}>Report des échéances impayées au {dateFr(loan.delayProposedDate)}.</div>
+            <div className="text-sm mt-1" style={{ color: C.mute }}>{isLender ? `${other} propose de payer le ${dateFr(loan.delayProposedDate)}. Voici ce que ça représente :` : `Tu as proposé de payer le ${dateFr(loan.delayProposedDate)}.`}</div>
+            <QuoteTable date={loan.delayProposedDate} />
             {isLender && lateRate > 0 && (
               <label className="flex items-start gap-2.5 mt-3 text-sm leading-snug cursor-pointer">
                 <input type="checkbox" checked={keepLate} onChange={e => setKeepLate(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#1C2551]" />
@@ -330,17 +361,16 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged })
       </Sheet>
 
       {/* Délai */}
-      <Sheet open={sheet === 'delay'} onClose={() => setSheet(null)} title="Demander un délai">
+      <Sheet open={sheet === 'delay'} onClose={() => setSheet(null)} title="Proposer une nouvelle date">
         <div className="flex flex-col gap-4">
           <Field label="Nouvelle date souhaitée" htmlFor="dd"><input id="dd" type="date" min={toISODate(new Date())} value={delayDate} onChange={e => setDelayDate(e.target.value)} className={inputClass} style={inputStyle} /></Field>
+          {delayDate && <QuoteTable date={delayDate} />}
           {lateRate > 0 ? (
             <Note tone="warn">
-              Si {other} accepte, les échéances impayées sont reportées à cette date. En demandant ce délai, tu acceptes que les intérêts de retard
-              ({lateRate.toLocaleString('fr-FR')} % par an) continuent de courir depuis le {unpaidFrom ? dateFr(unpaidFrom.lateFrom || unpaidFrom.dueDate, { day: 'numeric', month: 'long' }) : ''} jusqu'au paiement
-              {delayDate && delayCost > 0 ? <> : environ <strong>{euro2(delayCost, loan.currency)}</strong> si tu paies le {dateFr(delayDate, { day: 'numeric', month: 'long' })}</> : null}.
+              En proposant cette date, tu acceptes que les intérêts de retard ({lateRate.toLocaleString('fr-FR')} % par an) continuent de courir jusqu'au paiement. {other} reçoit ta proposition avec ce détail, et l'accepte ou la refuse.
             </Note>
-          ) : <Note>Si {other} accepte, les échéances impayées sont reportées à cette date.</Note>}
-          <Button disabled={!delayDate || loan.status !== 'active'} busy={busy === 'delay'} onClick={() => run('delay', () => requestDelay(loan, delayDate), 'Demande envoyée')}>Envoyer la demande</Button>
+          ) : <Note>{other} reçoit ta proposition et l'accepte ou la refuse.</Note>}
+          <Button disabled={!delayDate || loan.status !== 'active'} busy={busy === 'delay'} onClick={() => run('delay', () => requestDelay(loan, delayDate, quoteAt(delayDate) || undefined, lateRate), 'Proposition envoyée')}>Envoyer la proposition</Button>
         </div>
       </Sheet>
 

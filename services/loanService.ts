@@ -421,14 +421,16 @@ export const markLoanPaid = async (loanId: string) => {
 
 // --- DÉLAIS -----------------------------------------------------------------
 
-export const requestDelay = async (loan: Loan, newDate: string) => {
+export const requestDelay = async (loan: Loan, newDate: string, quote?: { principal: number; interest: number; total: number }, lateRate = 0) => {
   await updateDoc(doc(db, LOANS, loan.id), {
     status: 'delay_requested', delayProposedDate: newDate, delayRequestDate: new Date().toISOString(),
   });
   if (loan.lenderUid) {
     await sendNotification({
       userId: loan.lenderUid, loanId: loan.id, type: 'action_required', title: 'Demande de délai',
-      message: `${loan.borrowerNickname || firstName(loan.borrowerName)} propose de reporter au ${new Date(newDate).toLocaleDateString('fr-FR')}.`,
+      message: quote
+        ? `${loan.borrowerNickname || firstName(loan.borrowerName)} propose de payer le ${new Date(newDate).toLocaleDateString('fr-FR')} : ${quote.principal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € + ${quote.interest.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € d'intérêts de retard${lateRate ? ` (${lateRate.toLocaleString('fr-FR')} %/an)` : ''} = ${quote.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €.`
+        : `${loan.borrowerNickname || firstName(loan.borrowerName)} propose de reporter au ${new Date(newDate).toLocaleDateString('fr-FR')}.`,
       actionType: 'review_delay',
     });
   }
