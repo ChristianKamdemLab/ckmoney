@@ -128,7 +128,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, label }) => {
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</label>
+        <label className="text-[13px] font-semibold text-slate-500">{label}</label>
         <button 
           type="button" 
           onClick={clear}

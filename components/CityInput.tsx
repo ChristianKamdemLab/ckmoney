@@ -93,7 +93,7 @@ const CityInput: React.FC<CityInputProps> = ({ label, value, onChange, required 
 
   return (
     <div className="space-y-1 relative w-full" ref={wrapperRef}>
-      <label className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wide">{label}</label>
+      <label className="text-[13px] font-semibold text-slate-700">{label}</label>
       <div className="relative">
         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
         <input 
@@ -108,7 +108,7 @@ const CityInput: React.FC<CityInputProps> = ({ label, value, onChange, required 
               setIsOpen(true);
             }
           }}
-          className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-sm bg-white" 
+          className="w-full pl-10 pr-4 h-[52px] rounded-[14px] border-[1.5px] border-slate-200 focus:border-indigo-600 outline-none text-base bg-white" 
           autoComplete="off"
         />
         {/* On masque le badge pays ici car il est affiché séparément dans le formulaire parent pour plus de clarté */}

@@ -77,6 +77,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
   const [penaltyRate, setPenaltyRate] = useState<number>(editLoan ? (editLoan.penaltyRate || 0) : (profile.penaltyRate || 0));
   const [delayRate, setDelayRate] = useState<number>(editLoan ? (editLoan.delayRate || 0) : (profile.delayRate || 0));
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const [drawnSig, setDrawnSig] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -327,6 +328,18 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
             <Field label={`Intérêts : ${rate ? `${rate.toLocaleString('fr-FR')} % par an` : 'aucun'}`} hint={`${rate ? `Soit ${euro2(totalInterest, currency)} d'intérêts au total. ` : ''}Maximum légal pour ce montant : ${cap.toLocaleString('fr-FR')} % par an (${RATE_CAP_LABEL}). Les intérêts reçus sont imposables pour toi.`}>
               <input type="range" min={0} max={cap} step={0.25} value={rate} onChange={e => setRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
             </Field>
+            <Field label={`Pénalité forfaitaire si retard : ${penaltyRate ? `${penaltyRate.toLocaleString('fr-FR')} %` : 'aucune'}`}
+              hint={`Due une fois par échéance non payée à temps${penaltyRate ? `, soit ${euro2(amount * penaltyRate / 100, currency)} sur ce prêt` : ''}. Maximum ${PENALTY_MAX} % : au-delà, un juge la réduirait.`}>
+              <input type="range" min={0} max={PENALTY_MAX} step={1} value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+            </Field>
+            <button type="button" onClick={() => setAdvanced(v => !v)} aria-expanded={advanced} className="flex items-center justify-between text-left">
+              <span>
+                <span className="text-[15px] font-semibold block">Réglages avancés</span>
+                <span className="text-[13px]" style={{ color: C.mute }}>{lateLabel}{delayRate ? ` · report ${Math.min(cap, delayRate).toLocaleString('fr-FR')} %` : ''} · {currency}</span>
+              </span>
+              <span style={{ transform: advanced ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}><Icon name="chevron" size={18} /></span>
+            </button>
+            {advanced && (<>
             <Field label="En cas de retard">
               <Chips value={lateMode} onChange={v => setLateMode(v as any)} options={[{ id: 'legal', label: 'Taux légal' }, { id: 'none', label: 'Rien' }, { id: 'custom', label: 'Mon taux' }]} />
             </Field>
@@ -336,10 +349,6 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
                 <input type="range" min={0.5} max={cap} step={0.25} value={lateRate} onChange={e => setLateRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
               </Field>
             )}
-            <Field label={`Pénalité forfaitaire si retard : ${penaltyRate ? `${penaltyRate.toLocaleString('fr-FR')} %` : 'aucune'}`}
-              hint={`Due une fois par échéance non payée à temps${penaltyRate ? `, soit ${euro2(amount * penaltyRate / 100, currency)} sur ce prêt` : ''}. Maximum ${PENALTY_MAX} % : au-delà, un juge la réduirait.`}>
-              <input type="range" min={0} max={PENALTY_MAX} step={1} value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
-            </Field>
             <Field label={`Taux de report : ${delayRate ? `${Math.min(cap, delayRate).toLocaleString('fr-FR')} % par an` : 'taux de retard'}`}
               hint={`Appliqué si ton proche demande une nouvelle date, depuis l'échéance manquée. Maximum ${cap.toLocaleString('fr-FR')} % pour ce montant.`}>
               <input type="range" min={0} max={cap} step={0.5} value={Math.min(cap, delayRate)} onChange={e => setDelayRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
@@ -351,6 +360,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
                 </select>
               </Field>
             </div>
+            </>)}
             <Button onClick={() => setOptionsOpen(false)}>Valider</Button>
           </div>
         </Sheet>

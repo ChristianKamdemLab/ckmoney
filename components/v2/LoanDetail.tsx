@@ -5,7 +5,7 @@ import { computeSituation, effectiveLateRate, toISODate } from '../../utils/sche
 import { LEGAL_INTEREST_RATE, rateCapFor } from '../../config/legal';
 import {
   recordPaymentByLender, reviewPayment, markLoanPaid, declarePayment, requestDelay, respondToDelay, deleteOffer, inviteLinkFor,
-  getLenderCard, payUrl, payProvider, markFundsSent,
+  getLenderCard, payUrl, payProvider, markFundsSent, verifyContract,
 } from '../../services/loanService';
 import ContractPreview from '../ContractPreview';
 import { sendReminderNow } from '../../services/push';
@@ -59,6 +59,10 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
   const [payMethod, setPayMethod] = useState('Virement');
   const [delayDate, setDelayDate] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
+  const [contractCheck, setContractCheck] = useState(loan.contractCheck);
+  useEffect(() => {
+    if (isLender && !loan.contractCheck) verifyContract(loan).then(r => { if (r) setContractCheck(r); }).catch(() => undefined);
+  }, [loan.id, loan.borrowerSignedAt]);
   const [lenderLink, setLenderLink] = useState<string | undefined>(loan.lenderPaymentLink || undefined);
   const [lenderDelayRate, setLenderDelayRate] = useState<number | undefined>(isLender ? profile?.delayRate : undefined);
   useEffect(() => {
@@ -265,6 +269,9 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
               );
             })()}
           </Card>
+        )}
+        {isLender && contractCheck === 'mismatch' && (
+          <Note tone="danger" icon="alert">Le texte du contrat enregistré lors de la signature de {other} ne correspond pas aux conditions que tu as signées. Ne te fie pas à ce document : compare-le avec les conditions affichées ici et demande-lui de signer à nouveau.</Note>
         )}
         {pending && isLender && <Note icon="clock">{other} n'a pas encore signé. Tu peux lui renvoyer le lien avec « Relancer ».</Note>}
         {loan.status === 'delay_requested' && loan.delayProposedDate && (

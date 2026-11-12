@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { auth, googleProvider } from '../../services/firebase';
 import { Screen, TopBar, Button, Field, inputClass, inputStyle, Note, C } from './ui';
 import CKLogo from '../brand/CKLogo';
@@ -50,6 +50,8 @@ const Auth: React.FC<{ context?: string; onBack?: () => void }> = ({ context, on
       else {
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         if (name.trim()) await updateProfile(cred.user, { displayName: name.trim() });
+        // Sans confirmation de l'adresse, pas de rappels par e-mail (l'appli reste utilisable).
+        sendEmailVerification(cred.user).catch(() => undefined);
       }
     } catch (e: any) { setError(errorText(e.code)); }
     finally { setBusy(null); }

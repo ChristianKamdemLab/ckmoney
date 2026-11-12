@@ -30,3 +30,16 @@ export const pushToUser = async (uid: string, msg: { title: string; body: string
   if (dead.length) await ref.set({ tokens: tokens.filter(t => !dead.includes(t)) }, { merge: true });
   return res.successCount;
 };
+
+/** Adresse e-mail d'un compte, seulement si elle est vérifiée (Google, ou lien de confirmation cliqué). */
+export const verifiedEmail = async (uid?: string): Promise<string | undefined> => {
+  if (!uid) return undefined;
+  const u = await adminAuth.getUser(uid).catch(() => null);
+  return u?.email && u.emailVerified ? u.email : undefined;
+};
+
+/** Comptes autorisés à prêter et à faire partir des e-mails depuis le Gmail de l'appli. */
+const allowed = () => (process.env.VITE_LENDER_EMAILS || process.env.GMAIL_USER || '')
+  .split(/[,;\s]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
+export const isAllowedLender = (email?: string, emailVerified = true) =>
+  !!email && emailVerified && allowed().includes(email.toLowerCase());

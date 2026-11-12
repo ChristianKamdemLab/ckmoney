@@ -4,7 +4,7 @@ import { auth } from './services/firebase';
 import { Loan, Profile, User, Invite, isProfileComplete } from './types';
 import { getProfile } from './services/profileService';
 import {
-  getUserLoans, getLoanById, getInvite, claimInvite, getLenderCard, publishLenderCard, requestLinkFor, resolveHandle, LenderCard, KnownFriend,
+  getUserLoans, getLoanById, watchUserLoans, getInvite, claimInvite, getLenderCard, publishLenderCard, requestLinkFor, resolveHandle, LenderCard, KnownFriend,
 } from './services/loanService';
 import { checkAutomaticNotifications } from './services/notificationService';
 import { refreshPushToken } from './services/push';
@@ -152,6 +152,9 @@ const App: React.FC = () => {
       if (id) { window.history.replaceState({}, '', '/'); setOverlay({ k: 'loan', id }); }
     } catch { /* ignore */ }
   }, [user?.id]);
+
+  // Mise à jour en direct : une demande, une signature ou un paiement apparaît sans rouvrir l'appli
+  useEffect(() => (user ? watchUserLoans(user.id, refreshLoans) : undefined), [user?.id, refreshLoans]);
 
   // Rafraîchir quand l'appli revient au premier plan (une demande a pu arriver)
   useEffect(() => {

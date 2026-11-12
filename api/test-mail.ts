@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, pushToUser } from './_lib/admin.js';
+import { adminAuth, adminDb, pushToUser, isAllowedLender } from './_lib/admin.js';
 import { sendReminderMail, mailEnabled } from './_lib/mail.js';
 
 // POST /api/test-mail — le prêteur s'envoie un rappel d'exemple (e-mail + notification).
@@ -7,7 +7,7 @@ export default async function handler(req: any, res: any) {
   try {
     const caller = await adminAuth.verifyIdToken((req.headers.authorization || '').replace(/^Bearer /, ''));
     const card = (await adminDb.collection('lenders').doc(caller.uid).get()).data();
-    if (!card) return res.status(403).json({ error: 'not_lender' });
+    if (!card || !isAllowedLender(caller.email, caller.email_verified === true)) return res.status(403).json({ error: 'not_lender' });
     if (!mailEnabled()) return res.status(200).json({ mail: false, reason: 'gmail_non_configure' });
     const ok = await sendReminderMail({
       to: caller.email || '', fromName: card.firstName || 'CKMoney', subject: 'CKMoney · Rappel de test',
