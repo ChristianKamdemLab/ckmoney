@@ -6,7 +6,7 @@ import { amountToFrenchWords } from './frenchNumbers';
 import { Installment, formatMoney, parseISODate } from './schedule';
 import { DECLARATION_THRESHOLD_EUR, LEGAL_INTEREST_RATE } from '../config/legal';
 
-export const CONTRACT_VERSION = '2026.11-2';
+export const CONTRACT_VERSION = '2026.11-3';
 
 const fmtDate = (iso?: string) =>
   iso
@@ -23,7 +23,7 @@ const identity = (civ: string | undefined, name: string, birthDate: string, birt
 export interface ContractInput extends Pick<Loan,
   'lenderCivility' | 'lenderName' | 'lenderBirthDate' | 'lenderBirthPlace' | 'lenderAddress' | 'lenderIban' | 'lenderPaymentLink' |
   'borrowerCivility' | 'borrowerName' | 'borrowerBirthDate' | 'borrowerBirthPlace' | 'borrowerAddress' | 'borrowerEmail' |
-  'amount' | 'currency' | 'loanDate' | 'repaymentDate' | 'interestRate' | 'repaymentType' | 'lateRateMode' | 'lateInterestRate' | 'city'> {
+  'amount' | 'currency' | 'loanDate' | 'repaymentDate' | 'interestRate' | 'repaymentType' | 'lateRateMode' | 'lateInterestRate' | 'city' | 'penaltyRate' | 'delayRate'> {
   schedule: Installment[];
 }
 
@@ -57,6 +57,13 @@ export const buildLoanContract = (l: ContractInput): string => {
   } else {
     lateClause = `Toute somme impayée à son échéance produit, dès le lendemain et jusqu’au paiement, des intérêts de retard au taux fixe de ${rateStr(l.lateInterestRate || 0)} l’an, que le juge peut modérer s’il est excessif (art. 1231-5 du Code civil).`;
   }
+
+  if (l.penaltyRate && l.penaltyRate > 0) {
+    lateClause += `\nEn outre, à défaut de paiement d’une échéance à sa date, une pénalité forfaitaire égale à ${rateStr(l.penaltyRate)} des sommes alors impayées est due, une seule fois par échéance (clause pénale, art. 1231-5 du Code civil).`;
+  }
+  const delayClause = l.delayRate && l.delayRate > 0
+    ? ` Si un report est accordé à la demande de l’Emprunteur, les sommes reportées portent intérêt au taux de report de ${rateStr(l.delayRate)} l’an, depuis l’échéance d’origine jusqu’au paiement, dans la limite du seuil de l’usure.`
+    : '';
 
   const paymentLines = ['Par virement ou tout moyen laissant une trace écrite.'];
   if (l.lenderIban) paymentLines.push(`IBAN du Prêteur : ${l.lenderIban}`);
@@ -105,7 +112,7 @@ ARTICLE 6 – RETARD ET DÉFAILLANCE
 ${lateClause}${accelerationClause}
 
 ARTICLE 7 – REPORT D’ÉCHÉANCE
-Toute modification des dates ou des montants exige l’accord écrit des deux parties, enregistré dans CKMoney sous forme d’avenant.
+Toute modification des dates ou des montants exige l’accord écrit des deux parties, enregistré dans CKMoney sous forme d’avenant.${delayClause}
 
 ARTICLE 8 – DÉCLARATION FISCALE
 Si le prêt, ou le cumul des prêts consentis la même année entre les mêmes parties, dépasse ${DECLARATION_THRESHOLD_EUR.toLocaleString('fr-FR')} €, il est déclaré sur le formulaire n° 2062 avec les revenus de l’année (art. 242 ter du Code général des impôts), par l’Emprunteur ou, à défaut, par le Prêteur. Les intérêts éventuels sont imposables pour le Prêteur.

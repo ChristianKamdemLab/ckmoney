@@ -71,7 +71,7 @@ class ErrorBoundary extends React.Component<{ children?: ReactNode }, { hasError
 type Overlay =
   | { k: 'loan'; id: string }
   | { k: 'sign'; id: string }
-  | { k: 'new'; prefill?: { friend?: KnownFriend; amount?: number; dueDate?: string; counterOf?: string } }
+  | { k: 'new'; prefill?: { friend?: KnownFriend; amount?: number; dueDate?: string; counterOf?: string }; edit?: Loan }
   | { k: 'request'; uid: string; name: string }
   | { k: 'profile' }
   | { k: 'identity' }
@@ -261,7 +261,7 @@ const App: React.FC = () => {
         case 'identity': return <IdentityEditor user={user} profile={profile} onClose={close} onSaved={() => { loadProfile(); setToast('Informations enregistrées'); }} />;
         case 'new':
           if (!isProfileComplete(profile)) return <ProfileSetup user={user} initial={profile} onSaved={p => setProfile(p)} onCancel={close} />;
-          return <NewLoanFlow user={user} profile={profile} loans={loans} prefill={overlay.prefill} onClose={close}
+          return <NewLoanFlow user={user} profile={profile} loans={loans} prefill={overlay.prefill} editLoan={overlay.edit} onClose={close}
             onDone={id => { refreshLoans().then(() => setOverlay({ k: 'loan', id })); }} />;
         case 'request':
           return <RequestFlow user={user} profile={profile} lenderUid={overlay.uid} lenderFirstName={overlay.name}
@@ -269,7 +269,7 @@ const App: React.FC = () => {
         case 'sign': {
           const l = findLoan(overlay.id);
           if (!l) return <LoanLoader id={overlay.id} onLoaded={refreshLoans} onMissing={close} />;
-          if (l.status !== 'pending_borrower') return <LoanDetail loan={l} user={user} profile={profile} onBack={close} onChanged={refreshLoans} />;
+          if (l.status !== 'pending_borrower') return <LoanDetail loan={l} user={user} profile={profile} onBack={close} onChanged={refreshLoans} onEdit={x => setOverlay({ k: 'new', edit: x })} />;
           return <BorrowerSignFlow loan={l} user={user} profile={profile} onBack={close} onProfileChanged={loadProfile}
             onDone={() => { refreshLoans(); setOverlay({ k: 'loan', id: l.id }); }} />;
         }
@@ -281,7 +281,7 @@ const App: React.FC = () => {
             return <RequestReview loan={l} user={user} profile={profile} loans={loans} onBack={close} onChanged={refreshLoans}
               onModify={(friend, amount, dueDate) => setOverlay({ k: 'new', prefill: { friend, amount, dueDate, counterOf: l.id } })} />;
           }
-          return <LoanDetail loan={l} user={user} profile={profile} onBack={close} onChanged={refreshLoans} />;
+          return <LoanDetail loan={l} user={user} profile={profile} onBack={close} onChanged={refreshLoans} onEdit={x => setOverlay({ k: 'new', edit: x })} />;
         }
         case 'borrower':
           return <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}

@@ -17,7 +17,7 @@ import {
 import { getUserNotifications, markNotificationAsRead } from '../../services/notificationService';
 import { amountWordsMatch } from '../../utils/frenchNumbers';
 import { buildSchedule, computeSituation, toISODate, addMonths } from '../../utils/schedule';
-import { LEGAL_INTEREST_RATE } from '../../config/legal';
+import { LEGAL_INTEREST_RATE, rateCapFor } from '../../config/legal';
 
 const identityOf = (p: Partial<Profile> | null | undefined, user: User): BorrowerIdentity => ({
   civility: p?.civility || 'M.',
@@ -178,7 +178,7 @@ export const BorrowerSignFlow: React.FC<{
     if (!overdueFrom || !loan.lenderUid) return;
     getLenderCard(loan.lenderUid).then(c => {
       const sit = computeSituation(loan, LEGAL_INTEREST_RATE);
-      setPayLinkUrl(payUrl(c?.paymentLink || loan.lenderPaymentLink, Math.round((sit.overdueAmount + sit.lateInterest) * 100) / 100, loan.currency));
+      setPayLinkUrl(payUrl(c?.paymentLink || loan.lenderPaymentLink, Math.round((sit.overdueAmount + sit.lateInterest + sit.penalty) * 100) / 100, loan.currency));
     });
   }, [loan.id]);
 
@@ -199,7 +199,9 @@ export const BorrowerSignFlow: React.FC<{
           ['Remboursement', s.length > 1 ? `${s.length} × ${euro2(s[0].amount, loan.currency)}` : `${euro2(s[0]?.amount || loan.amount, loan.currency)} en une fois`],
           [s.length > 1 ? 'Échéances' : 'Date', s.length > 1 ? `du ${dateFr(s[0].dueDate, { day: 'numeric', month: 'short' })} au ${dateFr(s[s.length - 1].dueDate, { day: 'numeric', month: 'short' })}` : dateFr(s[0]?.dueDate || loan.repaymentDate)],
           ['Intérêts', loan.interestRate ? `${loan.interestRate.toLocaleString('fr-FR')} % par an` : 'Aucun'],
-          ['En cas de retard', loan.lateRateMode === 'none' ? 'Pas de pénalité' : loan.lateRateMode === 'legal' ? `Taux légal, ${LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an` : `${(loan.lateInterestRate || 0).toLocaleString('fr-FR')} % par an`],
+          ['Intérêts de retard', loan.lateRateMode === 'none' ? 'Aucun' : loan.lateRateMode === 'legal' ? `Taux légal, ${LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an` : `${(loan.lateInterestRate || 0).toLocaleString('fr-FR')} % par an`],
+          ...(loan.penaltyRate ? [['Pénalité si retard', `${loan.penaltyRate.toLocaleString('fr-FR')} % des sommes impayées, une fois`] as [string, string]] : []),
+          ...(loan.delayRate ? [['Si tu demandes un délai', `${loan.delayRate.toLocaleString('fr-FR')} % par an depuis l'échéance`] as [string, string]] : []),
         ]} />
       </div>
       <div className="px-6 pt-4">
@@ -271,6 +273,8 @@ export const RequestFlow: React.FC<{
   const [parts, setParts] = useState<1 | 2 | 3>(1);
   const [due, setDue] = useState(nextFriday());
   const [note, setNote] = useState('');
+  const [card, setCard] = useState<LenderCard | null>(null);
+  useEffect(() => { getLenderCard(lenderUid).then(setCard); }, [lenderUid]);
   const [receive, setReceive] = useState<ReceiveInfo>(profile?.receive || { method: 'paypal', value: profile?.paymentLink || '' });
   const [identity, setIdentity] = useState<BorrowerIdentity>(identityOf(profile, user));
   const [busy, setBusy] = useState(false);
@@ -351,7 +355,11 @@ export const RequestFlow: React.FC<{
           <Field label={`Un mot pour ${lenderFirstName} (facultatif)`} htmlFor="note">
             <textarea id="note" rows={2} maxLength={280} value={note} onChange={e => setNote(e.target.value)} className="w-full rounded-[14px] bg-white px-4 py-3 text-base outline-none border-[1.5px] focus:border-[#1C2551] resize-none" style={inputStyle} placeholder="Pour quoi, par exemple" />
           </Field>
-          <Note>Sans intérêt. Si tu dépasses la date, des intérêts de retard au taux légal ({LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an) s'ajoutent, et tu recevras un rappel.</Note>
+          <Note>
+            Sans intérêt. Si tu dépasses la date : intérêts de retard au taux légal ({LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an)
+            {card?.penaltyRate ? <>, plus une pénalité de {card.penaltyRate.toLocaleString('fr-FR')} % des sommes impayées</> : null}
+            {card?.delayRate ? <> ; si tu demandes ensuite un délai, {Math.min(rateCapFor(amount), card.delayRate).toLocaleString('fr-FR')} % par an depuis la date manquée</> : null}. Tu recevras un rappel.
+          </Note>
         </div>
         <Footer><Button disabled={!validDue || !receiveValid(receive)} onClick={() => setStep(needsIdentity ? 'identity' : 'sign')}>Continuer</Button></Footer>
       </Screen>
@@ -370,7 +378,8 @@ export const RequestFlow: React.FC<{
       onSign={async (words, sig) => {
         setBusy(true); setError(null);
         try {
-          const terms: Terms = { amount, currency: 'EUR', loanDate: today, schedule, interestRate: 0, lateRateMode: 'legal', lateInterestRate: 0 };
+          const terms: Terms = { amount, currency: 'EUR', loanDate: today, schedule, interestRate: 0, lateRateMode: 'legal', lateInterestRate: 0,
+            penaltyRate: card?.penaltyRate || 0, delayRate: card?.delayRate ? Math.min(rateCapFor(amount), card.delayRate) : 0 };
           await createRequest({ user, lenderUid, lenderName: lenderFirstName, identity, terms, note, amountWords: words, signature: sig, receive: { ...receive, value: receive.value.trim(), holder: receive.method === 'virement' ? (receive.holder ?? (profile?.fullName || user.name)).trim() : undefined } });
           mergeProfile(user.id, { receive: { ...receive, value: receive.value.trim() } }).catch(() => undefined);
           mergeProfile(user.id, { signature: sig }).catch(() => undefined);
@@ -422,7 +431,7 @@ export const BorrowerSpace: React.FC<{
     else if (l.status === 'declined') { sub = 'Demande non retenue'; amt = l.amount; }
     else if (l.status === 'pending_borrower') { sub = 'À signer'; color = C.ochreText; amt = l.amount; }
     else if (l.status === 'paid' || s.isFullyPaid) { sub = 'Remboursé'; color = C.green; amt = l.amount; }
-    else if (s.isOverdue) { sub = `En retard de ${s.daysLate} j${s.lateInterest > 0 ? ` · +${euro2(s.lateInterest, l.currency)} d'intérêts` : ''}`; color = C.red; }
+    else if (s.isOverdue) { sub = `En retard de ${s.daysLate} j${s.lateInterest + s.penalty > 0 ? ` · +${euro2(s.lateInterest + s.penalty, l.currency)} de frais de retard` : ''}`; color = C.red; }
     else if (l.status === 'delay_requested') { sub = 'Délai demandé'; color = C.ochreText; }
     else sub = s.nextInstallment ? `${euro2(s.nextInstallment.outstanding, l.currency)} ${relDays(s.nextInstallment.dueDate)}` : '';
     return (
@@ -442,7 +451,7 @@ export const BorrowerSpace: React.FC<{
     .map(l => ({ l, s: computeSituation(l, LEGAL_INTEREST_RATE) }))
     .filter(x => x.s.nextInstallment || x.s.isOverdue)
     .sort((a, b) => (a.s.isOverdue ? -1 : 0) - (b.s.isOverdue ? -1 : 0) || (a.s.nextInstallment?.dueDate || '').localeCompare(b.s.nextInstallment?.dueDate || ''))[0];
-  const nextAmount = nextDue ? Math.round((nextDue.s.isOverdue ? nextDue.s.overdueAmount + nextDue.s.lateInterest : nextDue.s.nextInstallment!.outstanding + nextDue.s.lateInterest) * 100) / 100 : 0;
+  const nextAmount = nextDue ? Math.round((nextDue.s.isOverdue ? nextDue.s.overdueAmount + nextDue.s.lateInterest + nextDue.s.penalty : nextDue.s.nextInstallment!.outstanding + nextDue.s.lateInterest + nextDue.s.penalty) * 100) / 100 : 0;
   const nextLink = nextDue ? payUrl(cards[nextDue.l.lenderUid || '']?.paymentLink || nextDue.l.lenderPaymentLink, nextAmount, nextDue.l.currency) : null;
 
   return (
@@ -464,7 +473,7 @@ export const BorrowerSpace: React.FC<{
             </div>
             <div className="text-sm mt-1" style={{ color: C.text2 }}>
               {euro2(nextAmount, nextDue.l.currency)} à {lenderName(nextDue.l)}
-              {nextDue.s.isOverdue && nextDue.s.lateInterest > 0 ? `, dont ${euro2(nextDue.s.lateInterest, nextDue.l.currency)} d'intérêts de retard` : ''}
+              {nextDue.s.isOverdue && nextDue.s.lateInterest + nextDue.s.penalty > 0 ? `, dont ${euro2(nextDue.s.penalty, nextDue.l.currency)} de pénalité et ${euro2(nextDue.s.lateInterest, nextDue.l.currency)} d'intérêts de retard` : ''}
               {!nextDue.s.isOverdue && nextDue.s.nextInstallment ? `, le ${dateFr(nextDue.s.nextInstallment.dueDate, { day: 'numeric', month: 'long' })}` : ''}.
             </div>
             <div className={`grid ${nextLink ? "grid-cols-2" : "grid-cols-1"} gap-2 mt-3`}>

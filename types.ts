@@ -49,7 +49,7 @@ export interface Loan {
   contractVersion?: string;
   acknowledgmentText?: string;      // reconnaissance de dette
   contractHash?: string;            // SHA-256 du contrat + reconnaissance
-  amendments?: { type: string; newDate: string; acceptedAt: string; requestedAt?: string; lateInterestKept?: boolean }[];
+  amendments?: { type: string; newDate: string; acceptedAt: string; requestedAt?: string; lateInterestKept?: boolean; lateRate?: number }[];
   amountInWords?: string;           // montant en lettres attendu
   borrowerAmountWords?: string;     // mention saisie par l'emprunteur (art. 1376)
   borrowerSignedName?: string;
@@ -70,7 +70,9 @@ export interface Loan {
   termsHash?: string;          // empreinte des conditions (offre)
   requestNote?: string;
   fundsSentAt?: string;
-  counterOf?: string;           // contre-proposition à la demande n°…         // le prêteur a envoyé l'argent
+  counterOf?: string;
+  penaltyRate?: number;         // clause pénale : % des sommes impayées à l'échéance, dû une fois
+  delayRate?: number;           // taux de report convenu au contrat (% par an)           // contre-proposition à la demande n°…         // le prêteur a envoyé l'argent
   borrowerPaymentLink?: string;
   borrowerReceive?: ReceiveInfo; // où l'ami veut recevoir l'argent (PayPal.me, Lydia, Revolut, IBAN…)        // message de l'ami avec sa demande
   initiatedBy?: 'lender' | 'borrower';
@@ -150,6 +152,8 @@ export interface Profile {
   iban?: string;
   paymentLink?: string;
   receive?: ReceiveInfo;     // où l'ami reçoit l'argent qu'on lui prête
+  delayRate?: number;        // prêteur : taux de retard appliqué quand un proche demande un report (% par an)
+  penaltyRate?: number;      // prêteur : pénalité forfaitaire par défaut en cas de retard (% des sommes impayées)
   signature?: string;   // signature dessinée, réutilisable
   updatedAt?: string;
 }

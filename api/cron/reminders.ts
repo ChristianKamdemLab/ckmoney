@@ -58,10 +58,10 @@ export default async function handler(req: any, res: any) {
       const late = s.daysLate;
       const oldest = s.schedule.find(i => i.isOverdue)!;
       if (late === 1 || late === 3 || late >= 7) {
-        const interest = s.lateInterest > 0 ? ` Intérêts de retard à ce jour : ${eur(s.lateInterest, loan.currency)}.` : '';
+        const interest = (s.penalty > 0 ? ` Pénalité de retard : ${eur(s.penalty, loan.currency)}.` : '') + (s.lateInterest > 0 ? ` Intérêts de retard à ce jour : ${eur(s.lateInterest, loan.currency)}.` : '');
         sent += await notify(loan.borrowerUid, loan.id, 'danger', 'Remboursement en retard',
           `${eur(s.overdueAmount, loan.currency)} dus à ${lender} depuis le ${fmtDate(oldest.dueDate)}.${interest} Paie ou propose une nouvelle date dans CKMoney.`,
-          toBorrower(Math.round((s.overdueAmount + s.lateInterest) * 100) / 100));
+          toBorrower(Math.round((s.overdueAmount + s.lateInterest + s.penalty) * 100) / 100));
       }
       if (late === 1 && loan.lenderUid) {
         sent += await notify(loan.lenderUid, loan.id, 'warning', `${borrower} est en retard`,
@@ -72,8 +72,8 @@ export default async function handler(req: any, res: any) {
       const days = daysBetween(today, next.dueDate);
       if (days === 1 || days === 0) {
         sent += await notify(loan.borrowerUid, loan.id, 'info', days === 1 ? 'Échéance demain' : "C'est aujourd'hui",
-          `${eur(next.outstanding + s.lateInterest, loan.currency)} à rembourser à ${lender} ${days === 1 ? 'demain' : "aujourd'hui"}, le ${fmtDate(next.dueDate)}.`,
-          toBorrower(Math.round((next.outstanding + s.lateInterest) * 100) / 100));
+          `${eur(next.outstanding + s.lateInterest + s.penalty, loan.currency)} à rembourser à ${lender} ${days === 1 ? 'demain' : "aujourd'hui"}, le ${fmtDate(next.dueDate)}.`,
+          toBorrower(Math.round((next.outstanding + s.lateInterest + s.penalty) * 100) / 100));
       }
     }
   }

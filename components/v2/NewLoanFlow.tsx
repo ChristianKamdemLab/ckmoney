@@ -6,11 +6,12 @@ import {
 } from './ui';
 import SignaturePad from '../SignaturePad';
 import { buildSchedule, addMonths, toISODate } from '../../utils/schedule';
-import { createOffer, inviteLinkFor, knownFriends, KnownFriend, Terms } from '../../services/loanService';
+import { createOffer, updateOffer, inviteLinkFor, knownFriends, KnownFriend, Terms } from '../../services/loanService';
 import { annualTotalsForBorrower, loansInLast12Months } from '../../utils/compliance';
 import { fetchExchangeRate } from '../../services/exchangeRate';
 import {
   rateCapFor, RATE_CAP_LABEL, LEGAL_INTEREST_RATE, DECLARATION_THRESHOLD_EUR, HABITUAL_LENDING_WARNING_COUNT, MAX_INSTALLMENTS,
+  PENALTY_MAX,
 } from '../../config/legal';
 
 const PREFIXES = [
@@ -35,11 +36,17 @@ interface Props {
   profile: Profile;
   loans: Loan[];
   prefill?: { friend?: KnownFriend; amount?: number; schedule?: string; dueDate?: string; counterOf?: string };
+  /** Offre non signée à modifier : le lien déjà envoyé reste le même. */
+  editLoan?: Loan;
   onClose: () => void;
   onDone: (loanId: string) => void;
 }
 
-const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, onDone }) => {
+const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn, editLoan, onClose, onDone }) => {
+  const prefill = editLoan
+    ? { amount: editLoan.amount, friend: { uid: editLoan.borrowerUid, nickname: editLoan.borrowerNickname || editLoan.borrowerName, phone: editLoan.borrowerPhone, lastLoan: editLoan } as KnownFriend,
+        dueDate: (editLoan.schedule || []).length === 1 ? editLoan.schedule![0].dueDate : undefined, counterOf: undefined as string | undefined }
+    : prefillIn;
   const [step, setStep] = useState(prefill?.amount ? 3 : 1);
   // Étape 1 : montant
   const [value, setValue] = useState(prefill?.amount ? String(prefill.amount).replace('.', ',') : '0');
@@ -56,12 +63,14 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
   const [onceDate, setOnceDate] = useState(prefill?.dueDate && prefill.dueDate > today ? prefill.dueDate : addMonths(today, 3));
   const [customMonths, setCustomMonths] = useState(4);
   const [firstDue, setFirstDue] = useState(addMonths(today, 1));
-  const [loanDate, setLoanDate] = useState(today);
+  const [loanDate, setLoanDate] = useState(editLoan?.loanDate || today);
   const alreadyGiven = loanDate < today;
-  const [currency, setCurrency] = useState('EUR');
-  const [rate, setRate] = useState(0);
-  const [lateMode, setLateMode] = useState<'legal' | 'none' | 'custom'>('legal');
-  const [lateRate, setLateRate] = useState(3);
+  const [currency, setCurrency] = useState(editLoan?.currency || 'EUR');
+  const [rate, setRate] = useState(editLoan?.interestRate || 0);
+  const [lateMode, setLateMode] = useState<'legal' | 'none' | 'custom'>(editLoan?.lateRateMode || 'legal');
+  const [lateRate, setLateRate] = useState(editLoan?.lateRateMode === 'custom' ? (editLoan.lateInterestRate || 3) : 3);
+  const [penaltyRate, setPenaltyRate] = useState<number>(editLoan ? (editLoan.penaltyRate || 0) : (profile.penaltyRate || 0));
+  const [delayRate, setDelayRate] = useState<number>(editLoan ? (editLoan.delayRate || 0) : (profile.delayRate || 0));
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [drawnSig, setDrawnSig] = useState('');
   const [busy, setBusy] = useState(false);
@@ -134,7 +143,13 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
     setBusy(true);
     setError(null);
     try {
-      const terms: Terms = { amount, currency, loanDate, schedule, interestRate: rate, lateRateMode: lateMode, lateInterestRate: lateRate };
+      const terms: Terms = { amount, currency, loanDate, schedule, interestRate: rate, lateRateMode: lateMode, lateInterestRate: lateRate, penaltyRate, delayRate: Math.min(cap, delayRate) };
+      if (editLoan) {
+        await updateOffer(editLoan, { user, profile, terms, nickname: friendLabel, phone: fullPhone || undefined, lenderSignature: signature });
+        setResult({ loanId: editLoan.id, token: editLoan.inviteToken || '' });
+        setStep(4);
+        return;
+      }
       const r = await createOffer({
         user, profile, terms, nickname: friendLabel, phone: fullPhone || undefined,
         lenderSignature: signature, knownBorrowerUid: friend?.uid, counterOf: prefill?.counterOf, borrowerPaymentLink: friend?.lastLoan?.borrowerPaymentLink, borrowerReceive: friend?.lastLoan?.borrowerReceive,
@@ -275,7 +290,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
             <button onClick={() => setOptionsOpen(true)} className="flex items-center gap-3 text-left">
               <div className="flex-1">
                 <div className="text-[15px] font-semibold">Options</div>
-                <div className="text-[13px]" style={{ color: C.mute }}>{rate ? `${rate.toLocaleString('fr-FR')} % d'intérêt` : 'Sans intérêt'} · {lateLabel}</div>
+                <div className="text-[13px]" style={{ color: C.mute }}>{rate ? `${rate.toLocaleString('fr-FR')} % d'intérêt` : 'Sans intérêt'} · {lateLabel}{penaltyRate ? ` · pénalité ${penaltyRate.toLocaleString('fr-FR')} %` : ''}{delayRate ? ` · report ${Math.min(cap, delayRate).toLocaleString('fr-FR')} %` : ''}</div>
               </div>
               <Icon name="chevron" size={18} />
             </button>
@@ -316,6 +331,14 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
                 <input type="range" min={0.5} max={cap} step={0.25} value={lateRate} onChange={e => setLateRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
               </Field>
             )}
+            <Field label={`Pénalité forfaitaire si retard : ${penaltyRate ? `${penaltyRate.toLocaleString('fr-FR')} %` : 'aucune'}`}
+              hint={`Due une fois par échéance non payée à temps${penaltyRate ? `, soit ${euro2(amount * penaltyRate / 100, currency)} sur ce prêt` : ''}. Maximum ${PENALTY_MAX} % : au-delà, un juge la réduirait.`}>
+              <input type="range" min={0} max={PENALTY_MAX} step={1} value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+            </Field>
+            <Field label={`Taux de report : ${delayRate ? `${Math.min(cap, delayRate).toLocaleString('fr-FR')} % par an` : 'taux de retard'}`}
+              hint={`Appliqué si ton proche demande une nouvelle date, depuis l'échéance manquée. Maximum ${cap.toLocaleString('fr-FR')} % pour ce montant.`}>
+              <input type="range" min={0} max={cap} step={0.5} value={Math.min(cap, delayRate)} onChange={e => setDelayRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+            </Field>
             <div>
               <Field label="Devise" htmlFor="cur">
                 <select id="cur" value={currency} onChange={e => setCurrency(e.target.value)} className={inputClass} style={inputStyle}>
@@ -337,15 +360,17 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill, onClose, 
     : alreadyGiven
     ? `Salut ${friendLabel}, comme on en a parlé, je mets au propre les ${euro(amount, currency)} que je t'ai prêtés le ${dateFr(loanDate)} : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `${schedule[0].dueDate < toISODate(new Date()) ? 'remboursement prévu le' : 'à rembourser le'} ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}. Tu peux le lire et le signer ici : ${link}`
     : `Salut ${friendLabel}, voici le contrat pour les ${euro(amount, currency)} (${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}). Tu peux le lire et le signer ici : ${link}`;
-  const wa = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
+  const extras = penaltyRate ? ` En cas de retard : pénalité de ${penaltyRate} % et intérêts de retard.` : '';
+  const wa = `https://wa.me/${fullPhone}?text=${encodeURIComponent(editLoan ? `Salut ${friendLabel}, j'ai mis à jour le contrat (${euro(amount, currency)}).${extras} Le lien reste le même : ${link}` : message.replace(/ Tu peux le lire| Si ça te va/, m => `${extras}${m}`))}`;
   return (
     <Screen>
       <TopBar right={<button onClick={() => result && onDone(result.loanId)} aria-label="Fermer" className="w-11 h-11 flex items-center justify-center"><Icon name="close" /></button>} />
       <div className="px-6 pt-2 flex flex-col items-center text-center">
         <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center" style={{ background: C.greenSoft, color: C.green }}><Icon name="check" size={34} /></div>
-        <h1 className="text-[26px] font-bold mt-5">Contrat signé</h1>
+        <h1 className="text-[26px] font-bold mt-5">{editLoan ? 'Contrat mis à jour' : 'Contrat signé'}</h1>
         <p className="text-[15px] mt-2 leading-[1.5]" style={{ color: C.mute }}>
-          {friend?.uid ? `${friendLabel} le voit déjà dans son appli. Tu peux aussi le prévenir sur WhatsApp.` : `Envoie maintenant le lien à ${friendLabel} pour qu'il le signe à son tour.`}
+          {editLoan ? `Le lien déjà envoyé à ${friendLabel} reste le même : il verra les nouvelles conditions en l'ouvrant.`
+            : friend?.uid ? `${friendLabel} le voit déjà dans son appli. Tu peux aussi le prévenir sur WhatsApp.` : `Envoie maintenant le lien à ${friendLabel} pour qu'il le signe à son tour.`}
         </p>
       </div>
       <div className="px-6 pt-7 flex flex-col gap-1.5">
