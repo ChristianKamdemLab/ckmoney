@@ -36,12 +36,12 @@ export default async function handler(req: any, res: any) {
     let title: string, body: string, amount: number;
     if (s.isOverdue) {
       const oldest = s.schedule.find(i => i.isOverdue)!;
-      amount = Math.round((s.overdueAmount + s.lateInterest) * 100) / 100;
+      amount = Math.round((s.overdueAmount + s.lateInterest + s.penalty) * 100) / 100;
       title = 'Rappel de remboursement';
-      body = `${eur(s.overdueAmount, loan.currency)} dus à ${lender} depuis le ${fmtDate(oldest.dueDate)}.${s.lateInterest > 0 ? ` Intérêts de retard à ce jour : ${eur(s.lateInterest, loan.currency)}.` : ''} Paie ou propose une nouvelle date dans CKMoney.`;
+      body = `${eur(s.overdueAmount, loan.currency)} dus à ${lender} depuis le ${fmtDate(oldest.dueDate)}.${s.penalty > 0 ? ` Pénalité de retard : ${eur(s.penalty, loan.currency)}.` : ''}${s.lateInterest > 0 ? ` Intérêts de retard à ce jour : ${eur(s.lateInterest, loan.currency)}.` : ''} Paie ou propose une nouvelle date dans CKMoney.`;
     } else {
       const n = s.nextInstallment!;
-      amount = Math.round((n.outstanding + s.lateInterest) * 100) / 100;
+      amount = Math.round((n.outstanding + s.lateInterest + s.penalty) * 100) / 100;
       title = 'Petit rappel';
       body = `Prochaine échéance : ${eur(amount, loan.currency)} à rembourser à ${lender} le ${fmtDate(n.dueDate)}.`;
     }

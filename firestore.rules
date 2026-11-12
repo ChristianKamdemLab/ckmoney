@@ -19,7 +19,7 @@ service cloud.firestore {
     // Conditions de l'offre : figées dès qu'une partie a signé.
     function termsFields() {
       return ['amount', 'currency', 'loanDate', 'repaymentDate', 'schedule', 'interestRate', 'repaymentType',
-              'installmentsCount', 'lateRateMode', 'lateInterestRate', 'termsHash', 'lenderUid', 'borrowerUid'];
+              'installmentsCount', 'lateRateMode', 'lateInterestRate', 'penaltyRate', 'delayRate', 'termsHash', 'lenderUid', 'borrowerUid'];
     }
     // Ce que l'emprunteur écrit en signant : son identité, sa mention et sa signature, le texte final.
     function borrowerSignFields() {

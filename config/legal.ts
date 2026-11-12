@@ -50,3 +50,10 @@ export const LENDER_ALLOWLIST: string[] = ((import.meta as any).env?.VITE_LENDER
 
 export const canCreateLoans = (email: string | undefined | null) =>
   LENDER_ALLOWLIST.length === 0 || (!!email && LENDER_ALLOWLIST.includes(email.toLowerCase()));
+
+/**
+ * Pénalité forfaitaire de retard (clause pénale, art. 1231-5 C. civ.) : pas de plafond légal
+ * entre particuliers, mais le juge peut réduire une pénalité manifestement excessive.
+ * Plafond retenu par l'appli : 10 % (les banques sont limitées à 8 % pour le crédit à la consommation).
+ */
+export const PENALTY_MAX = 10;

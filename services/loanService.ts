@@ -46,12 +46,15 @@ export interface Terms {
   interestRate: number;
   lateRateMode: 'none' | 'legal' | 'custom';
   lateInterestRate: number;
+  penaltyRate?: number;   // clause pénale (% des sommes impayées à l'échéance)
+  delayRate?: number;     // taux de report (% par an)
 }
 
 /** Empreinte des conditions de l'offre, pour prouver qu'elles n'ont pas changé. */
 export const hashTerms = (t: Terms) =>
   sha256Hex(JSON.stringify([t.amount, t.currency, t.loanDate, t.interestRate, t.lateRateMode, t.lateInterestRate,
-    t.schedule.map(i => [i.index, i.dueDate, i.amount, i.principal, i.interest])]));
+    t.schedule.map(i => [i.index, i.dueDate, i.amount, i.principal, i.interest]),
+    ...(t.penaltyRate || t.delayRate ? [t.penaltyRate || 0, t.delayRate || 0] : [])]));
 
 const termsFields = (t: Terms) => ({
   amount: t.amount,
@@ -64,6 +67,8 @@ const termsFields = (t: Terms) => ({
   interestRate: t.interestRate,
   lateRateMode: t.lateRateMode,
   lateInterestRate: t.lateRateMode === 'custom' ? t.lateInterestRate : 0,
+  penaltyRate: t.penaltyRate || 0,
+  delayRate: t.delayRate || 0,
 });
 
 const lenderFields = (p: Profile, user: User) => ({
@@ -143,12 +148,53 @@ export const createOffer = async (args: {
   return { loanId: ref.id, token };
 };
 
+/**
+ * Le prêteur modifie une offre que l'ami n'a pas encore signée. Le lien déjà envoyé reste
+ * le même et affiche les nouvelles conditions ; le prêteur signe à nouveau.
+ */
+export const updateOffer = async (loan: Loan, args: {
+  user: User; profile: Profile; terms: Terms; nickname: string; phone?: string; lenderSignature: string;
+}) => {
+  if (loan.status !== 'pending_borrower' || loan.borrowerSignedAt) throw new Error('deja_signe');
+  const { user, profile, terms } = args;
+  await updateDoc(doc(db, LOANS, loan.id), clean({
+    ...lenderFields(profile, user),
+    ...termsFields(terms),
+    termsHash: await hashTerms(terms),
+    borrowerNickname: args.nickname.trim(),
+    borrowerName: args.nickname.trim(),
+    borrowerPhone: args.phone || undefined,
+    lenderSignature: args.lenderSignature,
+    lenderAttestation: `Prêt personnel et occasionnel attesté le ${new Date().toISOString()} (conditions modifiées)`,
+    amountInWords: amountToFrenchWords(terms.amount, terms.currency),
+    termsUpdatedAt: new Date().toISOString(),
+  }) as any);
+  // Résumé public du lien : remplacé tant que personne ne l'a ouvert (sinon l'ami voit déjà le prêt lui-même).
+  if (loan.inviteToken) {
+    const ref = doc(db, "invites", loan.inviteToken);
+    const snap = await getDoc(ref).catch(() => null);
+    if (snap?.exists() && !snap.data().claimedBy) {
+      await deleteDoc(ref);
+      await setDoc(ref, {
+        loanId: loan.id, lenderUid: user.id, lenderFirstName: firstName(profile.fullName), borrowerNickname: args.nickname.trim(),
+        amount: terms.amount, currency: terms.currency, scheduleSummary: scheduleSummary(terms.schedule, terms.currency),
+        firstDueDate: terms.schedule[0].dueDate, interestRate: terms.interestRate, lateRateMode: terms.lateRateMode,
+        createdAt: new Date().toISOString(), claimedBy: null,
+      } as Invite);
+    }
+  }
+  if (loan.borrowerUid) await sendNotification({
+    userId: loan.borrowerUid, loanId: loan.id, type: 'action_required', title: 'Conditions mises à jour',
+    message: `${firstName(profile.fullName)} a modifié les conditions du prêt. Relis-les avant de signer.`,
+  });
+};
+
 export const inviteLinkFor = (token: string) => `${window.location.origin}/p/${token}`;
 
 // --- CARTE PUBLIQUE DU PRÊTEUR ET LIEN DE DEMANDE ----------------------------
 
 /** Ce que voit un proche qui ouvre le lien de demande : prénom et lien de paiement, rien d'autre. */
-export interface LenderCard { firstName: string; paymentLink?: string; handle?: string; delayRate?: number; updatedAt: string }
+export interface LenderCard { firstName: string; paymentLink?: string; handle?: string; delayRate?: number; penaltyRate?: number; updatedAt: string }
 
 /**
  * Réserve l'adresse courte du prêteur (ex. /christian) dans handles/{nom} → uid.
@@ -180,6 +226,7 @@ export const publishLenderCard = async (uid: string, profile: Profile): Promise<
     firstName: first,
     paymentLink: profile.paymentLink?.trim() || undefined,
     delayRate: typeof profile.delayRate === 'number' && profile.delayRate > 0 ? profile.delayRate : undefined,
+    penaltyRate: typeof profile.penaltyRate === 'number' && profile.penaltyRate > 0 ? profile.penaltyRate : undefined,
     handle,
     updatedAt: new Date().toISOString(),
   });

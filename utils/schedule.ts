@@ -28,6 +28,7 @@ export interface LoanSituation {
   outstanding: number;       // reste dû hors intérêts de retard
   overdueAmount: number;     // montant des échéances échues impayées
   lateInterest: number;      // intérêts de retard courus
+  penalty: number;           // pénalité forfaitaire de retard restant due (clause pénale)
   totalDueNow: number;       // reste dû + intérêts de retard
   nextInstallment: InstallmentStatus | null;
   daysLate: number;          // retard de l'échéance impayée la plus ancienne
@@ -156,7 +157,7 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
     const schedule = base.map(i => ({ ...i, paid: i.amount, outstanding: 0, isOverdue: false, daysLate: 0 }));
     return {
       schedule, totalScheduled: total, totalInterest: round2(base.reduce((s, i) => s + i.interest, 0)),
-      confirmedPaid: total, pendingDeclared: 0, outstanding: 0, overdueAmount: 0, lateInterest: 0,
+      confirmedPaid: total, pendingDeclared: 0, outstanding: 0, overdueAmount: 0, lateInterest: 0, penalty: 0,
       totalDueNow: 0, nextInstallment: null, daysLate: 0, isOverdue: false, isFullyPaid: true,
     };
   }
@@ -164,6 +165,10 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
   // Simulation chronologique : on rejoue les paiements dans l'ordre.
   const remaining = base.map(i => i.amount);
   let accruedLate = 0;
+  // Pénalité forfaitaire (clause pénale) : due une fois par échéance non payée à sa date d'origine.
+  const penaltyRate = Math.max(0, loan.penaltyRate || 0) / 100;
+  const penaltyDone = base.map(() => false);
+  let accruedPenalty = 0;
   // Les intérêts de retard courent depuis l'échéance d'origine si un report les a maintenus.
   const lateStart = base.map(i => i.lateFrom && i.lateFrom < i.dueDate ? i.lateFrom : i.dueDate);
   let lastAccrual = base.length ? lateStart.reduce((a, b) => (a < b ? a : b)) : todayISO;
@@ -186,13 +191,27 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
     lastAccrual = dateISO;
   };
 
+  const applyPenalties = (dateISO: string) => {
+    if (penaltyRate <= 0) return;
+    base.forEach((_inst, idx) => {
+      if (!penaltyDone[idx] && lateStart[idx] < dateISO) {
+        penaltyDone[idx] = true;
+        if (remaining[idx] > 0.004) accruedPenalty += round2(remaining[idx] * penaltyRate);
+      }
+    });
+  };
+
   for (const p of confirmed) {
     const pDate = p.date.slice(0, 10);
     accrueUntil(pDate);
+    applyPenalties(pDate);
     let amount = p.amount;
     const toLate = Math.min(amount, accruedLate);
     accruedLate -= toLate;
     amount -= toLate;
+    const toPenalty = Math.min(amount, accruedPenalty);
+    accruedPenalty -= toPenalty;
+    amount -= toPenalty;
     for (let idx = 0; idx < remaining.length && amount > 0.004; idx++) {
       const take = Math.min(amount, remaining[idx]);
       remaining[idx] = round2(remaining[idx] - take);
@@ -200,6 +219,7 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
     }
   }
   if (todayISO > lastAccrual) accrueUntil(todayISO);
+  applyPenalties(todayISO);
 
   const schedule: InstallmentStatus[] = base.map((inst, idx) => {
     const outstanding = round2(Math.max(0, remaining[idx]));
@@ -216,6 +236,7 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
   const outstanding = round2(schedule.reduce((s, i) => s + i.outstanding, 0));
   const overdueList = schedule.filter(i => i.isOverdue);
   const lateInterest = round2(accruedLate);
+  const penalty = round2(accruedPenalty);
   const totalScheduled = round2(base.reduce((s, i) => s + i.amount, 0));
   return {
     schedule,
@@ -226,11 +247,12 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
     outstanding,
     overdueAmount: round2(overdueList.reduce((s, i) => s + i.outstanding, 0)),
     lateInterest,
-    totalDueNow: round2(outstanding + lateInterest),
+    penalty,
+    totalDueNow: round2(outstanding + lateInterest + penalty),
     nextInstallment: schedule.find(i => i.outstanding > 0.004) || null,
     daysLate: overdueList.length ? overdueList[0].daysLate : 0,
     isOverdue: overdueList.length > 0,
-    isFullyPaid: outstanding <= 0.004 && lateInterest <= 0.004,
+    isFullyPaid: outstanding <= 0.004 && lateInterest <= 0.004 && penalty <= 0.004,
   };
 };
 
