@@ -70,6 +70,8 @@ export interface Loan {
   termsHash?: string;          // empreinte des conditions (offre)
   requestNote?: string;
   fundsSentAt?: string;
+  contractCheck?: 'ok' | 'mismatch'; // contrôle du texte signé par l'emprunteur, fait par le prêteur
+  contractCheckedAt?: string;
   counterOf?: string;
   penaltyRate?: number;         // clause pénale : % des sommes impayées à l'échéance, dû une fois
   delayRate?: number;           // taux de report convenu au contrat (% par an)           // contre-proposition à la demande n°…         // le prêteur a envoyé l'argent

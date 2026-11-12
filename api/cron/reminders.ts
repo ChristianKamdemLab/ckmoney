@@ -1,4 +1,4 @@
-import { adminDb, pushToUser } from '../_lib/admin.js';
+import { adminDb, pushToUser, verifiedEmail, isAllowedLender } from '../_lib/admin.js';
 import { sendReminderMail } from '../_lib/mail.js';
 import { runMonthly } from '../_lib/monthly.js';
 import { computeSituation, daysBetween } from '../../utils/schedule.js';
@@ -53,7 +53,11 @@ export default async function handler(req: any, res: any) {
     const next = s.nextInstallment;
     const card = loan.lenderUid ? await lenderCard(loan.lenderUid) : null;
     const lenderLink = card?.paymentLink || loan.lenderPaymentLink;
-    const toBorrower = (amount: number) => ({ to: loan.borrowerEmail, replyTo: loan.lenderEmail, fromName: lender || 'CKMoney', payUrl: payUrl(lenderLink, amount, loan.currency) });
+    // E-mails seulement vers des adresses vérifiées, et seulement pour les prêts d'un prêteur autorisé.
+    const lenderMail = await verifiedEmail(loan.lenderUid);
+    const mailOk = isAllowedLender(lenderMail);
+    const borrowerMail = mailOk ? await verifiedEmail(loan.borrowerUid) : undefined;
+    const toBorrower = (amount: number) => ({ to: borrowerMail, replyTo: lenderMail, fromName: lender || 'CKMoney', payUrl: payUrl(lenderLink, amount, loan.currency) });
 
     if (s.isOverdue && loan.status === 'active' && s.pendingDeclared < s.overdueAmount) {
       const late = s.daysLate;
@@ -67,7 +71,7 @@ export default async function handler(req: any, res: any) {
       if (late === 1 && loan.lenderUid) {
         sent += await notify(loan.lenderUid, loan.id, 'warning', `${borrower} est en retard`,
           `${eur(s.overdueAmount, loan.currency)} étaient prévus hier. Un rappel lui a été envoyé.`,
-          { to: loan.lenderEmail, fromName: 'CKMoney' });
+          { to: mailOk ? lenderMail : undefined, fromName: 'CKMoney' });
       }
     } else if (next && !s.isOverdue) {
       const days = daysBetween(today, next.dueDate);

@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, pushToUser } from './_lib/admin.js';
+import { adminAuth, adminDb, pushToUser, isAllowedLender, verifiedEmail } from './_lib/admin.js';
 import { sendReminderMail } from './_lib/mail.js';
 import { computeSituation } from '../utils/schedule.js';
 import { LEGAL_INTEREST_RATE } from '../config/legal.js';
@@ -23,7 +23,7 @@ export default async function handler(req: any, res: any) {
     const ref = adminDb.collection('loans').doc(String(loanId || ''));
     const snap = await ref.get();
     const loan: any = snap.exists ? { id: snap.id, ...snap.data() } : null;
-    if (!loan || loan.lenderUid !== caller.uid) return res.status(403).end();
+    if (!loan || loan.lenderUid !== caller.uid || !isAllowedLender(caller.email, caller.email_verified === true)) return res.status(403).end();
     if (!loan.borrowerUid || !['active', 'delay_requested'].includes(loan.status)) return res.status(409).json({ error: 'pas_signe' });
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
     if ((loan.lastManualReminderAt || '').slice(0, 10) === today) return res.status(429).json({ error: 'deja_relance' });
@@ -47,8 +47,9 @@ export default async function handler(req: any, res: any) {
     }
     await adminDb.collection('notifications').add({ userId: loan.borrowerUid, loanId: loan.id, type: s.isOverdue ? 'danger' : 'info', title, message: body, date: new Date().toISOString(), read: false, pushedAt: new Date().toISOString() });
     const pushed = await pushToUser(loan.borrowerUid, { title, body, url: `/?loan=${loan.id}`, tag: `${loan.id}-rappel` });
-    const mailed = loan.borrowerEmail ? await sendReminderMail({
-      to: loan.borrowerEmail, replyTo: loan.lenderEmail, fromName: lender || 'CKMoney', subject: `CKMoney · ${title}`, title, body, loanId: loan.id,
+    const to = await verifiedEmail(loan.borrowerUid);
+    const mailed = to ? await sendReminderMail({
+      to, replyTo: caller.email, fromName: lender || 'CKMoney', subject: `CKMoney · ${title}`, title, body, loanId: loan.id,
       payUrl: payUrl(card?.paymentLink || loan.lenderPaymentLink, amount, loan.currency), payLabel: 'Payer maintenant',
     }) : false;
     await ref.set({ lastManualReminderAt: new Date().toISOString() }, { merge: true });

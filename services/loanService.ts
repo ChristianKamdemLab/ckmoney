@@ -1,7 +1,6 @@
 import { db } from "./firebase";
 import {
-  collection, addDoc, updateDoc, doc, getDoc, query, where, getDocs, deleteField, setDoc, deleteDoc,
-} from "firebase/firestore";
+  collection, addDoc, updateDoc, doc, getDoc, query, where, getDocs, deleteField, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 import { Loan, Payment, Invite, Profile, User, ReceiveInfo } from "../types";
 import { sendNotification } from "./notificationService";
 import { Installment } from "../utils/schedule";
@@ -317,6 +316,32 @@ const buildTexts = async (loan: Loan, b: BorrowerIdentity) => {
 
 export const previewTexts = buildTexts;
 
+/**
+ * Le texte du contrat est enregistré par l'appareil de l'emprunteur au moment où il signe.
+ * Le prêteur le recalcule à partir des conditions qu'il a lui-même signées et compare :
+ * « ok » si le texte est bien celui du modèle, « mismatch » s'il a été altéré.
+ * Vérifié une seule fois, à la première ouverture après la signature, puis mémorisé.
+ */
+export const verifyContract = async (loan: Loan): Promise<'ok' | 'mismatch' | null> => {
+  if (!loan.contractText || !loan.borrowerSignedAt || loan.contractCheck) return null;
+  if (loan.initiatedBy === 'borrower') return null;                 // texte produit par le prêteur lui-même
+  if (loan.contractVersion !== CONTRACT_VERSION) return null;       // modèle antérieur : non comparable
+  if ((loan.amendments || []).length) return null;                  // échéancier déjà modifié par avenant
+  const identity: BorrowerIdentity = {
+    civility: loan.borrowerCivility as BorrowerIdentity['civility'], fullName: loan.borrowerName,
+    birthDate: loan.borrowerBirthDate, birthPlace: loan.borrowerBirthPlace, address: loan.borrowerAddress,
+  };
+  // L'adresse e-mail a pu être ajoutée au moment de la signature : on accepte les deux variantes du modèle.
+  const variants = [loan, { ...loan, borrowerEmail: undefined } as Loan];
+  let result: 'ok' | 'mismatch' = 'mismatch';
+  for (const v of variants) {
+    const t = await buildTexts(v, identity);
+    if (t.contractText === loan.contractText && t.acknowledgmentText === loan.acknowledgmentText && t.contractHash === loan.contractHash) { result = 'ok'; break; }
+  }
+  await updateDoc(doc(db, LOANS, loan.id), { contractCheck: result, contractCheckedAt: new Date().toISOString() }).catch(() => undefined);
+  return result;
+};
+
 /** L'ami accepte l'offre du prêteur : identité, mention en lettres, signature. */
 export const signOffer = async (loan: Loan, user: User, b: BorrowerIdentity, sig: { amountWords: string; signature: string }) => {
   const texts = await buildTexts(loan, b);
@@ -563,4 +588,21 @@ export const markFundsSent = async (loan: Loan) => {
     userId: loan.borrowerUid, loanId: loan.id, type: 'success', title: 'Argent envoyé',
     message: `${firstName(loan.lenderName)} t'a envoyé ${loan.amount} ${loan.currency}.`,
   });
+};
+
+/**
+ * Prévient dès qu'un prêt de l'utilisateur change (demande reçue, signature, paiement déclaré…)
+ * pour rafraîchir l'écran sans rouvrir l'appli. Renvoie la fonction d'arrêt.
+ */
+export const watchUserLoans = (uid: string, onChange: () => void): (() => void) => {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  // La première réponse de chaque écoute est l'état initial, déjà chargé : on l'ignore.
+  const listener = () => { let first = true; return () => { if (first) { first = false; return; } if (timer) clearTimeout(timer); timer = setTimeout(onChange, 400); }; };
+  const ignore = () => undefined;
+  const stops = [
+    onSnapshot(query(collection(db, LOANS), where("lenderUid", "==", uid)), listener(), ignore),
+    onSnapshot(query(collection(db, LOANS), where("borrowerUid", "==", uid)), listener(), ignore),
+    onSnapshot(query(collection(db, "notifications"), where("userId", "==", uid)), listener(), ignore),
+  ];
+  return () => { if (timer) clearTimeout(timer); stops.forEach(s => s()); };
 };

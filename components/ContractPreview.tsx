@@ -248,6 +248,8 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({ loan, onClose, autoPr
             {loan.contractHash && (
               <div className="ck-proof mt-8 p-3 rounded-lg text-[7.5pt] leading-relaxed" style={{ background: SOFT, color: MUTE }}>
                 <p className="font-extrabold uppercase tracking-[0.14em] text-[7pt] mb-1" style={{ color: INK }}>Dossier de preuve électronique</p>
+                {loan.contractCheck === 'ok' && <p style={{ margin: 0 }}>Texte contrôlé : conforme aux conditions signées par le prêteur.</p>}
+                {loan.contractCheck === 'mismatch' && <p style={{ margin: 0, color: '#B42318', fontWeight: 700 }}>Attention : ce texte ne correspond pas aux conditions signées par le prêteur.</p>}
                 <p style={{ margin: 0 }}>Modèle CKMoney {loan.contractVersion || ''}, texte fixe. Empreinte SHA-256 : <span className="font-mono break-all">{loan.contractHash}</span></p>
                 <p style={{ margin: 0 }}>Prêteur : {loan.lenderEmail}, le {lenderSignedAt}.{loan.borrowerSignedAt && <> Emprunteur : {loan.borrowerEmail}, le {borrowerSignedAt} ; texte {hashOk ? 'identique à l’original ✓' : 'DIFFÉRENT ✗'} ; mention en lettres {mentionOk ? 'concordante ✓' : 'à vérifier ✗'}.</>}</p>
               </div>
