@@ -4,7 +4,8 @@ import { computeSituation, daysBetween } from '../../utils/schedule.js';
 import { LEGAL_INTEREST_RATE } from '../../config/legal.js';
 
 // Tâche quotidienne (Vercel Cron, gratuit) : rappels d'échéance et de retard.
-// Proche : la veille, le jour J, puis 1, 3 et 7 jours de retard, ensuite chaque semaine.
+// Proche : la veille, le jour J, puis 1, 3 et 7 jours de retard, ensuite chaque jour tant qu'il
+// n'a ni payé ni proposé de nouvelle date (une demande de délai en attente suspend les rappels).
 // Prêteur : prévenu au premier jour de retard.
 
 const parisToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
@@ -56,7 +57,7 @@ export default async function handler(req: any, res: any) {
     if (s.isOverdue && loan.status === 'active' && s.pendingDeclared < s.overdueAmount) {
       const late = s.daysLate;
       const oldest = s.schedule.find(i => i.isOverdue)!;
-      if (late === 1 || late === 3 || late === 7 || (late > 7 && late % 7 === 0)) {
+      if (late === 1 || late === 3 || late >= 7) {
         const interest = s.lateInterest > 0 ? ` Intérêts de retard à ce jour : ${eur(s.lateInterest, loan.currency)}.` : '';
         sent += await notify(loan.borrowerUid, loan.id, 'danger', 'Remboursement en retard',
           `${eur(s.overdueAmount, loan.currency)} dus à ${lender} depuis le ${fmtDate(oldest.dueDate)}.${interest} Paie ou propose une nouvelle date dans CKMoney.`,
