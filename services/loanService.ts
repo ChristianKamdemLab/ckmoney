@@ -215,7 +215,7 @@ const claimHandle = async (uid: string, first: string, current?: string): Promis
   }
   return uid;
 };
-const RESERVED = new Set(['p', 'assets', 'icons', 'api', 'app', 'sw', 'manifest', 'index', 'login', 'admin']);
+const RESERVED = new Set(['p', 'assets', 'icons', 'api', 'app', 'sw', 'manifest', 'index', 'login', 'admin', 'jambo', 'articles', 'pronos']);
 
 export const publishLenderCard = async (uid: string, profile: Profile): Promise<string> => {
   const prev = await getLenderCard(uid);

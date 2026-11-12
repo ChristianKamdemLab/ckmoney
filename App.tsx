@@ -92,7 +92,8 @@ const App: React.FC = () => {
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   useEffect(() => onAuthStateChanged(auth, u => { setFbUser(u); setAuthReady(true); }), []);
-  const user: User | null = fbUser ? toUser(fbUser) : null;
+  // Un invité du Jambo (connexion anonyme) n'est pas un compte CKMoney : il voit l'écran de connexion.
+  const user: User | null = fbUser && !fbUser.isAnonymous ? toUser(fbUser) : null;
   const isLender = !!user && canCreateLoans(user.email);
 
   const [profile, setProfile] = useState<Profile | null>(null);

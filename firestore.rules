@@ -9,7 +9,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() { return request.auth != null; }
+    // Compte CKMoney : Google ou e-mail. Les invités du Jambo (connexion anonyme) n'ont accès qu'au jeu.
+    function signedIn() { return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous'; }
+    function anyPlayer() { return request.auth != null; }
     function uid() { return request.auth.uid; }
     function isLenderOf(d) { return signedIn() && d.get('lenderUid', '') == uid(); }
     function isBorrowerOf(d) { return signedIn() && d.get('borrowerUid', '') == uid(); }
@@ -146,6 +148,20 @@ service cloud.firestore {
     match /articles/{articleId} {
       allow read: if signedIn() && (resource.data.status == 'published' || resource.data.authorUid == uid());
       allow write: if false;
+    }
+
+    // Jambo en ligne : la table (sans les mains) est lisible par qui connaît son code ; chacun ne lit que SA main.
+    // Tout est écrit par le serveur (api/jambo), qui arbitre chaque coup. L'état complet (jamboSecrets) reste fermé.
+    match /jamboTables/{code} {
+      allow get: if anyPlayer();
+      allow list, write: if false;
+      match /hands/{playerId} {
+        allow get: if anyPlayer() && request.auth.uid == playerId;
+        allow list, write: if false;
+      }
+    }
+    match /jamboSecrets/{code} {
+      allow read, write: if false;
     }
 
     // Notifications : chacun lit les siennes ; on ne peut notifier que l'autre partie d'un prêt commun.
