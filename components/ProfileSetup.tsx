@@ -5,6 +5,7 @@ import CityInput from './CityInput';
 import SignaturePad from './SignaturePad';
 import CKLogo from './brand/CKLogo';
 import { saveProfile } from '../services/profileService';
+import { USURY_BRACKETS } from '../config/legal';
 
 interface ProfileSetupProps {
   user: User;
@@ -93,8 +94,8 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
             </div>
             <div className="space-y-1">
               <label className={label}>Taux en cas de report (% par an)</label>
-              <input type="number" inputMode="decimal" min={0} max={23.6} step={0.5} value={p.delayRate ?? ''} onChange={e => setP({ ...p, delayRate: e.target.value === '' ? undefined : Math.min(23.6, Math.max(0, parseFloat(e.target.value))) })} placeholder="Vide = taux de retard du contrat" className={field} />
-              <p className="text-[11px] text-slate-500">Appliqué automatiquement quand un proche te propose une nouvelle date, depuis l'échéance manquée. Plafonné au taux de l'usure du montant prêté (23,60 % jusqu'à 3 000 €).</p>
+              <input type="number" inputMode="decimal" min={0} max={USURY_BRACKETS[0].rate} step={0.5} value={p.delayRate ?? ''} onChange={e => setP({ ...p, delayRate: e.target.value === '' ? undefined : Math.min(USURY_BRACKETS[0].rate, Math.max(0, parseFloat(e.target.value) || 0)) })} placeholder="Vide = taux de retard du contrat" className={field} />
+              <p className="text-[11px] text-slate-500">Appliqué automatiquement quand un proche te propose une nouvelle date, depuis l'échéance manquée. Plafonné au taux de l'usure du montant prêté ({USURY_BRACKETS[0].rate.toLocaleString('fr-FR')} % jusqu'à 3 000 € aujourd'hui).</p>
             </div>
             <div className="space-y-1">
               <label className={label}>Pénalité forfaitaire en cas de retard (%)</label>

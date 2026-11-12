@@ -1,0 +1,26 @@
+name: Vérification
+
+# Avant chaque mise en ligne : l'appli compile et les calculs (intérêts, pénalité, report,
+# échéancier, plafonds légaux, contrat) donnent toujours les bons montants.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Types
+        run: npx tsc --noEmit
+      - name: Calculs
+        run: npx vitest run
+      - name: Construction
+        run: npx vite build

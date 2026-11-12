@@ -37,3 +37,12 @@ export const sendReminderMail = async (args: {
     return true;
   } catch (e: any) { console.error('mail', e?.message); return false; }
 };
+
+/** Envoi libre (bilan mensuel, sauvegarde) depuis le Gmail du prêteur. */
+export const sendMail = async (args: { to: string; subject: string; html: string; text: string; attachments?: { filename: string; content: string; contentType?: string }[] }) => {
+  if (!transport || !args.to) return false;
+  try {
+    await transport.sendMail({ from: `"CKMoney" <${user}>`, to: args.to, subject: args.subject, html: args.html, text: args.text, attachments: args.attachments });
+    return true;
+  } catch (e: any) { console.error('mail', e?.message); return false; }
+};
