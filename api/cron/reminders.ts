@@ -1,4 +1,5 @@
 import { adminDb, pushToUser } from '../_lib/admin.js';
+import { sendReminderMail } from '../_lib/mail.js';
 import { computeSituation, daysBetween } from '../../utils/schedule.js';
 import { LEGAL_INTEREST_RATE } from '../../config/legal.js';
 
@@ -11,9 +12,26 @@ const fmtDate = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString(
 const eur = (n: number, c = 'EUR') => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === 'EUR' ? '€' : c}`;
 const first = (s?: string) => (s || '').trim().split(/\s+/)[0] || '';
 
-const notify = async (userId: string, loanId: string, type: string, title: string, message: string) => {
+/** Lien PayPal.me avec le montant, sinon le lien tel quel. */
+const payUrl = (link: string | undefined, amount: number, currency = 'EUR') => {
+  if (!link) return null;
+  const url = link.startsWith('http') ? link : `https://${link}`;
+  const pp = url.match(/^https?:\/\/(?:www\.)?paypal\.me\/([^/?#]+)/i);
+  return pp ? `https://paypal.me/${pp[1]}/${amount.toFixed(2)}${currency}` : url;
+};
+
+const lenderCards = new Map<string, any>();
+const lenderCard = async (uid: string) => {
+  if (!lenderCards.has(uid)) lenderCards.set(uid, (await adminDb.collection('lenders').doc(uid).get()).data() || null);
+  return lenderCards.get(uid);
+};
+
+const notify = async (userId: string, loanId: string, type: string, title: string, message: string,
+  mail?: { to?: string; replyTo?: string; fromName: string; payUrl?: string | null }) => {
   await adminDb.collection('notifications').add({ userId, loanId, type, title, message, date: new Date().toISOString(), read: false, pushedAt: new Date().toISOString() });
-  return pushToUser(userId, { title, body: message, url: `/?loan=${loanId}`, tag: `${loanId}-rappel` });
+  const pushed = await pushToUser(userId, { title, body: message, url: `/?loan=${loanId}`, tag: `${loanId}-rappel` });
+  const mailed = mail?.to ? await sendReminderMail({ to: mail.to, replyTo: mail.replyTo, fromName: mail.fromName, subject: `CKMoney · ${title}`, title, body: message, loanId, payUrl: mail.payUrl, payLabel: 'Payer maintenant' }) : false;
+  return pushed + (mailed ? 1 : 0);
 };
 
 export default async function handler(req: any, res: any) {
@@ -31,6 +49,9 @@ export default async function handler(req: any, res: any) {
     const lender = first(loan.lenderName);
     const borrower = loan.borrowerNickname || first(loan.borrowerName);
     const next = s.nextInstallment;
+    const card = loan.lenderUid ? await lenderCard(loan.lenderUid) : null;
+    const lenderLink = card?.paymentLink || loan.lenderPaymentLink;
+    const toBorrower = (amount: number) => ({ to: loan.borrowerEmail, replyTo: loan.lenderEmail, fromName: lender || 'CKMoney', payUrl: payUrl(lenderLink, amount, loan.currency) });
 
     if (s.isOverdue && loan.status === 'active' && s.pendingDeclared < s.overdueAmount) {
       const late = s.daysLate;
@@ -38,17 +59,20 @@ export default async function handler(req: any, res: any) {
       if (late === 1 || late === 3 || late === 7 || (late > 7 && late % 7 === 0)) {
         const interest = s.lateInterest > 0 ? ` Intérêts de retard à ce jour : ${eur(s.lateInterest, loan.currency)}.` : '';
         sent += await notify(loan.borrowerUid, loan.id, 'danger', 'Remboursement en retard',
-          `${eur(s.overdueAmount, loan.currency)} dus à ${lender} depuis le ${fmtDate(oldest.dueDate)}.${interest} Paie ou propose une nouvelle date dans CKMoney.`);
+          `${eur(s.overdueAmount, loan.currency)} dus à ${lender} depuis le ${fmtDate(oldest.dueDate)}.${interest} Paie ou propose une nouvelle date dans CKMoney.`,
+          toBorrower(Math.round((s.overdueAmount + s.lateInterest) * 100) / 100));
       }
       if (late === 1 && loan.lenderUid) {
         sent += await notify(loan.lenderUid, loan.id, 'warning', `${borrower} est en retard`,
-          `${eur(s.overdueAmount, loan.currency)} étaient prévus hier. Un rappel lui a été envoyé.`);
+          `${eur(s.overdueAmount, loan.currency)} étaient prévus hier. Un rappel lui a été envoyé.`,
+          { to: loan.lenderEmail, fromName: 'CKMoney' });
       }
     } else if (next && !s.isOverdue) {
       const days = daysBetween(today, next.dueDate);
       if (days === 1 || days === 0) {
         sent += await notify(loan.borrowerUid, loan.id, 'info', days === 1 ? 'Échéance demain' : "C'est aujourd'hui",
-          `${eur(next.outstanding + s.lateInterest, loan.currency)} à rembourser à ${lender} ${days === 1 ? 'demain' : "aujourd'hui"}, le ${fmtDate(next.dueDate)}.`);
+          `${eur(next.outstanding + s.lateInterest, loan.currency)} à rembourser à ${lender} ${days === 1 ? 'demain' : "aujourd'hui"}, le ${fmtDate(next.dueDate)}.`,
+          toBorrower(Math.round((next.outstanding + s.lateInterest) * 100) / 100));
       }
     }
   }
