@@ -204,3 +204,17 @@ export const isValidIban = (raw: string) => {
   return rem === 1;
 };
 export const formatIban = (raw: string) => (raw || '').replace(/\s/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
+
+/** Article de l'auteur (collection articles/{id}), lisible par les comptes connectés une fois publié. */
+export interface Article {
+  id: string;
+  title: string;
+  body: string;            // format de utils/articleText (## intertitre, - puce, une ligne = un paragraphe)
+  excerpt: string;
+  readMinutes: number;
+  status: 'published' | 'draft';
+  publishedAt?: string;    // ISO
+  updatedAt: string;       // ISO
+  authorUid: string;
+  authorName: string;
+}

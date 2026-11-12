@@ -6,6 +6,7 @@ import {
 } from './ui';
 import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
+import Discover from './Discover';
 import ReceiveFields, { receiveValid } from './ReceiveFields';
 import CityInput from '../CityInput';
 import SignaturePad from '../SignaturePad';
@@ -409,6 +410,7 @@ export const BorrowerSpace: React.FC<{
   onOpenLoan: (l: Loan) => void; onRequest: (lenderUid: string, lenderFirstName: string) => void;
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
   onOpenContract: (l: Loan) => void;
+  onArticles?: () => void; onJambo?: () => void;
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);
   const open = mine.filter(l => ['active', 'delay_requested', 'pending_borrower', 'requested'].includes(l.status));
@@ -534,6 +536,8 @@ export const BorrowerSpace: React.FC<{
           </div>
         </>
       )}
+
+      {p.onArticles && p.onJambo && <Discover onArticles={p.onArticles} onJambo={p.onJambo} />}
 
       {closed.length > 0 && (
         <>
