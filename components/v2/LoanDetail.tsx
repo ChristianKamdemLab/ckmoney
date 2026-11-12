@@ -330,7 +330,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
           })}
         </Card>
         <div className="text-xs mt-2 px-1 leading-relaxed" style={{ color: C.mute }}>
-          {loan.interestRate ? `${loan.interestRate.toLocaleString('fr-FR')} % d'intérêt par an` : 'Sans intérêt'} · {lateRate ? `retard : ${lateRate.toLocaleString('fr-FR')} % par an sur les sommes échues` : 'pas de pénalité de retard'} · remboursement anticipé sans frais
+          {loan.interestRate ? `${loan.interestRate.toLocaleString('fr-FR')} % d'intérêt par an` : 'Sans intérêt'} · {lateRate ? `retard : ${lateRate.toLocaleString('fr-FR')} % par an sur les sommes échues` : "pas d'intérêts de retard"} · remboursement anticipé sans frais
           {s.lateInterest > 0 && ` · intérêts de retard courus : ${euro2(s.lateInterest, loan.currency)}`}{loan.penaltyRate ? ` · pénalité forfaitaire : ${loan.penaltyRate.toLocaleString('fr-FR')} % des sommes impayées à l'échéance` : ''}{s.penalty > 0 ? ` (${euro2(s.penalty, loan.currency)} dus)` : ''}
         </div>
       </div>

@@ -5,6 +5,7 @@ import { amountWordsMatch } from '../utils/frenchNumbers';
 import { formatMoney, parseISODate, scheduleForLoan, effectiveLateRate } from '../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../config/legal';
 import { buildLoanContract } from '../utils/contract';
+import { lateTermsLabel } from '../utils/wording';
 
 interface ContractPreviewProps {
   loan: Loan;
@@ -90,7 +91,7 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({ loan, onClose, autoPr
     ['Montant prêté', formatMoney(loan.amount, loan.currency)],
     ['Remboursement', schedule.length > 1 ? `${schedule.length} × ${formatMoney(schedule[0].amount, loan.currency)}` : `le ${fmt(schedule[0].dueDate)}`],
     ['Intérêts', loan.interestRate ? `${loan.interestRate.toLocaleString('fr-FR')} % / an` : 'Sans intérêt'],
-    ['Si retard', loan.lateRateMode === 'none' ? 'Aucune pénalité' : loan.lateRateMode === 'legal' ? 'Taux légal' : `${lateRate.toLocaleString('fr-FR')} % / an`],
+    ['Si retard', lateTermsLabel(loan.lateRateMode, lateRate, loan.penaltyRate)],
   ];
 
   const ackText = (loan.acknowledgmentText || '').replace(

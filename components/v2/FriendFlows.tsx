@@ -19,6 +19,7 @@ import { getUserNotifications, markNotificationAsRead } from '../../services/not
 import { amountWordsMatch } from '../../utils/frenchNumbers';
 import { buildSchedule, computeSituation, toISODate, addMonths } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE, rateCapFor } from '../../config/legal';
+import { lateFeesDetail } from '../../utils/wording';
 
 const identityOf = (p: Partial<Profile> | null | undefined, user: User): BorrowerIdentity => ({
   civility: p?.civility || 'M.',
@@ -454,6 +455,7 @@ export const BorrowerSpace: React.FC<{
     .filter(x => x.s.nextInstallment || x.s.isOverdue)
     .sort((a, b) => (a.s.isOverdue ? -1 : 0) - (b.s.isOverdue ? -1 : 0) || (a.s.nextInstallment?.dueDate || '').localeCompare(b.s.nextInstallment?.dueDate || ''))[0];
   const nextAmount = nextDue ? Math.round((nextDue.s.isOverdue ? nextDue.s.overdueAmount + nextDue.s.lateInterest + nextDue.s.penalty : nextDue.s.nextInstallment!.outstanding + nextDue.s.lateInterest + nextDue.s.penalty) * 100) / 100 : 0;
+  const lateFees = nextDue ? lateFeesDetail(nextDue.s.penalty, nextDue.s.lateInterest, n => euro2(n, nextDue.l.currency)) : '';
   const nextLink = nextDue ? payUrl(cards[nextDue.l.lenderUid || '']?.paymentLink || nextDue.l.lenderPaymentLink, nextAmount, nextDue.l.currency) : null;
 
   return (
@@ -475,7 +477,7 @@ export const BorrowerSpace: React.FC<{
             </div>
             <div className="text-sm mt-1" style={{ color: C.text2 }}>
               {euro2(nextAmount, nextDue.l.currency)} à {lenderName(nextDue.l)}
-              {nextDue.s.isOverdue && nextDue.s.lateInterest + nextDue.s.penalty > 0 ? `, dont ${euro2(nextDue.s.penalty, nextDue.l.currency)} de pénalité et ${euro2(nextDue.s.lateInterest, nextDue.l.currency)} d'intérêts de retard` : ''}
+              {nextDue.s.isOverdue && lateFees ? `, dont ${lateFees}` : ''}
               {!nextDue.s.isOverdue && nextDue.s.nextInstallment ? `, le ${dateFr(nextDue.s.nextInstallment.dueDate, { day: 'numeric', month: 'long' })}` : ''}.
             </div>
             <div className={`grid ${nextLink ? "grid-cols-2" : "grid-cols-1"} gap-2 mt-3`}>
