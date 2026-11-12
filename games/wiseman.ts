@@ -1,4 +1,4 @@
-import { normalize } from './bac';
+import { normalize } from './bac.js';
 
 // Le Wiseman (jeu de l'intrus) : règles sans interface.
 //  - Les civils reçoivent un mot, l'intrus un mot proche ; personne ne connaît son rôle.
