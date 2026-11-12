@@ -59,10 +59,15 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
   const [phone, setPhone] = useState('');
   // Étape 3 : remboursement
   const today = toISODate(new Date());
-  const [plan, setPlan] = useState<'once' | 'm3' | 'm6' | 'custom'>(prefill?.dueDate ? 'once' : 'm3');
-  const [onceDate, setOnceDate] = useState(prefill?.dueDate && prefill.dueDate > today ? prefill.dueDate : addMonths(today, 3));
-  const [customMonths, setCustomMonths] = useState(4);
-  const [firstDue, setFirstDue] = useState(addMonths(today, 1));
+  // En modification, on reprend l'échéancier tel quel, même si une date est déjà passée.
+  const editSchedule = editLoan?.schedule || [];
+  const [plan, setPlan] = useState<'once' | 'm3' | 'm6' | 'custom'>(
+    editLoan ? (editSchedule.length > 1 ? 'custom' : 'once') : prefill?.dueDate ? 'once' : 'm3');
+  const [onceDate, setOnceDate] = useState(
+    editLoan && editSchedule.length === 1 ? editSchedule[0].dueDate
+      : prefill?.dueDate && prefill.dueDate > today ? prefill.dueDate : addMonths(today, 3));
+  const [customMonths, setCustomMonths] = useState(editSchedule.length > 1 ? editSchedule.length : 4);
+  const [firstDue, setFirstDue] = useState(editSchedule.length > 1 ? editSchedule[0].dueDate : addMonths(today, 1));
   const [loanDate, setLoanDate] = useState(editLoan?.loanDate || today);
   const alreadyGiven = loanDate < today;
   const [currency, setCurrency] = useState(editLoan?.currency || 'EUR');
