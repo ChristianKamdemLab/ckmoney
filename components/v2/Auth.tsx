@@ -3,6 +3,7 @@ import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPass
 import { auth, googleProvider } from '../../services/firebase';
 import { Screen, TopBar, Button, Field, inputClass, inputStyle, Note, C } from './ui';
 import CKLogo from '../brand/CKLogo';
+import { InstallButton } from './Install';
 
 const errorText = (code: string) => ({
   'auth/wrong-password': 'Mot de passe incorrect.',
@@ -79,6 +80,7 @@ const Auth: React.FC<{ context?: string; onBack?: () => void }> = ({ context, on
           <GoogleMark /> {busy === 'g' ? 'Connexion…' : 'Continuer avec Google'}
         </button>
         <Button variant="secondary" onClick={() => { setMode('signup'); setError(null); }}>Continuer avec un e-mail</Button>
+        <InstallButton />
       </div>
     </Screen>
   );
