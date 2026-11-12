@@ -2,7 +2,7 @@
 // Les nuances « indigo », « amber » et « slate » de Tailwind sont redirigées vers la charte.
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './App.tsx', './index.tsx', './jambo.html', './jambo.tsx', './components/**/*.{ts,tsx}'],
+  content: ['./index.html', './App.tsx', './index.tsx', './jambo.html', './jambo.tsx', './bac.html', './bac.tsx', './components/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {

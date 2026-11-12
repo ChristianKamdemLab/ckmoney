@@ -26,8 +26,8 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
-        // Seule l'appli sert de secours hors ligne (pas la page publique du Jambo).
-        .then((res) => { if (res.ok && url.pathname !== '/jambo') { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('/', copy)); } return res; })
+        // Seule l'appli sert de secours hors ligne (pas les pages publiques des jeux).
+        .then((res) => { if (res.ok && !['/jambo', '/bac'].includes(url.pathname)) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('/', copy)); } return res; })
         .catch(() => caches.match('/')),
     );
     return;

@@ -9,10 +9,10 @@ export default defineConfig(() => {
         host: '0.0.0.0',
       },
       plugins: [react()],
-      // Deux pages : l'appli (index.html) et le Jambo public sans compte (jambo.html, servi sur /jambo).
+      // Pages : l'appli (index.html) et les jeux publics sans compte (jambo.html sur /jambo, bac.html sur /bac).
       build: {
         rollupOptions: {
-          input: { main: path.resolve(__dirname, 'index.html'), jambo: path.resolve(__dirname, 'jambo.html') },
+          input: { main: path.resolve(__dirname, 'index.html'), jambo: path.resolve(__dirname, 'jambo.html'), bac: path.resolve(__dirname, 'bac.html') },
         },
       },
       resolve: {

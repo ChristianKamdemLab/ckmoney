@@ -5,6 +5,10 @@
       "destination": "/jambo.html"
     },
     {
+      "source": "/bac",
+      "destination": "/bac.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

@@ -164,6 +164,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Baccalauréat en ligne : la table est lisible par qui a le code ; les réponses restent cachées
+    // (bacSecrets) jusqu'à la correction. Tout est écrit par le serveur (api/bac).
+    match /bacTables/{code} {
+      allow get: if anyPlayer();
+      allow list, write: if false;
+    }
+    match /bacSecrets/{document=**} {
+      allow read, write: if false;
+    }
+
     // Notifications : chacun lit les siennes ; on ne peut notifier que l'autre partie d'un prêt commun.
     match /notifications/{notifId} {
       allow read: if signedIn() && resource.data.userId == uid();
