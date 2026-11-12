@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Profile, User, isProfileComplete } from '../types';
+import { Profile, User, isProfileComplete, formatIban } from '../types';
 import CityInput from './CityInput';
 import SignaturePad from './SignaturePad';
 import CKLogo from './brand/CKLogo';
@@ -67,7 +67,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
         <Field label="Lien de paiement" htmlFor="pf-link" hint="Ton lien PayPal.me : tes proches auront un bouton « Payer » avec le montant déjà rempli. Un lien Revolut ou Lydia marche aussi.">
           <input id="pf-link" autoCapitalize="none" autoComplete="off" value={p.paymentLink} onChange={e => setP({ ...p, paymentLink: e.target.value })} placeholder="paypal.me/ton-nom" className={inputClass} style={inputStyle} />
         </Field>
-        <Field label="IBAN (facultatif)" htmlFor="pf-iban" hint="Indiqué dans les contrats pour les remboursements par virement.">
+        <Field label="IBAN (facultatif)" htmlFor="pf-iban" hint={`${p.iban?.trim() ? `${formatIban(p.iban)}. ` : ''}Indiqué dans les contrats pour les remboursements par virement.`}>
           <input id="pf-iban" autoCapitalize="characters" autoComplete="off" value={p.iban} onChange={e => setP({ ...p, iban: e.target.value })} placeholder="FR76 …" className={inputClass} style={{ ...inputStyle, fontFamily: 'ui-monospace, monospace' }} />
         </Field>
       </div>
@@ -89,7 +89,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
         {p.signature && !redraw ? (
           <Card className="p-3 flex items-center justify-between gap-4">
             <img src={p.signature} alt="Signature enregistrée" className="h-16 object-contain" />
-            <button onClick={() => { setRedraw(true); setP({ ...p, signature: '' }); }} className="text-sm font-bold px-2" style={{ color: C.ink }}>Refaire</button>
+            <button onClick={() => { setRedraw(true); setP({ ...p, signature: '' }); }} className="text-sm font-bold px-3 py-3" style={{ color: C.ink }}>Refaire</button>
           </Card>
         ) : (
           <SignaturePad label="Signe dans le cadre" onSave={sig => setP({ ...p, signature: sig })} />

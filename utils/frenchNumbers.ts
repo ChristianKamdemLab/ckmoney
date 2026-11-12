@@ -105,12 +105,14 @@ const IGNORED = new Set([
   'livre', 'livres', 'sterling', 'la', 'somme', 'bon', 'pour',
 ]);
 const SUB_UNITS = new Set(['centime', 'centimes', 'cent_sub', 'pence', 'penny']);
+const MAIN_UNITS = new Set(['euro', 'euros', 'dollar', 'dollars', 'franc', 'francs', 'livre', 'livres', 'cfa', 'fcfa', 'suisse', 'suisses', 'sterling', 'americains', 'canadiens', 'americain', 'canadien']);
 
 const normalize = (text: string) =>
   text
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
+    .replace(/€/g, ' euros ')
     .replace(/['’\-–,.;:]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -173,7 +175,7 @@ export const parseFrenchAmountWords = (text: string): number | null => {
   if (subIdx >= 0) {
     // On coupe après le mot d'unité monétaire principal (euros, dollars…)
     const mainUnitIdx = tokens.findIndex(
-      (t, i) => i < subIdx && ['euro', 'euros', 'dollar', 'dollars', 'franc', 'francs', 'livre', 'livres', 'cfa', 'fcfa', 'suisse', 'suisses', 'sterling', 'americains', 'canadiens', 'americain', 'canadien'].includes(t),
+      (t, i) => i < subIdx && MAIN_UNITS.has(t),
     );
     if (mainUnitIdx < 0) {
       const cents = parseIntegerWords(tokens.slice(0, subIdx));
@@ -188,6 +190,18 @@ export const parseFrenchAmountWords = (text: string): number | null => {
     const decPart = parseIntegerWords(tokens.slice(lastUnit + 1, subIdx));
     if (intPart === null || decPart === null || decPart > 99) return null;
     return intPart + decPart / 100;
+  }
+
+  // « vingt et un euros cinquante », « dix dollars et cinquante cents » : ce qui suit l'unité
+  // monétaire, ce sont les centimes (le « cents » final est alors la sous-unité du dollar).
+  let lastUnit = -1;
+  tokens.forEach((t, i) => { if (MAIN_UNITS.has(t)) lastUnit = i; });
+  if (lastUnit >= 0 && lastUnit < tokens.length - 1) {
+    let tail = tokens.slice(lastUnit + 1);
+    if (tail.length > 1 && /^cents?$/.test(tail[tail.length - 1])) tail = tail.slice(0, -1);
+    const intPart = parseIntegerWords(tokens.slice(0, lastUnit + 1));
+    const decPart = parseIntegerWords(tail);
+    if (intPart !== null && decPart !== null && decPart <= 99) return intPart + decPart / 100;
   }
 
   return parseIntegerWords(tokens);

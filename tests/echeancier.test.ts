@@ -118,6 +118,20 @@ describe('montant en lettres', () => {
     expect(amountWordsMatch('mille cinq cents euros', 1500)).toBe(true);
     expect(amountWordsMatch('vingt et un euros et cinquante centimes', 21.5)).toBe(true);
   });
+  it('centimes dits sans le mot « centimes », symbole € et cents du dollar', () => {
+    expect(amountWordsMatch('vingt et un euros cinquante', 21.5)).toBe(true);
+    expect(amountWordsMatch('zéro euro cinquante', 0.5)).toBe(true);
+    expect(amountWordsMatch('cent cinquante €', 150)).toBe(true);
+    expect(amountWordsMatch('cent euros cinquante', 150)).toBe(false); // 100,50 € et non 150 €
+    expect(amountWordsMatch('cent euros cinquante', 100.5)).toBe(true);
+    for (const cur of ['USD', 'CAD', 'CHF', 'GBP']) for (const a of [1, 1.01, 21.5, 200, 1500.5, 2000000]) {
+      expect(amountWordsMatch(amountToFrenchWords(a, cur), a), `${a} ${cur}`).toBe(true);
+    }
+    expect(amountWordsMatch('deux cents dollars', 200)).toBe(true);
+    expect(amountWordsMatch('mille francs CFA', 1000)).toBe(true);
+    expect(amountWordsMatch("un million d'euros", 1000000)).toBe(true);
+    expect(amountWordsMatch('Bon pour la somme de cent cinquante euros', 150)).toBe(true);
+  });
   it('un montant en chiffres ou approximatif est refusé', () => {
     expect(amountWordsMatch('150 euros', 150)).toBe(false);
     expect(amountWordsMatch('cent cinquante euros', 150.5)).toBe(false);

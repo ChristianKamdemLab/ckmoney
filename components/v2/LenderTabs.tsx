@@ -88,6 +88,8 @@ const LenderTabs: React.FC<Props> = (p) => {
 
   const sorted = open.slice().sort((a, b) => priority(a) - priority(b));
   const overdueCount = open.filter(l => ['active', 'delay_requested'].includes(l.status) && computeSituation(l, LEGAL_INTEREST_RATE).isOverdue).length;
+  const requests = open.filter(l => l.status === 'requested').length;
+  const running = open.length - requests;
   const greeting = firstName(p.profile?.fullName || p.user.name);
 
 
@@ -121,7 +123,7 @@ const LenderTabs: React.FC<Props> = (p) => {
         <div className="text-sm" style={{ color: C.mute }}>On te doit</div>
         {owed === null ? <Skeleton h={58} className="w-48 mt-1" /> : <Amount>{euro2(owed)}</Amount>}
         <div className="text-sm mt-1.5" style={{ color: C.mute }}>
-          {open.length ? `${open.length} prêt${open.length > 1 ? 's' : ''} en cours${overdueCount ? ` · ${overdueCount} en retard` : ''}` : 'Aucun prêt en cours'}
+          {running ? `${running} prêt${running > 1 ? 's' : ''} en cours${overdueCount ? ` · ${overdueCount} en retard` : ''}` : 'Aucun prêt en cours'}{requests ? ` · ${requests} demande${requests > 1 ? 's' : ''}` : ''}
         </div>
       </div>
       <div className="px-5 pt-6">

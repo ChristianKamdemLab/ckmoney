@@ -152,7 +152,7 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({ loan, onClose, autoPr
       {/* Barre d'outils */}
       <div className="no-print sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200">
         <div className="max-w-[210mm] mx-auto px-4 py-3 flex justify-between items-center">
-          <button onClick={onClose} className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900">
+          <button onClick={onClose} className="flex items-center gap-2 py-3 -my-3 pr-3 text-sm font-bold text-slate-600 hover:text-slate-900">
             <ArrowLeft size={18} /> Retour
           </button>
           <button onClick={() => window.print()} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: INK }}>

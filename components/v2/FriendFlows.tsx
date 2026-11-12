@@ -133,7 +133,7 @@ const SignStep: React.FC<{
           <SignaturePad label="Signe avec le doigt dans le cadre" onSave={setSig} />
         </div>
         {onPreview && (
-          <button onClick={onPreview} className="text-[14px] font-semibold text-left flex items-center gap-1.5" style={{ color: C.ink }}>
+          <button onClick={onPreview} className="text-[14px] font-semibold text-left flex items-center gap-1.5 py-2 -my-2" style={{ color: C.ink }}>
             <Icon name="file" size={18} /> Lire le contrat complet
           </button>
         )}
