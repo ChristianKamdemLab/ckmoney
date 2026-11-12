@@ -91,6 +91,11 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
               <label className={label}>Lien de paiement (optionnel)</label>
               <input value={p.paymentLink} onChange={e => setP({ ...p, paymentLink: e.target.value })} placeholder="paypal.me/votre_pseudo ou lien Revolut / Lydia" className={field} />
             </div>
+            <div className="space-y-1">
+              <label className={label}>Taux en cas de report (% par an)</label>
+              <input type="number" inputMode="decimal" min={0} max={23.6} step={0.5} value={p.delayRate ?? ''} onChange={e => setP({ ...p, delayRate: e.target.value === '' ? undefined : Math.min(23.6, Math.max(0, parseFloat(e.target.value))) })} placeholder="Vide = taux de retard du contrat" className={field} />
+              <p className="text-[11px] text-slate-500">Appliqué automatiquement quand un proche te propose une nouvelle date, depuis l'échéance manquée. Plafonné au taux de l'usure du montant prêté (23,60 % jusqu'à 3 000 €).</p>
+            </div>
           </div>
 
           <div className="pt-4 border-t border-slate-100 space-y-3">

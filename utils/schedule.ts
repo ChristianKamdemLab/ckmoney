@@ -9,6 +9,7 @@ export interface Installment {
   interest: number;   // part d'intérêts
   remainingPrincipal: number; // capital restant dû après l'échéance
   lateFrom?: string;  // échéance d'origine si un report a été accordé en maintenant les intérêts de retard
+  lateRate?: number;  // taux de retard (% par an) convenu lors d'un report, à la place du taux du contrat
 }
 
 export interface InstallmentStatus extends Installment {
@@ -168,7 +169,7 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
   let lastAccrual = base.length ? lateStart.reduce((a, b) => (a < b ? a : b)) : todayISO;
 
   const accrueUntil = (dateISO: string) => {
-    if (lateRate <= 0) { lastAccrual = dateISO; return; }
+    if (lateRate <= 0 && !base.some(i => (i.lateRate || 0) > 0)) { lastAccrual = dateISO; return; }
     // Somme des échéances échues et impayées, jour par jour (par segments).
     const from = lastAccrual < dateISO ? lastAccrual : dateISO;
     const dueDates = lateStart.filter(d => d > from && d < dateISO);
@@ -178,8 +179,9 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
       const segEnd = cuts[k + 1];
       const days = daysBetween(segStart, segEnd);
       if (days <= 0) continue;
-      const overdue = base.reduce((s, _inst, idx) => (lateStart[idx] <= segStart ? s + remaining[idx] : s), 0);
-      accruedLate += overdue * lateRate * days / 365;
+      // Chaque échéance porte le taux du contrat, ou celui convenu lors d'un report.
+      const weighted = base.reduce((s, inst, idx) => (lateStart[idx] <= segStart ? s + remaining[idx] * (inst.lateRate != null ? inst.lateRate / 100 : lateRate) : s), 0);
+      accruedLate += weighted * days / 365;
     }
     lastAccrual = dateISO;
   };

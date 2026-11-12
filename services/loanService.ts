@@ -148,7 +148,7 @@ export const inviteLinkFor = (token: string) => `${window.location.origin}/p/${t
 // --- CARTE PUBLIQUE DU PRÊTEUR ET LIEN DE DEMANDE ----------------------------
 
 /** Ce que voit un proche qui ouvre le lien de demande : prénom et lien de paiement, rien d'autre. */
-export interface LenderCard { firstName: string; paymentLink?: string; handle?: string; updatedAt: string }
+export interface LenderCard { firstName: string; paymentLink?: string; handle?: string; delayRate?: number; updatedAt: string }
 
 /**
  * Réserve l'adresse courte du prêteur (ex. /christian) dans handles/{nom} → uid.
@@ -179,6 +179,7 @@ export const publishLenderCard = async (uid: string, profile: Profile): Promise<
   const card: LenderCard = clean({
     firstName: first,
     paymentLink: profile.paymentLink?.trim() || undefined,
+    delayRate: typeof profile.delayRate === 'number' && profile.delayRate > 0 ? profile.delayRate : undefined,
     handle,
     updatedAt: new Date().toISOString(),
   });
@@ -436,7 +437,7 @@ export const requestDelay = async (loan: Loan, newDate: string, quote?: { princi
   }
 };
 
-export const respondToDelay = async (loan: Loan, accepted: boolean, keepLateInterest = true) => {
+export const respondToDelay = async (loan: Loan, accepted: boolean, keepLateInterest = true, delayRate?: number) => {
   if (!loan.delayProposedDate) return;
   const newDate = loan.delayProposedDate;
   const updates: Record<string, unknown> = { status: 'active', delayProposedDate: deleteField(), delayRequestDate: deleteField() };
@@ -448,13 +449,15 @@ export const respondToDelay = async (loan: Loan, accepted: boolean, keepLateInte
       covered = Math.max(0, covered - inst.amount);
       if (fullyPaid || inst.dueDate >= newDate) return inst;
       // Intérêts de retard maintenus : ils continuent de courir depuis l'échéance d'origine.
-      return keepLateInterest ? { ...inst, dueDate: newDate, lateFrom: inst.lateFrom || inst.dueDate } : { ...inst, dueDate: newDate };
+      // Taux de report : convenu avec le report, il remplace le taux de retard du contrat pour cette échéance.
+      const withRate = typeof delayRate === 'number' && delayRate > 0 ? { lateRate: delayRate } : {};
+      return keepLateInterest ? { ...inst, ...withRate, dueDate: newDate, lateFrom: inst.lateFrom || inst.dueDate } : { ...inst, ...withRate, dueDate: newDate };
     });
     updates.schedule = schedule;
     const last = schedule.length ? schedule[schedule.length - 1].dueDate : newDate;
     updates.repaymentDate = last > newDate ? last : newDate;
     updates.amendments = [...(loan.amendments || []),
-      { type: 'report_echeance', newDate, acceptedAt: new Date().toISOString(), requestedAt: loan.delayRequestDate, lateInterestKept: keepLateInterest }];
+      { type: 'report_echeance', newDate, acceptedAt: new Date().toISOString(), requestedAt: loan.delayRequestDate, lateInterestKept: keepLateInterest, ...(delayRate ? { lateRate: delayRate } : {}) }];
   }
   await updateDoc(doc(db, LOANS, loan.id), updates as any);
   if (loan.borrowerUid) {
