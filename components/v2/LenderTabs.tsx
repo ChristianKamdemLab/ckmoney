@@ -4,6 +4,7 @@ import { Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, 
 import CKLogo from '../brand/CKLogo';
 import FiscalPanel from '../FiscalPanel';
 import PushCard from './PushCard';
+import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
 import { computeSituation } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
@@ -128,6 +129,9 @@ const LenderTabs: React.FC<Props> = (p) => {
           <Icon name="chat" size={20} /> Partager mon lien de demande
         </button>
       </div>
+      {ratesOutdated() && (
+        <div className="px-5 pt-4"><Note tone="warn">Les taux légaux enregistrés dans l'appli datent d'avant le {dateFr(RATES_VALID_UNTIL, { day: 'numeric', month: 'long', year: 'numeric' })}. La mise à jour préparée par l'agent de veille attend ta validation sur GitHub.</Note></div>
+      )}
       <div className="px-5 pt-4"><PushCard uid={p.user.id} text="Reçois les demandes de tes proches et leurs paiements dès qu'ils arrivent." /></div>
       <div className="px-5 pt-7 pb-3 flex justify-between items-baseline">
         <div className="text-[17px] font-bold">{sorted.some(l => priority(l) < 3) ? 'À traiter' : 'À venir'}</div>

@@ -23,6 +23,14 @@ export const RATE_CAP_LABEL = 'taux de l’usure, 4e trimestre 2026';
 export const LEGAL_INTEREST_RATE = 6.84;
 export const LEGAL_INTEREST_LABEL = '2nd semestre 2026';
 
+/**
+ * Dernier jour de validité des taux ci-dessus (fin du trimestre pour l'usure, du semestre pour le taux légal).
+ * Passé cette date, l'appli affiche une alerte au prêteur tant que les taux n'ont pas été mis à jour.
+ * Mis à jour par l'agent « Veille des taux CKMoney » (2 janvier, avril, juillet, octobre).
+ */
+export const RATES_VALID_UNTIL = '2026-12-31';
+export const ratesOutdated = (todayISO: string = new Date().toISOString().slice(0, 10)) => todayISO > RATES_VALID_UNTIL;
+
 /** Seuil de déclaration fiscale des prêts (CGI art. 242 ter 3 ; ann. III art. 49 B), cumul annuel par prêteur/emprunteur. */
 export const DECLARATION_THRESHOLD_EUR = 5000;
 

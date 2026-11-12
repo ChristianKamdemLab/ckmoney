@@ -1,5 +1,6 @@
 import { adminDb, pushToUser } from '../_lib/admin.js';
 import { sendReminderMail } from '../_lib/mail.js';
+import { runMonthly } from '../_lib/monthly.js';
 import { computeSituation, daysBetween } from '../../utils/schedule.js';
 import { LEGAL_INTEREST_RATE } from '../../config/legal.js';
 
@@ -77,5 +78,7 @@ export default async function handler(req: any, res: any) {
       }
     }
   }
-  return res.status(200).json({ today, loans: snap.size, sent });
+  // Le 1er du mois : bilan et sauvegarde envoyés à chaque prêteur
+  const monthly = today.endsWith('-01') ? await runMonthly(today).catch(e => { console.error('monthly', e?.message); return 0; }) : 0;
+  return res.status(200).json({ today, loans: snap.size, sent, monthly });
 }
