@@ -142,6 +142,15 @@ describe('agent Articles : relecture et garde-fous', () => {
     expect(pushed).toEqual([]);
   }, 60000);
 
+  it('fiche déjà en ligne avec une mauvaise date : « L’essentiel » arrive, la date du journal la remplace, sans nouvelle notification', async () => {
+    store.set('articleImports/f1', { name: AI_NAME, modifiedTime: 'm1', status: 'press', articleId: 'a1', at: 't' });
+    store.set('articles/a1', { kind: 'press', status: 'published', title: 'x', body: '', publishedAt: '2026-11-13T16:42:00.000Z', notifiedAt: 't' });
+    const withEss: F[] = [...files, { id: 'e1', name: AI_NAME.replace(/\.pdf$/, " · L'essentiel"), mimeType: GDOC, modifiedTime: 'e', text: 'Synthèse.' }];
+    expect((await syncArticles(drive(withEss))).done).toEqual({ [AI_NAME]: 'press' });
+    expect(store.get('articles/a1')).toMatchObject({ status: 'published', summary: 'Synthèse.', publishedAt: '2026-10-26T09:00:00.000Z' });
+    expect(pushed).toEqual([]);
+  }, 60000);
+
   it('brouillon déjà retouché par Christian : on n’y touche pas', async () => {
     oldUnknown(undefined, { updatedAt: '2026-11-13T17:00:00.000Z', body: 'mon résumé' });
     expect((await syncArticles(drive(files))).done).toEqual({});
