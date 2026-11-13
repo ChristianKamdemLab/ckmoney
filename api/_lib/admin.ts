@@ -41,5 +41,7 @@ export const verifiedEmail = async (uid?: string): Promise<string | undefined> =
 /** Comptes autorisés à prêter et à faire partir des e-mails depuis le Gmail de l'appli. */
 const allowed = () => (process.env.VITE_LENDER_EMAILS || process.env.GMAIL_USER || '')
   .split(/[,;\s]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
+/** Adresse du prêteur et auteur (Christian). */
+export const authorEmail = () => allowed()[0] || '';
 export const isAllowedLender = (email?: string, emailVerified = true) =>
   !!email && emailVerified && allowed().includes(email.toLowerCase());

@@ -1,9 +1,12 @@
 import { adminAuth, adminDb, isAllowedLender } from './_lib/admin.js';
+import { notifyNewArticle } from './_lib/articleSync.js';
 import { excerptOf, readMinutes } from '../utils/articleText.js';
 
 // POST /api/articles — l'auteur (compte prêteur autorisé, e-mail vérifié) écrit ses articles.
 //   { action: 'save', article: { id?, title, body, status, publishedAt? } }
 //   { action: 'import', articles: [{ title, body, status?, publishedAt? }, …] }   (20 au plus)
+//   { action: 'press', article: { id?, title, source, sourceUrl, sourceSection?, excerpt, publishedAt? } }
+//       fiche « revue de presse » d'un autre média : jamais le texte de l'article, seulement une accroche
 //   { action: 'delete', id }
 // La lecture se fait directement dans Firestore : réservée aux comptes connectés (voir firestore.rules).
 // Les textes ne sont jamais dans le dépôt GitHub, qui est public.
@@ -17,6 +20,17 @@ const clean = (a: any) => {
   if (!title || !body || body.length > MAX_BODY) return null;
   const status: 'published' | 'draft' = a?.status === 'draft' ? 'draft' : 'published';
   return { title, body, status, publishedAt: isIso(a?.publishedAt) ? new Date(a.publishedAt).toISOString() : undefined };
+};
+
+export const MAX_TEASER = 200;
+const cleanPress = (a: any) => {
+  const s = (v: unknown, max: number) => String(v ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+  const title = s(a?.title, 200), source = s(a?.source, 60), sourceUrl = s(a?.sourceUrl, 500);
+  if (!title || !source || (sourceUrl && !/^https?:\/\/\S+$/i.test(sourceUrl))) return null;
+  return {
+    title, source, sourceUrl, sourceSection: s(a?.sourceSection, 60), excerpt: s(a?.excerpt, MAX_TEASER),
+    publishedAt: isIso(a?.publishedAt) ? new Date(a.publishedAt).toISOString() : undefined,
+  };
 };
 
 export default async function handler(req: any, res: any) {
@@ -49,8 +63,27 @@ export default async function handler(req: any, res: any) {
     };
 
     if (body.action === 'save') {
-      const id = await write(clean(body.article), body.article?.id ? String(body.article.id) : undefined);
+      const input = clean(body.article);
+      const prevId = body.article?.id ? String(body.article.id) : undefined;
+      const before = prevId ? (await col.doc(prevId).get()).data() : undefined;
+      const id = await write(input, prevId);
+      // Nouvel article publié (pas une simple correction) : notification à tous les appareils, une seule fois, pas d'e-mail
+      if (input?.status === 'published' && before?.status !== 'published') await notifyNewArticle(id, { title: input.title, authorFirst: String(authorName).split(/\s+/)[0] }).catch(() => 0);
       return res.status(200).json({ id });
+    }
+    if (body.action === 'press') {
+      const p = cleanPress(body.article);
+      if (!p) return res.status(400).json({ error: 'invalid' });
+      const ref = body.article?.id ? col.doc(String(body.article.id)) : col.doc();
+      const prev = (await ref.get()).data();
+      if (body.article?.id && (!prev || prev.authorUid !== caller.uid)) return res.status(403).json({ error: 'forbidden' });
+      await ref.set({
+        ...p, kind: 'press', body: '', readMinutes: 1, status: 'published', sourceAuthor: prev?.sourceAuthor || '',
+        publishedAt: p.publishedAt || prev?.publishedAt || now, updatedAt: now, authorUid: caller.uid, authorName,
+        ...(prev ? {} : { createdAt: now }),
+      }, { merge: true });
+      if (!prev) await notifyNewArticle(ref.id, { title: p.title, kind: 'press', source: p.source }).catch(() => 0);
+      return res.status(200).json({ id: ref.id });
     }
     if (body.action === 'import') {
       const list = Array.isArray(body.articles) ? body.articles.slice(0, 20).map(clean) : [];
