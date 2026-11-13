@@ -133,6 +133,7 @@ export const EventDetail: React.FC<{ event: AppEvent; rsvp?: RsvpState; extra?: 
           </div>
           <h1 className="serif text-[28px] leading-[1.14] font-semibold tracking-[-0.3px] mt-4">{e.title}</h1>
           {e.organizer && <div className="text-[14px] mt-2" style={{ color: 'rgba(255,255,255,.72)' }}>{e.kind === 'event' ? 'Par' : 'Avec'} {e.organizer}</div>}
+          {e.kind === 'event' && e.by && <div className="text-[12.5px] mt-1" style={{ color: 'rgba(255,255,255,.55)' }}>Partagé par {e.by}</div>}
         </div>
       </div>
 

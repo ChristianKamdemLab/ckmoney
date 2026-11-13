@@ -2,15 +2,17 @@ import { adminAuth, adminDb, isAllowedLender, pushToUser } from './_lib/admin.js
 import { cleanEvent, cleanName, escapeHtml, icsFor, isUpcoming, summary, AppEvent, KIND_LABEL } from '../utils/events.js';
 
 // /api/events — les sorties : événements (salons…), spots (« je suis au bar X ») et chills organisés
-// par l'auteur. Chaque sortie a sa page publique /e/ID ; dans l'appli, l'auteur choisit qui la voit
+// par n'importe quel compte. Chaque sortie a sa page publique /e/ID ; dans l'appli, on choisit qui la voit
 // (tout le monde, certaines personnes, ou personne : seulement par lien).
 //  GET  ?id=ID     fiche publique (JSON), sans compte
 //  GET  ?page=ID   la page /e/ID (voir vercel.json) avec les balises d'aperçu (WhatsApp, iMessage…)
 //  GET  ?ics=ID    fichier agenda (.ics)
 //  POST list                     comptes CKMoney connectés : ce que la personne a le droit de voir
 //  POST rsvp {id, going, name?, token?}  « Je viens » à un chill, avec ou sans compte
-//  POST save / delete / rsvps / people   réservé à l'auteur
-// Les réponses d'un chill ne sont visibles que par l'auteur.
+//  POST save / delete / rsvps           tout compte CKMoney, pour ses propres sorties (Christian peut
+//                                       retirer n'importe quelle sortie)
+//  POST people                          Christian seulement (choisir « certaines personnes »)
+// Les réponses d'un chill ne sont visibles que par la personne qui l'organise.
 
 const col = () => adminDb.collection('events');
 const cleanId = (v: unknown) => String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
@@ -24,16 +26,18 @@ const base = (id: string, d: any): AppEvent => {
     url: d.url || '', price: d.price ?? (kind === 'event' ? 'Gratuit' : ''), organizer: d.organizer || '', description: d.description || '',
     theme: d.theme || '', drinks: d.drinks || '', capacity,
     placesLeft: capacity ? Math.max(0, capacity - (d.goingCount || 0)) : null,
-    status: d.status === 'published' ? 'published' : 'draft', updatedAt: d.updatedAt || '',
+    status: d.status === 'published' ? 'published' : 'draft', updatedAt: d.updatedAt || '', by: d.authorName || '',
   };
   // Un spot terminé ne dit plus où l'auteur était
   if (kind === 'spot' && !isUpcoming(e)) Object.assign(e, { venue: '', address: '', description: '' });
   return e;
 };
-const forAuthor = (id: string, d: any): AppEvent => ({
+/** Ce que voit la personne qui a créé la sortie. */
+const forOwner = (id: string, d: any): AppEvent => ({
   ...base(id, d), venue: d.venue || '', address: d.address || '', description: d.description || '',
-  audience: d.audience || 'all', invitees: d.invitees || [], going: d.goingCount || 0,
+  audience: d.audience || 'all', invitees: d.invitees || [], going: d.goingCount || 0, mine: true, notified: !!d.notifiedAt,
 });
+const MAX_PER_DAY = 10;
 
 const originOf = (req: any) => `https://${String(req.headers['x-forwarded-host'] || req.headers.host || 'ck-money.vercel.app').split(',')[0].trim()}`;
 
@@ -178,50 +182,66 @@ export default async function handler(req: any, res: any) {
     }
 
     if (!who) return res.status(401).json({ error: 'unauthorized' });
-    const author = isAllowedLender(who.email, who.email_verified === true);
+    // Tous les comptes CKMoney créent et gèrent leurs sorties ; pas les invités des jeux (comptes anonymes).
+    if (!member) return res.status(403).json({ error: 'forbidden' });
+    // Christian (admin) : « certaines personnes » (la liste des comptes dit qui a un prêt avec lui) et
+    // retrait de n'importe quelle sortie.
+    const admin = isAllowedLender(who.email, who.email_verified === true);
 
     if (body.action === 'list') {
-      // Les invités des jeux (comptes anonymes) n'ont pas accès à la liste
-      if (!member) return res.status(403).json({ error: 'forbidden' });
       const snap = await col().where('status', '==', 'published').get();
       const visible = snap.docs.filter((doc: any) => {
         const d = doc.data();
-        if (author) return true;
+        if (d.authorUid === who.uid) return true;
         if (!isUpcoming(d)) return false;
         const aud = d.audience || 'all';
         return aud === 'all' || (aud === 'some' && (d.invitees || []).includes(who.uid));
       });
       const events = await Promise.all(visible.map(async (doc: any) => {
         const d = doc.data();
-        const e = author ? forAuthor(doc.id, d) : base(doc.id, d);
-        if (e.kind === 'chill') e.meGoing = (await col().doc(doc.id).collection('rsvps').doc(who.uid).get()).exists;
+        const e = d.authorUid === who.uid ? forOwner(doc.id, d) : base(doc.id, d);
+        if (e.kind === 'chill' && !e.mine) e.meGoing = (await col().doc(doc.id).collection('rsvps').doc(who.uid).get()).exists;
         return e;
       }));
       events.sort((a: AppEvent, b: AppEvent) => a.startsAt.localeCompare(b.startsAt));
-      return res.status(200).json({ events });
+      return res.status(200).json({ events, admin });
     }
 
-    if (!author) return res.status(403).json({ error: 'not_author' });
     const now = new Date().toISOString();
 
     if (body.action === 'save') {
       const e = cleanEvent(body.event);
       if (!e) return res.status(400).json({ error: 'invalid' });
+      if (e.audience === 'some' && !admin) return res.status(403).json({ error: 'audience' });
       const id = cleanId(body.event?.id);
       const ref = id ? col().doc(id) : col().doc();
+      let prev: any = null;
       if (id) {
-        const prev = (await ref.get()).data();
+        prev = (await ref.get()).data();
         if (!prev || prev.authorUid !== who.uid) return res.status(403).json({ error: 'forbidden' });
+      } else if (!admin) {
+        // Garde-fou : pas plus de 10 sorties créées par jour et par compte
+        const since = new Date(Date.now() - 86_400_000).toISOString();
+        const mine = (await col().where('authorUid', '==', who.uid).get()).docs.filter((x: any) => (x.data().createdAt || '') > since);
+        if (mine.length >= MAX_PER_DAY) return res.status(429).json({ error: 'trop' });
       }
-      await ref.set({ ...e, status: 'published', authorUid: who.uid, updatedAt: now, ...(id ? {} : { createdAt: now, goingCount: 0 }) }, { merge: true });
-      const notified = body.notify ? await notify(ref.id, { id: ref.id, status: 'published', ...e }, who.uid) : 0;
+      const profile = (await adminDb.collection('profiles').doc(who.uid).get()).data();
+      const authorName = cleanName(String(profile?.fullName || who.name || '').split(' ')[0]) || prev?.authorName || '';
+      // Une seule notification par sortie, même si on la modifie ensuite
+      const notifyNow = !!body.notify && !prev?.notifiedAt && e.audience !== 'link';
+      await ref.set({
+        ...e, status: 'published', authorUid: who.uid, authorName, updatedAt: now,
+        ...(id ? {} : { createdAt: now, goingCount: 0 }), ...(notifyNow ? { notifiedAt: now } : {}),
+      }, { merge: true });
+      const notified = notifyNow ? await notify(ref.id, { id: ref.id, status: 'published', ...e }, who.uid) : 0;
       return res.status(200).json({ id: ref.id, notified });
     }
 
     const ref = col().doc(cleanId(body.id));
     if (body.action === 'delete' || body.action === 'rsvps') {
       const prev = (await ref.get()).data();
-      if (!prev || prev.authorUid !== who.uid) return res.status(404).json({ error: 'introuvable' });
+      const mine = !!prev && prev.authorUid === who.uid;
+      if (!prev || !(mine || (admin && body.action === 'delete'))) return res.status(404).json({ error: 'introuvable' });
       if (body.action === 'delete') {
         await adminDb.recursiveDelete(ref);
         return res.status(200).json({ ok: true });
@@ -232,8 +252,9 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ people });
     }
 
-    // Les comptes CKMoney, pour choisir qui voit une sortie (prénoms seulement)
+    // Les comptes CKMoney, pour choisir qui voit une sortie (prénoms seulement) : Christian seulement
     if (body.action === 'people') {
+      if (!admin) return res.status(403).json({ error: 'not_author' });
       const [list, profiles] = await Promise.all([adminAuth.listUsers(1000), adminDb.collection('profiles').get()]);
       const names = new Map<string, string>(profiles.docs.map((d: any) => [d.id, cleanName(d.data().fullName)]));
       const people = list.users

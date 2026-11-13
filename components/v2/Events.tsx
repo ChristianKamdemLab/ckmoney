@@ -90,7 +90,7 @@ const PeoplePicker: React.FC<{ value: string[]; onChange: (v: string[]) => void 
   );
 };
 
-const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: string; onBack: () => void; onSaved: (id?: string, notified?: number) => void }> = ({ initial, prefill, me, onBack, onSaved }) => {
+const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: string; admin: boolean; onBack: () => void; onSaved: (id?: string, notified?: number) => void }> = ({ initial, prefill, me, admin, onBack, onSaved }) => {
   const [f, setF] = useState<Form>(() => initial ? fromEvent(initial) : { ...emptyForm((prefill?.kind as EventKind) || 'event', me), ...(prefill ? fromPrefill(prefill) : {}) });
   const [notify, setNotify] = useState(!initial);
   const [busy, setBusy] = useState<string | null>(null);
@@ -125,7 +125,8 @@ const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: 
       const r = await saveEvent({ ...rest, url: rest.url.trim(), startsAt, endsAt, capacity: cap > 0 ? cap : null }, notify && f.audience !== 'link');
       onSaved(r.id, r.notified);
     } catch (e) {
-      setError((e as Error).message === 'not_author' ? "Seul l'auteur peut publier une sortie." : "L'enregistrement a échoué. Réessaie.");
+      const code = (e as Error).message;
+      setError(code === 'trop' ? 'Tu as déjà publié 10 sorties aujourd\'hui. Réessaie demain.' : code === 'audience' ? '« Certaines personnes » est réservé à Christian.' : "L'enregistrement a échoué. Réessaie.");
     } finally { setBusy(null); }
   };
 
@@ -189,14 +190,14 @@ const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: 
 
         <div className="pt-2">
           <div className="text-[15px] font-bold mb-2">Qui le voit dans l'appli ?</div>
-          <Chips options={(['all', 'some', 'link'] as Audience[]).map(a => ({ id: a, label: AUDIENCE_LABEL[a] }))} value={f.audience} onChange={a => setF({ ...f, audience: a as Audience })} />
+          <Chips options={((admin ? ['all', 'some', 'link'] : ['all', 'link']) as Audience[]).map(a => ({ id: a, label: AUDIENCE_LABEL[a] }))} value={f.audience} onChange={a => setF({ ...f, audience: a as Audience })} />
           <p className="text-[13px] mt-2 px-1" style={{ color: C.mute }}>
             {f.audience === 'all' ? 'Tous les comptes CKMoney la voient.' : f.audience === 'some' ? "Seules les personnes cochées la voient dans l'appli." : "Invisible dans l'appli : tu envoies le lien à qui tu veux."}
             {' '}Le lien partagé marche dans tous les cas, même sans compte.
           </p>
         </div>
         {f.audience === 'some' && <PeoplePicker value={f.invitees} onChange={v => setF({ ...f, invitees: v })} />}
-        {f.audience !== 'link' && (
+        {f.audience !== 'link' && !initial?.notified && (
           <Toggle on={notify} onChange={setNotify} label="Prévenir par notification"
             sub={f.audience === 'all' ? 'Tous ceux qui ont activé les notifications' : `${f.invitees.length} personne${f.invitees.length > 1 ? 's' : ''} choisie${f.invitees.length > 1 ? 's' : ''}`} />
         )}
@@ -249,7 +250,10 @@ const AuthorPanel: React.FC<{ e: AppEvent }> = ({ e }) => {
   );
 };
 
-const Detail: React.FC<{ e: AppEvent; isAuthor: boolean; onBack: () => void; onEdit: () => void }> = ({ e, isAuthor, onBack, onEdit }) => {
+const Detail: React.FC<{ e: AppEvent; admin: boolean; onBack: () => void; onEdit: () => void; onRemoved: () => void }> = ({ e, admin, onBack, onEdit, onRemoved }) => {
+  const [remove, setRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const mine = !!e.mine;
   const [going, setGoing] = useState(!!e.meGoing);
   const [placesLeft, setPlacesLeft] = useState(e.placesLeft);
   const [busy, setBusy] = useState(false);
@@ -262,28 +266,41 @@ const Detail: React.FC<{ e: AppEvent; isAuthor: boolean; onBack: () => void; onE
   };
   return (
     <Screen>
-      <TopBar onBack={onBack} right={isAuthor ? <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button> : undefined} />
+      <TopBar onBack={onBack} right={mine ? <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button> : undefined} />
       <div className="pb-[max(env(safe-area-inset-bottom),28px)]">
-        <EventDetail event={{ ...e, placesLeft }} rsvp={!isAuthor && e.kind === 'chill' ? { going, busy, error, onChange: change } : undefined}
-          extra={isAuthor ? <AuthorPanel e={e} /> : undefined} />
+        <EventDetail event={{ ...e, placesLeft }} rsvp={!mine && e.kind === 'chill' ? { going, busy, error, onChange: change } : undefined}
+          extra={mine ? <AuthorPanel e={e} /> : undefined} />
+        {admin && !mine && (
+          <div className="px-5 pt-6">
+            <button onClick={() => setRemove(true)} className="text-[13.5px] font-semibold underline underline-offset-2" style={{ color: C.red }}>Retirer cette sortie</button>
+          </div>
+        )}
       </div>
+      <Sheet open={remove} onClose={() => setRemove(false)} title="Retirer cette sortie ?">
+        <p className="text-[15px] leading-relaxed mb-4" style={{ color: C.text2 }}>« {e.title} »{e.by ? `, publiée par ${e.by},` : ''} disparaîtra de l'appli et son lien ne marchera plus. Ce n'est pas réversible.</p>
+        <div className="flex flex-col gap-2.5">
+          <Button variant="danger" busy={removing} onClick={async () => { setRemoving(true); try { await deleteEvent(e.id); setRemove(false); onRemoved(); } catch { setRemoving(false); } }}>Retirer définitivement</Button>
+          <Button variant="secondary" onClick={() => setRemove(false)}>Annuler</Button>
+        </div>
+      </Sheet>
     </Screen>
   );
 };
 
 const audienceNote = (e: AppEvent) => {
   const parts: string[] = [];
+  parts.push('de toi');
   if (e.audience === 'link') parts.push('par lien');
   if (e.audience === 'some') parts.push(`${e.invitees?.length || 0} pers.`);
   if (e.kind === 'chill') parts.push(`${e.going || 0} vien${(e.going || 0) > 1 ? 'nent' : 't'}`);
   return parts.join(' · ') || undefined;
 };
 
-const EventsScreen: React.FC<{ isAuthor: boolean; me?: string; onBack: () => void; initialId?: string; prefill?: Partial<EventInput> }> = ({ isAuthor, me = '', onBack, initialId, prefill }) => {
+const EventsScreen: React.FC<{ isAdmin: boolean; me?: string; onBack: () => void; initialId?: string; prefill?: Partial<EventInput> }> = ({ isAdmin, me = '', onBack, initialId, prefill }) => {
   const [list, setList] = useState<AppEvent[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [view, setView] = useState<{ k: 'list' } | { k: 'read'; id: string } | { k: 'edit'; id?: string; prefill?: Partial<EventInput> }>(
-    prefill && isAuthor ? { k: 'edit', prefill } : initialId ? { k: 'read', id: initialId } : { k: 'list' });
+    prefill ? { k: 'edit', prefill } : initialId ? { k: 'read', id: initialId } : { k: 'list' });
   const [toast, setToast] = useState<string | null>(null);
 
   const load = (fresh = false) => listEvents(fresh).then(l => { setList(l); setFailed(false); }).catch(() => { setFailed(true); setList([]); });
@@ -301,10 +318,10 @@ const EventsScreen: React.FC<{ isAuthor: boolean; me?: string; onBack: () => voi
     };
   }, [list]);
 
-  if (view.k === 'edit' && isAuthor) {
-    const e = view.id ? list?.find(x => x.id === view.id) : undefined;
+  if (view.k === 'edit') {
+    const e = view.id ? list?.find(x => x.id === view.id && x.mine) : undefined;
     if (view.id && !e) return <Screen><TopBar onBack={() => go({ k: 'list' })} /><div className="px-5"><Skeleton h={300} /></div></Screen>;
-    return <Editor initial={e} prefill={view.prefill} me={author} onBack={() => go(view.id ? { k: 'read', id: view.id } : { k: 'list' })}
+    return <Editor initial={e} prefill={view.prefill} me={author} admin={isAdmin} onBack={() => go(view.id ? { k: 'read', id: view.id } : { k: 'list' })}
       onSaved={(id, notified) => {
         load(true);
         setToast(!id ? 'Sortie supprimée' : notified ? `Publié · ${notified} personne${notified > 1 ? 's' : ''} prévenue${notified > 1 ? 's' : ''}` : 'Publié');
@@ -315,7 +332,8 @@ const EventsScreen: React.FC<{ isAuthor: boolean; me?: string; onBack: () => voi
   if (view.k === 'read') {
     const e = list?.find(x => x.id === view.id);
     if (!list) return <Screen><TopBar onBack={() => go({ k: 'list' })} /><div className="px-5 flex flex-col gap-3"><Skeleton h={170} /><Skeleton h={150} /><Skeleton h={56} /></div></Screen>;
-    if (e) return withToast(<Detail key={e.id + (e.updatedAt || '')} e={e} isAuthor={isAuthor} onBack={() => go({ k: 'list' })} onEdit={() => go({ k: 'edit', id: e.id })} />);
+    if (e) return withToast(<Detail key={e.id + (e.updatedAt || '')} e={e} admin={isAdmin} onBack={() => go({ k: 'list' })} onEdit={() => go({ k: 'edit', id: e.id })}
+      onRemoved={() => { load(true); setToast('Sortie retirée'); go({ k: 'list' }); }} />);
   }
 
   const section = (title: string, items: AppEvent[], past = false) => items.length > 0 && (
@@ -323,7 +341,7 @@ const EventsScreen: React.FC<{ isAuthor: boolean; me?: string; onBack: () => voi
       <div className="text-[13px] font-semibold mt-2 px-1" style={{ color: C.mute }}>{title}</div>
       <Card>{items.map((e, i) => (
         <div key={e.id} style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
-          <EventRow event={e} past={past} note={isAuthor ? audienceNote(e) : undefined} onOpen={() => go({ k: 'read', id: e.id })} />
+          <EventRow event={e} past={past} note={e.mine ? audienceNote(e) : e.by ? `par ${e.by}` : undefined} onOpen={() => go({ k: 'read', id: e.id })} />
         </div>
       ))}</Card>
     </>
@@ -336,7 +354,7 @@ const EventsScreen: React.FC<{ isAuthor: boolean; me?: string; onBack: () => voi
         <h1 className="serif text-[30px] font-semibold leading-tight">Les sorties</h1>
         <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>Événements, spots et chills. Partage-les à qui tu veux : la page s'ouvre sans compte.</p>
       </div>
-      {isAuthor && <div className="px-5 pb-3"><Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Nouvelle sortie</Button></div>}
+      {<div className="px-5 pb-3"><Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Nouvelle sortie</Button></div>}
       <div className="px-5 flex flex-col gap-2 pb-[max(env(safe-area-inset-bottom),28px)]">
         {!list && <><Skeleton h={88} /><Skeleton h={88} /></>}
         {failed && <Note tone="warn">Les sorties n'ont pas pu être chargées. Vérifie ta connexion.</Note>}
@@ -345,10 +363,10 @@ const EventsScreen: React.FC<{ isAuthor: boolean; me?: string; onBack: () => voi
         {list && !failed && !groups.live.length && !groups.next.length && (
           <Card className="px-5 py-8 text-center">
             <div className="text-[15px] font-semibold">Rien de prévu pour l'instant</div>
-            <div className="text-sm mt-1" style={{ color: C.mute }}>{isAuthor ? 'Ajoute un événement, un spot ou un chill.' : 'Les prochaines sorties apparaîtront ici.'}</div>
+            <div className="text-sm mt-1" style={{ color: C.mute }}>Ajoute un événement, un spot ou un chill.</div>
           </Card>
         )}
-        {isAuthor && section('Passées · masquées pour les autres', groups.past, true)}
+        {section('Tes sorties passées · visibles par toi seul', groups.past, true)}
       </div>
     </Screen>,
   );

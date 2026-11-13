@@ -22,7 +22,10 @@ export interface AppEvent {
   placesLeft?: number | null;
   status: 'published' | 'draft';
   updatedAt?: string;
-  // Réservé à l'auteur
+  by?: string;           // prénom de la personne qui l'a créée
+  // Réservé à la personne qui l'a créée
+  mine?: boolean;
+  notified?: boolean;
   audience?: Audience;
   invitees?: string[];
   going?: number;
@@ -30,7 +33,7 @@ export interface AppEvent {
   meGoing?: boolean;
 }
 
-export type EventInput = Omit<AppEvent, 'id' | 'status' | 'updatedAt' | 'placesLeft' | 'going' | 'meGoing'> & { id?: string };
+export type EventInput = Omit<AppEvent, 'id' | 'status' | 'updatedAt' | 'placesLeft' | 'going' | 'meGoing' | 'mine' | 'notified' | 'by'> & { id?: string };
 
 export const KIND_LABEL: Record<EventKind, string> = { event: 'Événement', spot: 'Spot', chill: 'Chill' };
 export const AUDIENCE_LABEL: Record<Audience, string> = { all: 'Tout le monde', some: 'Certaines personnes', link: 'Seulement par lien' };
