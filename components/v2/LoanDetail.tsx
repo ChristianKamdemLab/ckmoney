@@ -127,7 +127,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
 
   const run = async (key: string, fn: () => Promise<void>, ok: string) => {
     setBusy(key);
-    try { await fn(); setToast(ok); setSheet(null); onChanged(); }
+    try { await fn(); setToast(ok); setSheet(null); setFix(null); onChanged(); }
     catch (e) { console.error(e); setToast("Ça n'a pas marché, réessaie."); }
     finally { setBusy(null); }
   };
