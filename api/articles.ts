@@ -24,14 +24,14 @@ const clean = (a: any) => {
 };
 
 export const MAX_TEASER = 200;
-export const MAX_SUMMARY = 1500;
+export const MAX_SUMMARY = 4000;
 const cleanPress = (a: any) => {
   const s = (v: unknown, max: number) => String(v ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
   const title = s(a?.title, 200), source = s(a?.source, 60), sourceUrl = s(a?.sourceUrl, 500);
   if (!title || !source || (sourceUrl && !/^https?:\/\/\S+$/i.test(sourceUrl))) return null;
   return {
     title, source, sourceUrl, sourceSection: s(a?.sourceSection, 60), excerpt: s(a?.excerpt, MAX_TEASER),
-    // L'essentiel : synthèse avec nos mots, quelques paragraphes au plus
+    // L'essentiel : récap avec nos mots, plus fourni quand l'article est long (toujours bien plus court que lui)
     summary: String(a?.summary ?? '').replace(/[<>]/g, '').replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_SUMMARY),
     publishedAt: isIso(a?.publishedAt) ? new Date(a.publishedAt).toISOString() : undefined,
   };
