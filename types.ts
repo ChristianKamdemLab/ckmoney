@@ -217,4 +217,9 @@ export interface Article {
   updatedAt: string;       // ISO
   authorUid: string;
   authorName: string;
+  kind?: 'own' | 'press';  // press : fiche « revue de presse » d'un autre média (jamais le texte entier)
+  source?: string;         // nom du média
+  sourceUrl?: string;      // lien vers l'article original
+  sourceAuthor?: string;
+  sourceSection?: string;  // rubrique (« Grande enquête », « Cameroun · Énergies »…)
 }

@@ -21,6 +21,7 @@ import LegalDocs from './components/LegalDocs';
 import ContractPreview from './components/ContractPreview';
 import CKLogo from './components/brand/CKLogo';
 import { EventInput, decodePrefill } from './utils/events';
+import type { PressInput } from './services/articleService';
 // Articles et Jambo : chargés seulement quand on les ouvre
 const ArticlesScreen = lazy(() => import('./components/v2/Articles'));
 const Jambo = lazy(() => import('./components/v2/Jambo'));
@@ -56,18 +57,20 @@ const initialLinks = readLinks();
 // Liens vers un événement, gardés en session pour survivre à la connexion.
 try {
   const sp = new URLSearchParams(window.location.search);
-  const ev = sp.get('evenement'), prep = sp.get('preparer'), list = sp.has('sorties');
-  if (ev || prep || list) {
-    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list }));
+  const ev = sp.get('evenement'), prep = sp.get('preparer'), list = sp.has('sorties'), art = sp.get('article'), presse = sp.get('presse');
+  if (ev || prep || list || art || presse) {
+    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list, art, presse }));
     window.history.replaceState({}, '', '/');
   }
 } catch { /* ignore */ }
-const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean } | null => {
+const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean; article?: string; presse?: Partial<PressInput> } | null => {
   try {
     const raw = sessionStorage.getItem('ck_ev');
     if (!raw) return null;
     sessionStorage.removeItem('ck_ev');
-    const { id, prep, list } = JSON.parse(raw);
+    const { id, prep, list, art, presse } = JSON.parse(raw);
+    if (art) return { article: String(art).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) };
+    if (presse) return { presse: decodePrefill(String(presse)) as Partial<PressInput> | undefined };
     if (id) return { id: String(id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) };
     if (prep) return { prefill: decodePrefill(String(prep)) };
     if (list) return { list: true };
@@ -106,7 +109,7 @@ type Overlay =
   | { k: 'borrower' }
   | { k: 'legal'; v: 'cgu' | 'privacy' }
   | { k: 'contract'; id: string }
-  | { k: 'articles'; back?: Overlay }
+  | { k: 'articles'; back?: Overlay; id?: string; prefill?: Partial<PressInput> }
   | { k: 'jambo'; back?: Overlay }
   | { k: 'bac'; back?: Overlay }
   | { k: 'wiseman'; back?: Overlay }
@@ -195,6 +198,8 @@ const App: React.FC = () => {
     if (link?.id) setOverlay({ k: 'events', id: link.id });
     else if (link?.prefill) setOverlay({ k: 'events', prefill: link.prefill });
     else if (link?.list) setOverlay({ k: 'events' });
+    else if (link?.article) setOverlay({ k: 'articles', id: link.article });
+    else if (link?.presse) setOverlay({ k: 'articles', prefill: link.presse });
   }, [user?.id]);
 
   // Mise à jour en direct : une demande, une signature ou un paiement apparaît sans rouvrir l'appli
@@ -300,7 +305,7 @@ const App: React.FC = () => {
     const content = (() => {
       switch (overlay.k) {
         case 'legal': return <LegalDocs view={overlay.v} onClose={close} />;
-        case 'articles': return <Suspense fallback={<Splash />}><ArticlesScreen user={user} isAuthor={isLender} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
+        case 'articles': return <Suspense fallback={<Splash />}><ArticlesScreen user={user} isAuthor={isLender} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'jambo': return <Suspense fallback={<Splash />}><Jambo playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'wiseman': return <Suspense fallback={<Splash />}><Wiseman playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;

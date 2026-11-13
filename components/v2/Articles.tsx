@@ -1,13 +1,24 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Article, User } from '../../types';
 import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chips, Field, inputClass, inputStyle, Icon, C, dateFr } from './ui';
-import { listArticles, saveArticle, importArticles, deleteArticle, ArticleInput } from '../../services/articleService';
+import { listArticles, saveArticle, importArticles, deleteArticle, savePress, ArticleInput, PressInput } from '../../services/articleService';
 import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils/articleText';
 
-// Les articles de Christian : lecture réservée aux comptes connectés, écriture réservée à l'auteur.
+// Articles : les textes de Christian (signés CKLabs, en entier) et sa revue de presse (fiches qui
+// renvoient vers le journal : source, titre, accroche, lien ; jamais le texte du journal).
+// Lecture réservée aux comptes connectés, écriture réservée à l'auteur.
 
-const meta = (a: Pick<Article, 'readMinutes' | 'publishedAt' | 'updatedAt'>) =>
-  `${a.readMinutes} min de lecture · ${dateFr(a.publishedAt || a.updatedAt, { day: 'numeric', month: 'long', year: 'numeric' })}`;
+const day = (a: Pick<Article, 'publishedAt' | 'updatedAt'>) => dateFr(a.publishedAt || a.updatedAt, { day: 'numeric', month: 'long', year: 'numeric' });
+const isPress = (a: Pick<Article, 'kind'>) => a.kind === 'press';
+const meta = (a: Article) => isPress(a) ? `${a.source} · ${day(a)}` : `${a.readMinutes} min de lecture · ${day(a)}`;
+const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, ''); } catch { return ''; } };
+
+/** Étiquette de type : « Revue de presse · Africa Intelligence » ou « CKLabs ». */
+const Kind: React.FC<{ a: Article; dark?: boolean }> = ({ a, dark }) => (
+  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-wide" style={{ color: dark ? C.ochre : C.ochreText }}>
+    {isPress(a) ? <>Revue de presse <span style={{ opacity: .5 }}>·</span> {a.source}</> : 'CKLabs'}
+  </span>
+);
 
 const Blocks: React.FC<{ blocks: Block[] }> = ({ blocks }) => (
   <div className="serif text-[18px] leading-[1.72]" style={{ color: '#22263A' }}>
@@ -43,6 +54,85 @@ const ReadingProgress: React.FC = () => {
   return <div className="fixed top-0 left-0 right-0 h-[3px] z-50" aria-hidden="true"><div className="h-full" style={{ width: `${p * 100}%`, background: C.ochre }} /></div>;
 };
 
+const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () => void; onEdit: () => void }> = ({ article: a, isAuthor, onBack, onEdit }) => {
+  useEffect(() => { window.scrollTo(0, 0); }, [a.id]);
+  const host = hostOf(a.sourceUrl);
+  return (
+    <Screen>
+      <TopBar onBack={onBack} right={isAuthor ? <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button> : undefined} />
+      <article className="px-6 pt-3 pb-10">
+        <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: C.mute }}>Revue de presse</div>
+        <div className="serif text-[22px] font-semibold mt-1" style={{ color: C.ochreText }}>{a.source}</div>
+        {a.sourceSection && <div className="text-[13px] font-semibold mt-0.5" style={{ color: C.mute }}>{a.sourceSection}</div>}
+        <h1 className="serif text-[28px] leading-[1.18] font-semibold tracking-[-0.3px] mt-4">{frTypo(a.title)}</h1>
+        <div className="text-[13px] mt-3" style={{ color: C.mute }}>{day(a)}{a.sourceAuthor ? ` · ${a.sourceAuthor}` : ''}</div>
+        {a.excerpt && (
+          <p className="serif text-[18px] leading-[1.55] mt-6 pl-4" style={{ borderLeft: `3px solid ${C.ochre}`, color: C.text2 }}>{frTypo(a.excerpt)}</p>
+        )}
+        {a.sourceUrl && (
+          <div className="mt-7"><Button onClick={() => window.open(a.sourceUrl, '_blank', 'noopener')}>Lire l'article{host ? ` sur ${host}` : ''} <Icon name="arrow" size={18} /></Button></div>
+        )}
+        <p className="text-[13px] leading-relaxed mt-4" style={{ color: C.mute }}>Article de {a.source}, partagé par {a.authorName.split(' ')[0] || 'Christian'}. Le texte complet est sur le site du journal.</p>
+      </article>
+    </Screen>
+  );
+};
+
+/** Fiche « revue de presse » écrite à la main (ou ouverte depuis un lien préparé /?presse=…). */
+const PressEditor: React.FC<{ initial?: Article; prefill?: Partial<PressInput>; onBack: () => void; onSaved: (id?: string) => void }> = ({ initial, prefill, onBack, onSaved }) => {
+  const [p, setP] = useState<PressInput>(() => ({
+    id: initial?.id, title: initial?.title || prefill?.title || '', source: initial?.source || prefill?.source || '',
+    sourceUrl: initial?.sourceUrl || prefill?.sourceUrl || '', sourceSection: initial?.sourceSection || prefill?.sourceSection || '',
+    excerpt: initial?.excerpt || prefill?.excerpt || '', publishedAt: initial?.publishedAt || prefill?.publishedAt,
+  }));
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState(false);
+  const set = (k: keyof PressInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setP({ ...p, [k]: e.target.value });
+  const save = async () => {
+    if (!p.title.trim() || !p.source.trim()) { setError('Il faut au moins le titre et le nom du média.'); return; }
+    if (p.sourceUrl && !/^https?:\/\//i.test(p.sourceUrl.trim())) { setError('Le lien doit commencer par https://'); return; }
+    setBusy('save'); setError(null);
+    try { onSaved(await savePress({ ...p, sourceUrl: p.sourceUrl.trim() })); }
+    catch { setError("L'enregistrement a échoué. Réessaie."); }
+    finally { setBusy(null); }
+  };
+  const remove = async () => {
+    if (!p.id) return;
+    setBusy('delete');
+    try { await deleteArticle(p.id); onSaved(); } catch { setError('La suppression a échoué.'); } finally { setBusy(null); setConfirm(false); }
+  };
+  const dateValue = p.publishedAt ? new Date(p.publishedAt).toISOString().slice(0, 10) : '';
+  return (
+    <Screen>
+      <TopBar onBack={onBack} title={initial ? 'Modifier la fiche' : 'Revue de presse'} />
+      <div className="px-5 pt-2 flex flex-col gap-4">
+        <Note tone="info">Une fiche renvoie vers le journal : son titre, une phrase d'accroche et le lien. Jamais le texte de l'article.</Note>
+        <Field label="Média" htmlFor="ps"><input id="ps" value={p.source} onChange={set('source')} placeholder="Jeune Afrique, Africa Intelligence…" className={inputClass} style={inputStyle} /></Field>
+        <Field label="Rubrique" htmlFor="pr" hint="Facultatif : « Grande enquête », « Secret de palais »…"><input id="pr" value={p.sourceSection} onChange={set('sourceSection')} className={inputClass} style={inputStyle} /></Field>
+        <Field label="Titre de l'article" htmlFor="pt"><input id="pt" value={p.title} onChange={set('title')} className={inputClass} style={inputStyle} /></Field>
+        <Field label="Date de l'article" htmlFor="pd"><input id="pd" type="date" value={dateValue} onChange={e => setP({ ...p, publishedAt: e.target.value ? new Date(`${e.target.value}T09:00:00`).toISOString() : undefined })} className={inputClass} style={inputStyle} /></Field>
+        <Field label="Accroche" htmlFor="pe" hint={`Une phrase pour donner envie, ${200 - p.excerpt.length} caractères restants.`}>
+          <textarea id="pe" value={p.excerpt} maxLength={200} onChange={set('excerpt')} rows={3} className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
+        </Field>
+        <Field label="Lien vers l'article" htmlFor="pu"><input id="pu" type="url" inputMode="url" value={p.sourceUrl} onChange={set('sourceUrl')} placeholder="https://" className={inputClass} style={inputStyle} /></Field>
+        {error && <Note tone="danger">{error}</Note>}
+      </div>
+      <div className="mt-auto px-5 pt-6 pb-[max(env(safe-area-inset-bottom),24px)] flex flex-col gap-2.5">
+        <Button busy={busy === 'save'} onClick={save}>{initial ? 'Enregistrer' : 'Publier la fiche'}</Button>
+        {p.id && <Button variant="danger" onClick={() => setConfirm(true)}>Supprimer la fiche</Button>}
+      </div>
+      <Sheet open={confirm} onClose={() => setConfirm(false)} title="Supprimer cette fiche ?">
+        <p className="text-[15px] leading-relaxed mb-4" style={{ color: C.text2 }}>Elle disparaîtra de l'appli. Ce n'est pas réversible.</p>
+        <div className="flex flex-col gap-2.5">
+          <Button variant="danger" busy={busy === 'delete'} onClick={remove}>Supprimer définitivement</Button>
+          <Button variant="secondary" onClick={() => setConfirm(false)}>Annuler</Button>
+        </div>
+      </Sheet>
+    </Screen>
+  );
+};
+
 const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; onBack: () => void; onEdit: () => void; onOpen: (a: Article) => void }> = ({ article, next, isAuthor, onBack, onEdit, onOpen }) => {
   const blocks = useMemo(() => parseBody(article.body), [article.body]);
   useEffect(() => { window.scrollTo(0, 0); }, [article.id]);
@@ -71,7 +161,7 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
           <button onClick={() => onOpen(next)} className="w-full text-left">
             <Card className="p-4">
               <div className="serif text-[19px] font-semibold leading-snug">{frTypo(next.title)}</div>
-              <div className="text-[13px] mt-1.5" style={{ color: C.mute }}>{next.readMinutes} min de lecture</div>
+              <div className="text-[13px] mt-1.5" style={{ color: C.mute }}>{meta(next)}</div>
             </Card>
           </button>
         </div>
@@ -224,10 +314,14 @@ const Editor: React.FC<{ initial?: Article; onBack: () => void; onSaved: (id?: s
 
 // ---------- Liste
 
-const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => void; initialId?: string }> = ({ user, isAuthor, onBack, initialId }) => {
+type Filter = 'all' | 'own' | 'press' | `src:${string}`;
+
+const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => void; initialId?: string; prefill?: Partial<PressInput> }> = ({ user, isAuthor, onBack, initialId, prefill }) => {
   const [list, setList] = useState<Article[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [view, setView] = useState<{ k: 'list' } | { k: 'read'; id: string } | { k: 'edit'; id?: string }>(initialId ? { k: 'read', id: initialId } : { k: 'list' });
+  const [view, setView] = useState<{ k: 'list' } | { k: 'read'; id: string } | { k: 'edit'; id?: string } | { k: 'press'; id?: string; prefill?: Partial<PressInput> }>(
+    prefill && isAuthor ? { k: 'press', prefill } : initialId ? { k: 'read', id: initialId } : { k: 'list' });
+  const [filter, setFilter] = useState<Filter>('all');
   const [toast, setToast] = useState<string | null>(null);
 
   const load = () => listArticles(user.id, isAuthor).then(l => { setList(l); setFailed(false); }).catch(() => { setFailed(true); setList([]); });
@@ -241,9 +335,11 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
   if (view.k === 'read') {
     if (!list) return <Screen><TopBar onBack={() => go({ k: 'list' })} /><div className="px-6 flex flex-col gap-3"><Skeleton h={40} /><Skeleton h={20} /><Skeleton h={300} /></div></Screen>;
     const a = list.find(x => x.id === view.id);
+    if (a && isPress(a)) return withToast(<PressReader article={a} isAuthor={isAuthor} onBack={() => go({ k: 'list' })} onEdit={() => go({ k: 'press', id: a.id })} />);
     if (a) {
-      const idx = published.findIndex(x => x.id === a.id);
-      const next = published.length > 1 ? published[(idx + 1) % published.length] : undefined;
+      const own = published.filter(x => !isPress(x));
+      const idx = own.findIndex(x => x.id === a.id);
+      const next = own.length > 1 ? own[(idx + 1) % own.length] : undefined;
       return withToast(<Reader article={a} next={next && next.id !== a.id ? next : undefined} isAuthor={isAuthor} onBack={() => go({ k: 'list' })} onEdit={() => go({ k: 'edit', id: a.id })} onOpen={x => go({ k: 'read', id: x.id })} />);
     }
     // Article introuvable (supprimé entre-temps) : on retombe sur la liste
@@ -255,22 +351,44 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
       onSaved={id => { load(); setToast('Enregistré'); go(id ? { k: 'read', id } : { k: 'list' }); }} />;
   }
 
-  const [first, ...rest] = (list || []).filter(a => a.status === 'published');
+  if (view.k === 'press' && isAuthor) {
+    const a = view.id ? list?.find(x => x.id === view.id) : undefined;
+    if (view.id && !a) return <Screen><TopBar onBack={() => go({ k: 'list' })} /><div className="px-5"><Skeleton h={300} /></div></Screen>;
+    return <PressEditor initial={a} prefill={view.prefill} onBack={() => go(view.id ? { k: 'read', id: view.id } : { k: 'list' })}
+      onSaved={id => { load(); setToast(id ? 'Fiche publiée' : 'Fiche supprimée'); go(id ? { k: 'read', id } : { k: 'list' }); }} />;
+  }
+
+  const sources = [...new Set(published.filter(isPress).map(a => a.source || ''))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr'));
+  const shown = published.filter(a => filter === 'all' || (filter === 'own' ? !isPress(a) : filter === 'press' ? isPress(a) : isPress(a) && `src:${a.source}` === filter));
+  const [first, ...rest] = shown;
   const drafts = (list || []).filter(a => a.status === 'draft');
+  const hasPress = sources.length > 0;
   return withToast(
     <Screen>
       <TopBar onBack={onBack} title="Articles" />
-      <div className="px-6 pt-2 pb-5">
-        <h1 className="serif text-[30px] font-semibold leading-tight">Les textes de Christian</h1>
-        <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>Tribunes et réflexions signées CKLabs, réservées aux proches inscrits sur l'appli.</p>
+      <div className="px-6 pt-2 pb-4">
+        <h1 className="serif text-[30px] font-semibold leading-tight">Articles</h1>
+        <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>Les textes de Christian, signés CKLabs, et sa revue de presse. Réservés aux proches inscrits sur l'appli.</p>
       </div>
       {isAuthor && (
-        <div className="px-5 pb-5"><Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Écrire ou importer un article</Button></div>
+        <div className="px-5 pb-4 flex flex-col gap-2.5">
+          <Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Écrire ou importer un article</Button>
+          <Button variant="secondary" onClick={() => go({ k: 'press' })}><Icon name="file" size={20} /> Ajouter une revue de presse</Button>
+        </div>
+      )}
+      {list && hasPress && (
+        <div className="px-5 pb-3 flex flex-col gap-2">
+          <Chips options={[{ id: 'all', label: 'Tout' }, { id: 'own', label: 'Textes de Christian' }, { id: 'press', label: 'Revue de presse' }]}
+            value={filter.startsWith('src:') ? 'press' : filter} onChange={v => setFilter(v as Filter)} />
+          {(filter === 'press' || filter.startsWith('src:')) && sources.length > 1 && (
+            <Chips options={[{ id: 'press', label: 'Tous les médias' }, ...sources.map(s => ({ id: `src:${s}`, label: s }))]} value={filter} onChange={v => setFilter(v as Filter)} />
+          )}
+        </div>
       )}
       <div className="px-5 flex flex-col gap-3 pb-[max(env(safe-area-inset-bottom),28px)]">
         {!list ? <><Skeleton h={180} /><Skeleton h={96} /><Skeleton h={96} /></> : null}
         {failed && <Note tone="warn">Les articles n'ont pas pu être chargés. Vérifie ta connexion.</Note>}
-        {drafts.length > 0 && (
+        {drafts.length > 0 && filter === 'all' && (
           <Card>
             {drafts.map((a, i) => (
               <button key={a.id} onClick={() => go({ k: 'read', id: a.id })} className="w-full text-left px-4 py-3.5 flex items-center gap-3" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
@@ -281,10 +399,10 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
           </Card>
         )}
         {first && (
-          <button onClick={() => go({ k: 'read', id: first.id })} className="text-left rounded-2xl p-5 pt-6" style={{ background: C.ink, color: '#fff' }}>
-            <div className="text-[12px] font-semibold" style={{ color: C.ochre }}>Le plus récent</div>
+          <button onClick={() => go({ k: 'read', id: first.id })} className="text-left rounded-2xl p-5 pt-5" style={{ background: C.ink, color: '#fff' }}>
+            <div className="flex items-center justify-between gap-2"><Kind a={first} dark /><span className="text-[11.5px] font-semibold" style={{ color: 'rgba(255,255,255,.55)' }}>Le plus récent</span></div>
             <div className="serif text-[24px] font-semibold leading-[1.18] mt-2">{frTypo(first.title)}</div>
-            <p className="text-[14px] leading-relaxed mt-3 line-clamp-3" style={{ color: 'rgba(255,255,255,.78)' }}>{frTypo(first.excerpt)}</p>
+            {first.excerpt && <p className="text-[14px] leading-relaxed mt-3 line-clamp-3" style={{ color: 'rgba(255,255,255,.78)' }}>{isPress(first) ? `« ${frTypo(first.excerpt)} »` : frTypo(first.excerpt)}</p>}
             <div className="text-[12px] mt-4" style={{ color: 'rgba(255,255,255,.6)' }}>{meta(first)}</div>
           </button>
         )}
@@ -292,8 +410,9 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
           <Card>
             {rest.map((a, i) => (
               <button key={a.id} onClick={() => go({ k: 'read', id: a.id })} className="w-full text-left px-4 py-4" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
-                <div className="serif text-[18px] font-semibold leading-snug">{frTypo(a.title)}</div>
-                <p className="text-[14px] leading-snug mt-1.5 line-clamp-2" style={{ color: C.text2 }}>{frTypo(a.excerpt)}</p>
+                <Kind a={a} />
+                <div className="serif text-[18px] font-semibold leading-snug mt-1">{frTypo(a.title)}</div>
+                {a.excerpt && <p className="text-[14px] leading-snug mt-1.5 line-clamp-2" style={{ color: C.text2 }}>{isPress(a) ? `« ${frTypo(a.excerpt)} »` : frTypo(a.excerpt)}</p>}
                 <div className="text-[12px] mt-2" style={{ color: C.mute }}>{meta(a)}</div>
               </button>
             ))}
@@ -301,8 +420,8 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
         )}
         {list && !failed && !first && !drafts.length && (
           <Card className="px-5 py-8 text-center">
-            <div className="text-[15px] font-semibold">Pas encore d'article</div>
-            <div className="text-sm mt-1" style={{ color: C.mute }}>{isAuthor ? 'Importe ton premier texte : un PDF, un texte, ou le fichier préparé pour toi.' : 'Les prochains textes de Christian apparaîtront ici.'}</div>
+            <div className="text-[15px] font-semibold">{filter === 'all' ? "Pas encore d'article" : 'Rien dans cette catégorie'}</div>
+            <div className="text-sm mt-1" style={{ color: C.mute }}>{isAuthor ? 'Dépose un PDF ou un Word dans le dossier Drive, ou importe-le ici.' : 'Les prochains articles apparaîtront ici.'}</div>
           </Card>
         )}
       </div>

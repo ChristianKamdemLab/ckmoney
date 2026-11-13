@@ -1,6 +1,7 @@
-name: Annonces
+name: Annonces et articles
 
-# Toutes les heures à :30 : envoie les annonces dues (notification à tous les appareils inscrits).
+# Toutes les heures à :30 : envoie les annonces dues (notification, e-mail) et publie les nouveaux
+# articles du dossier Drive « CKMoney – Articles à publier » (agent Articles).
 # Sans effet s'il n'y a rien à envoyer ; chaque annonce ne part qu'une fois (voir api/_lib/annonces.ts).
 on:
   schedule:
@@ -12,4 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - run: curl -fsS -X POST https://ck-money.vercel.app/api/annonces
+      - name: Annonces
+        run: curl -fsS -X POST https://ck-money.vercel.app/api/annonces
+        continue-on-error: true
+      - name: Articles du dossier Drive
+        run: curl -fsS --max-time 70 -X POST https://ck-money.vercel.app/api/articles-sync
