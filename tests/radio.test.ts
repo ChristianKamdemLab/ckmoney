@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { parseMedia, cleanReco, cleanComment, ogTags, embedHeight } from '../utils/radio';
+import { parseMedia, cleanReco, cleanComment, ogTags, embedHeight, showFromDescription } from '../utils/radio';
 
 // Radio CK : liens des plateformes, validation, et serveur (api/radio) avec une base simulée.
 
@@ -29,6 +29,14 @@ describe('liens', () => {
     expect(r).toMatchObject({ platform: 'youtube', embedUrl: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', title: 'Un btitre/b', thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg', comment: 'a\n\nb', kind: 'video' });
     expect(cleanReco({ url: 'https://youtu.be/dQw4w9WgXcQ', title: '' })).toBeNull();
     expect(cleanComment('x'.repeat(900)).length).toBe(500);
+  });
+  it('lien Spotify partagé depuis l’appli (Le Nectar) : épisode, lecteur, nom de l’émission', () => {
+    const m = parseMedia('https://open.spotify.com/episode/5dWGmuYROwG8m31JcOX9PV?si=Dv2TGSJvQb6vlKigIjkp7Q&utm_source=copy-link');
+    expect(m).toMatchObject({ platform: 'spotify', kind: 'podcast', url: 'https://open.spotify.com/episode/5dWGmuYROwG8m31JcOX9PV', embedUrl: 'https://open.spotify.com/embed/episode/5dWGmuYROwG8m31JcOX9PV' });
+    expect(showFromDescription('Le Nectar · Episode')).toBe('Le Nectar');
+    expect(showFromDescription('Listen to this episode from Le Nectar on Spotify. Daniel Markovits…')).toBe('Le Nectar');
+    expect(showFromDescription('Écoutez cet épisode de Le Nectar sur Spotify.')).toBe('Le Nectar');
+    expect(showFromDescription('Un texte sans émission')).toBe('');
   });
   it('balises d’aperçu d’une page', () => {
     const t = ogTags('<html><head><meta property="og:title" content="L&#39;épisode &amp; co"><meta content="https://img/x.jpg" property="og:image"><title>autre</title></head>');
