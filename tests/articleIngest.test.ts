@@ -65,6 +65,16 @@ describe('agent Articles : tri', () => {
     expect(findDate('Publié le 1er mars 2026')).toBe('2026-03-01T09:00:00.000Z');
     expect(findDate('13/11/2026')).toBe('2026-11-13T09:00:00.000Z');
     expect(findDate('rien')).toBeUndefined();
+    expect(findDate('Publié le 12 novembre 2026\nmis à jour le 13 novembre 2026')).toBe('2026-11-12T09:00:00.000Z');
+    expect(findDate("Publié aujourd'hui à 08h28\nFichier généré le 13/11/2026 à 10:38")).toBe('2026-11-13T09:00:00.000Z');
+    // Une date dans une légende de photo ne compte pas
+    const c = classify('Un titre d’essai', [
+      { t: 'p', text: 'Un ministre, le 29 juillet 2022, en déplacement. © Photographe' },
+      { t: 'p', text: 'Un chapeau d’essai qui fait plus de soixante caractères pour compter comme un paragraphe.' },
+      { t: 'p', text: 'Correspondant de Jeune Afrique' },
+    ]);
+    expect(c).toMatchObject({ kind: 'press', source: 'Jeune Afrique' });
+    if (c.kind === 'press') expect(c.publishedAt).toBeUndefined();
     expect(readText('Mon titre\n\nPremier paragraphe.\n\nChristian Kamdem — CKLabs')).toMatchObject({ title: 'Mon titre' });
   });
 });
