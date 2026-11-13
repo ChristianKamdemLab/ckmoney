@@ -3,8 +3,10 @@ import { C, Icon } from './ui';
 import { DateBlock, LiveDot } from './EventView';
 import { listEvents } from '../../services/eventService';
 import { AppEvent, isLive, sortUpcoming, summary, untilText, KIND_LABEL } from '../../utils/events';
+import { listRadio } from '../../services/radioService';
+import { RadioItem, KIND_LABEL as RADIO_KIND } from '../../utils/radio';
 
-// « À découvrir » : le prochain événement, les articles et les jeux, sur l'accueil du prêteur
+// « À découvrir » : le prochain événement, Radio CK, les articles et les jeux, sur l'accueil du prêteur
 // comme sur l'espace des proches.
 
 /** Grande case des sorties : un spot en cours d'abord, sinon la prochaine sortie. */
@@ -36,6 +38,25 @@ const EventsTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   );
 };
 
+/** Case « Radio CK » de « À découvrir » : la dernière reco. */
+const RadioTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const [last, setLast] = useState<RadioItem | null | undefined>(undefined);
+  useEffect(() => { let on = true; listRadio().then(r => on && setLast(r.items[0] || null)).catch(() => on && setLast(null)); return () => { on = false; }; }, []);
+  return (
+    <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.ink, color: '#fff' }}>
+      {last?.thumbnail
+        ? <img src={last.thumbnail} alt="" referrerPolicy="no-referrer" className="w-[54px] h-[54px] rounded-xl object-cover shrink-0" />
+        : <span className="w-[54px] h-[54px] rounded-xl flex items-center justify-center shrink-0 serif text-[15px] font-bold" style={{ background: C.ochre, color: C.ink }}>CK</span>}
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-semibold" style={{ color: C.ochre }}>{last ? `Radio CK · ${RADIO_KIND[last.kind] === 'Vidéo' ? 'nouvelle vidéo' : RADIO_KIND[last.kind] === 'Musique' ? 'nouveau son' : 'nouveau podcast'}` : 'Radio CK'}</div>
+        <div className="serif text-[17px] font-semibold leading-snug mt-0.5 line-clamp-2">{last ? last.title : 'Podcasts et vidéos à ne pas rater'}</div>
+        {last && (last.show || last.commentCount > 0) && <div className="text-[12.5px] mt-0.5 truncate" style={{ color: 'rgba(255,255,255,.65)' }}>{[last.show, last.commentCount ? `${last.commentCount} avis` : ''].filter(Boolean).join(' · ')}</div>}
+      </div>
+      <span style={{ color: 'rgba(255,255,255,.6)' }}><Icon name="chevron" size={18} /></span>
+    </button>
+  );
+};
+
 const MiniCard: React.FC<{ r: number; red?: boolean; rot: number; x: number }> = ({ r, red, rot, x }) => (
   <div className="absolute w-[30px] h-[42px] rounded-[5px] bg-white serif font-bold text-[14px] pl-1 pt-0.5 shadow"
     style={{ transform: `rotate(${rot}deg)`, right: x, top: 12, color: red ? C.red : C.ink }}>{r}</div>
@@ -49,12 +70,13 @@ const Tile: React.FC<{ onClick: () => void; title: string; sub?: string; bg: str
   </button>
 );
 
-const Discover: React.FC<{ onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents }) => (
+const Discover: React.FC<{ onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio }) => (
   <>
     <div className="px-5 pt-7 pb-3 text-[17px] font-bold">À découvrir</div>
     <div className="px-5 grid grid-cols-2 gap-2.5">
       <EventsTile onClick={onEvents} />
-      <Tile onClick={onArticles} title="Articles" bg={C.ochreSoft} fg={C.ink} subColor={C.ochreText}>
+      {onRadio && <RadioTile onClick={onRadio} />}
+      <Tile onClick={onArticles} title="Articles" sub="Lire entre les lignes" bg={C.ochreSoft} fg={C.ink} subColor={C.ochreText}>
         <div className="absolute top-4 left-4 serif text-[34px] leading-none font-semibold" style={{ color: C.ochre }} aria-hidden="true">«</div>
       </Tile>
       <Tile onClick={onJambo} title="Jambo" sub="Fap Fap, seul ou entre amis" bg="#16204A" fg="#fff" subColor="rgba(255,255,255,.7)">
