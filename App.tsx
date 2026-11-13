@@ -25,6 +25,7 @@ const ArticlesScreen = lazy(() => import('./components/v2/Articles'));
 const Jambo = lazy(() => import('./components/v2/Jambo'));
 const Bac = lazy(() => import('./components/v2/Bac'));
 const Wiseman = lazy(() => import('./components/v2/Wiseman'));
+const EventsScreen = lazy(() => import('./components/v2/Events'));
 
 const toUser = (u: FirebaseUser): User => ({
   id: u.uid,
@@ -85,7 +86,8 @@ type Overlay =
   | { k: 'articles'; back?: Overlay }
   | { k: 'jambo'; back?: Overlay }
   | { k: 'bac'; back?: Overlay }
-  | { k: 'wiseman'; back?: Overlay };
+  | { k: 'wiseman'; back?: Overlay }
+  | { k: 'events'; back?: Overlay };
 
 const Splash = () => (
   <Screen><div className="flex-1 flex items-center justify-center"><div className="animate-pulse"><CKLogo size="lg" /></div></div></Screen>
@@ -269,6 +271,7 @@ const App: React.FC = () => {
         case 'jambo': return <Suspense fallback={<Splash />}><Jambo playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'wiseman': return <Suspense fallback={<Splash />}><Wiseman playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
+        case 'events': return <Suspense fallback={<Splash />}><EventsScreen isAuthor={isLender} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'contract': {
           const l = findLoan(overlay.id);
           return l ? <ContractPreview loan={l} onClose={() => setOverlay(isLender ? { k: 'borrower' } : null)} /> : <LoanLoader id={overlay.id} onLoaded={refreshLoans} onMissing={close} />;
@@ -304,7 +307,7 @@ const App: React.FC = () => {
             onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
             onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onBack={isLender ? close : undefined}
             onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} />;
+            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} />;
       }
     })();
     return <ErrorBoundary>{content}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
@@ -316,7 +319,7 @@ const App: React.FC = () => {
       <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
         onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} />
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
   );
@@ -330,7 +333,7 @@ const App: React.FC = () => {
         onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
         onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}
         onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} />
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} />
       <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo(0, 0); }} onCreate={() => setOverlay({ k: 'new' })} badge={toHandle} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>

@@ -412,7 +412,7 @@ export const BorrowerSpace: React.FC<{
   onOpenLoan: (l: Loan) => void; onRequest: (lenderUid: string, lenderFirstName: string) => void;
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
   onOpenContract: (l: Loan) => void;
-  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void;
+  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void;
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);
   const open = mine.filter(l => ['active', 'delay_requested', 'pending_borrower', 'requested'].includes(l.status));
@@ -541,7 +541,7 @@ export const BorrowerSpace: React.FC<{
         </>
       )}
 
-      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} />}
+      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} />}
 
       {closed.length > 0 && (
         <>
