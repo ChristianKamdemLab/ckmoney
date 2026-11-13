@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, pushToUser } from './admin.js';
+import { adminAuth, adminDb, pushToUser, isAllowedLender } from './admin.js';
 import { sendMail } from './mail.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
@@ -21,20 +21,8 @@ export interface Announcement {
   sendAt: string;
   push?: { title: string; body: string; url: string };
   email?: NewsEmail;
-  emailTo?: 'all' | 'no-push';
+  emailTo?: 'all' | 'no-push' | 'author'; // 'author' : un essai à Christian seul
 }
-
-export const ANNOUNCEMENTS: Announcement[] = [
-  {
-    id: '2026-11-13-nouveautes',
-    sendAt: '2026-11-13T07:30:00.000Z', // 8 h 30 à Paris (envoyée à 8 h 40)
-    push: {
-      title: 'Du nouveau sur CKMoney',
-      body: 'Nouvelle rubrique Sorties : événements, spots et chills à partager. Et les tables de jeu ont maintenant de vrais noms. À découvrir !',
-      url: '/?sorties',
-    },
-  },
-];
 
 /** L'e-mail des nouveautés de la semaine (sert aussi d'aperçu avant envoi). */
 export const NEWS_2026_11_13: NewsEmail = {
@@ -58,6 +46,25 @@ export const NEWS_2026_11_13: NewsEmail = {
     },
   ],
 };
+
+
+export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-11-13-nouveautes',
+    sendAt: '2026-11-13T07:30:00.000Z', // 8 h 30 à Paris (envoyée à 8 h 40)
+    push: {
+      title: 'Du nouveau sur CKMoney',
+      body: 'Nouvelle rubrique Sorties : événements, spots et chills à partager. Et les tables de jeu ont maintenant de vrais noms. À découvrir !',
+      url: '/?sorties',
+    },
+  },
+  {
+    id: '2026-11-13-email-essai',
+    sendAt: '2026-11-13T08:30:00.000Z', // essai demandé par Christian vers 9 h 30
+    emailTo: 'author',
+    email: NEWS_2026_11_13,
+  },
+];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
@@ -96,7 +103,7 @@ const WINDOW = 6 * 3_600_000;
 const firstNameOf = (s: unknown) => String(s || '').trim().split(/\s+/)[0].replace(/[<>]/g, '').slice(0, 30);
 
 /** Comptes qui recevront l'e-mail : adresse vérifiée, pas les invités des jeux, pas les comptes désactivés. */
-const emailRecipients = async (onlyWithoutPush: boolean) => {
+const emailRecipients = async (to: Announcement['emailTo']) => {
   const [list, profiles, tokens] = await Promise.all([
     adminAuth.listUsers(1000), adminDb.collection('profiles').get(), adminDb.collection('pushTokens').get(),
   ]);
@@ -104,7 +111,8 @@ const emailRecipients = async (onlyWithoutPush: boolean) => {
   const withPush = new Set<string>(tokens.docs.map((d: any) => d.id));
   return list.users
     .filter((u: any) => u.email && u.emailVerified && !u.disabled && (u.providerData || []).length > 0)
-    .filter((u: any) => !onlyWithoutPush || !withPush.has(u.uid))
+    .filter((u: any) => to !== 'no-push' || !withPush.has(u.uid))
+    .filter((u: any) => to !== 'author' || isAllowedLender(u.email, true))
     .map((u: any) => ({ uid: u.uid as string, email: u.email as string, firstName: names.get(u.uid) || firstNameOf(u.displayName) }));
 };
 
@@ -131,7 +139,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     }
     if (a.email) {
       let emails = 0;
-      for (const r of await emailRecipients(a.emailTo === 'no-push')) {
+      for (const r of await emailRecipients(a.emailTo || 'all')) {
         const msg = renderNewsEmail(a.email, r.firstName);
         if (await sendMail({ to: r.email, subject: msg.subject, html: msg.html, text: msg.text })) emails++;
       }
