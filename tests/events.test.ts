@@ -1,26 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cleanEvent, whenText, shortWhen, sortUpcoming, icsFor, shareText, toLocalInput, fromLocalInput, googleCalendarUrl, encodePrefill, decodePrefill, AppEvent } from '../utils/events';
+import {
+  cleanEvent, whenText, shortWhen, sortUpcoming, icsFor, shareText, toLocalInput, fromLocalInput, googleCalendarUrl,
+  encodePrefill, decodePrefill, defaultSpotEnd, isLive, AppEvent,
+} from '../utils/events';
 
-// Événements : mise en forme (heure de Paris), validation, agenda, et serveur (api/events) testé
-// avec une base Firestore simulée en mémoire.
+// Sorties (événements, spots, chills) : mise en forme (heure de Paris), validation, agenda, et serveur
+// (api/events) testé avec une base Firestore simulée en mémoire.
 
 const SALON: AppEvent = {
-  id: 'salon26', title: 'Salon des Diasporas Africaines 2026', startsAt: '2026-12-04T12:00:00.000Z', endsAt: '2026-12-05T18:00:00.000Z',
+  id: 'salon26', kind: 'event', title: 'Salon des Diasporas Africaines 2026', startsAt: '2026-12-04T12:00:00.000Z', endsAt: '2026-12-05T18:00:00.000Z',
   venue: 'Palais de la Porte Dorée', address: '293 avenue Daumesnil, 75012 Paris', url: 'https://www.billetweb.fr/salon-des-diasporas-africaines-2026',
   price: 'Gratuit', organizer: 'Expertise France', description: 'Six pays invitent leurs diasporas.', status: 'published',
+  theme: '', drinks: '', capacity: null,
 };
+const plain = (s: string) => s.replace(/\u00a0/g, ' ');
+const FUTURE = { startsAt: '2099-06-01T18:00:00.000Z', endsAt: '2099-06-01T21:00:00.000Z' };
+const PAST = { startsAt: '2020-01-01T18:00:00.000Z', endsAt: '2020-01-01T23:00:00.000Z' };
 
-describe('événements : mise en forme', () => {
+describe('sorties : mise en forme', () => {
   it('dates à l’heure de Paris', () => {
-    expect(whenText(SALON)).toBe('Du vendredi 4 décembre, 13 h, au samedi 5 décembre 2026, 19 h');
+    expect(plain(whenText(SALON))).toBe('Du vendredi 4 décembre, 13 h, au samedi 5 décembre 2026, 19 h');
     expect(shortWhen(SALON)).toMatch(/^4–5 déc\.? 2026$/);
     const soir = { startsAt: '2026-06-20T17:30:00.000Z', endsAt: '2026-06-20T21:00:00.000Z' };
-    expect(whenText(soir)).toBe('Samedi 20 juin 2026, 19 h 30 – 23 h');
+    expect(plain(whenText(soir))).toBe('Samedi 20 juin 2026, 19 h 30 – 23 h');
     expect(shortWhen(soir)).toMatch(/^20 juin 2026$/);
-    expect(whenText({ startsAt: soir.startsAt, endsAt: soir.startsAt })).toBe('Samedi 20 juin 2026, 19 h 30');
+    expect(plain(whenText({ startsAt: soir.startsAt, endsAt: soir.startsAt }))).toBe('Samedi 20 juin 2026, 19 h 30');
+    // Une soirée qui finit après minuit reste une soirée
+    const nuit = { startsAt: '2026-11-20T19:00:00.000Z', endsAt: '2026-11-20T23:30:00.000Z' };
+    expect(plain(whenText(nuit))).toBe('Vendredi 20 novembre 2026, 20 h – 0 h 30');
+    expect(shortWhen(nuit)).toMatch(/^20 nov\.? 2026$/);
+    expect(plain(whenText({ startsAt: '2026-11-21T08:00:00.000Z', endsAt: '2026-11-21T09:00:00.000Z' }))).toBe('Samedi 21 novembre 2026, 9 h – 10 h');
   });
 
-  it('seuls les événements pas encore finis, du plus proche au plus lointain', () => {
+  it('seules les sorties pas encore finies, de la plus proche à la plus lointaine ; « en ce moment »', () => {
     const now = Date.parse('2026-12-05T10:00:00Z');
     const list = [
       { ...SALON, id: 'b', startsAt: '2027-01-10T10:00:00.000Z', endsAt: '2027-01-10T12:00:00.000Z' },
@@ -28,6 +40,20 @@ describe('événements : mise en forme', () => {
       SALON,
     ];
     expect(sortUpcoming(list, now).map(e => e.id)).toEqual(['salon26', 'b']);
+    expect(isLive(SALON, now)).toBe(true);
+    expect(isLive(list[0], now)).toBe(false);
+  });
+
+  it('fin par défaut d’un spot : le lendemain à 4 h', () => {
+    const start = new Date(2026, 10, 13, 21, 30).toISOString();
+    const end = new Date(defaultSpotEnd(start));
+    expect([end.getDate(), end.getHours(), end.getMinutes()]).toEqual([14, 4, 0]);
+    // Après minuit : même nuit, 4 h
+    const late = new Date(defaultSpotEnd(new Date(2026, 10, 14, 1, 0).toISOString()));
+    expect([late.getDate(), late.getHours()]).toEqual([14, 4]);
+    // En journée : 6 h plus tard plutôt que le lendemain matin
+    const day = new Date(2026, 10, 14, 10, 0);
+    expect(Date.parse(defaultSpotEnd(day.toISOString())) - day.getTime()).toBe(6 * 3_600_000);
   });
 
   it('validation : titre, dates dans l’ordre, lien http(s), pas de balises', () => {
@@ -39,7 +65,21 @@ describe('événements : mise en forme', () => {
     expect(ok.title).toBe('bSalon/b');
     expect(ok.endsAt).toBe(ok.startsAt);
     expect(ok.price).toBe('Gratuit');
+    expect(ok).toMatchObject({ kind: 'event', audience: 'all', invitees: [] });
     expect(cleanEvent({ ...SALON, description: 'x'.repeat(5000) })!.description).toHaveLength(2000);
+  });
+
+  it('validation par type : chill (thème, boissons, places) et spot (pas de prix, fin par défaut)', () => {
+    const chill = cleanEvent({ ...SALON, kind: 'chill', price: '', theme: 'La diaspora', drinks: 'Vin', capacity: '12', audience: 'some', invitees: ['ana', 'ana', 'b$en'] })!;
+    expect(chill).toMatchObject({ kind: 'chill', theme: 'La diaspora', drinks: 'Vin', capacity: 12, price: '', audience: 'some', invitees: ['ana', 'ben'] });
+    expect(cleanEvent({ ...SALON, kind: 'chill', capacity: 0 })!.capacity).toBeNull();
+    expect(cleanEvent({ ...SALON, kind: 'chill', capacity: 9999 })!.capacity).toBeNull();
+    const spot = cleanEvent({ ...SALON, kind: 'spot', price: '', endsAt: '', theme: 'ignoré' })!;
+    expect(spot).toMatchObject({ kind: 'spot', price: '', theme: '', capacity: null });
+    expect(Date.parse(spot.endsAt) - Date.parse(spot.startsAt)).toBe(6 * 3_600_000);
+    // Les invités ne comptent que pour « certaines personnes »
+    expect(cleanEvent({ ...SALON, audience: 'all', invitees: ['ana'] })!.invitees).toEqual([]);
+    expect(cleanEvent({ ...SALON, audience: 'n’importe quoi' })!.audience).toBe('all');
   });
 
   it('fichier agenda et lien Google Agenda', () => {
@@ -72,31 +112,58 @@ describe('événements : mise en forme', () => {
 const store = new Map<string, any>();
 const clone = (v: any) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
 let auto = 0;
+const snapOf = (path: string) => ({ id: path.split('/').pop(), exists: store.has(path), data: () => clone(store.get(path)) });
+const childrenOf = (path: string) => [...store.keys()].filter(k => k.startsWith(`${path}/`) && k.split('/').length === path.split('/').length + 1);
 const docRef = (path: string): any => ({
   id: path.split('/').pop(), path,
-  get: async () => ({ exists: store.has(path), data: () => clone(store.get(path)) }),
+  collection: (c: string) => colRef(`${path}/${c}`),
+  get: async () => snapOf(path),
   set: async (d: any, o?: { merge?: boolean }) => { store.set(path, clone(o?.merge ? { ...store.get(path), ...d } : d)); },
   delete: async () => { store.delete(path); },
 });
-const colRef = (name: string) => ({
-  doc: (id?: string) => docRef(`${name}/${id || `auto${++auto}`}`),
+const colRef = (path: string): any => ({
+  doc: (id?: string) => docRef(`${path}/${id || `auto${++auto}`}`),
+  get: async () => ({ docs: childrenOf(path).map(snapOf) }),
   where: (field: string, _op: string, value: unknown) => ({
-    get: async () => ({
-      docs: [...store.entries()].filter(([k, v]) => k.startsWith(`${name}/`) && v[field] === value)
-        .map(([k, v]) => ({ id: k.split('/').pop(), data: () => clone(v) })),
-    }),
+    get: async () => ({ docs: childrenOf(path).filter(k => store.get(k)[field] === value).map(snapOf) }),
   }),
 });
 
 const USERS: Record<string, any> = {
   chris: { uid: 'chris', email: 'auteur@example.com', email_verified: true, firebase: { sign_in_provider: 'google.com' } },
-  pm: { uid: 'pm', email: 'pm@example.com', email_verified: true, firebase: { sign_in_provider: 'google.com' } },
+  pm: { uid: 'pm', email: 'pm@example.com', email_verified: true, name: 'P M', firebase: { sign_in_provider: 'google.com' } },
+  laura: { uid: 'laura', email: 'laura@example.com', email_verified: true, firebase: { sign_in_provider: 'password' } },
   guest: { uid: 'guest', firebase: { sign_in_provider: 'anonymous' } },
 };
+const pushed: { uid: string; msg: any }[] = [];
 vi.mock('../api/_lib/admin.js', () => ({
-  adminAuth: { verifyIdToken: async (t: string) => { if (!USERS[t]) throw new Error('no'); return USERS[t]; } },
-  adminDb: { collection: colRef },
+  adminAuth: {
+    verifyIdToken: async (t: string) => { if (!USERS[t]) throw new Error('no'); return USERS[t]; },
+    listUsers: async () => ({ users: [
+      { uid: 'chris', email: 'auteur@example.com', providerData: [{}] },
+      { uid: 'pm', email: 'pm@example.com', displayName: 'PM', providerData: [{}] },
+      { uid: 'laura', email: 'laura.k@example.com', providerData: [{}] },
+      { uid: 'guest', providerData: [] },
+    ] }),
+  },
+  adminDb: {
+    collection: (c: string) => colRef(c),
+    recursiveDelete: async (ref: any) => { [...store.keys()].filter(k => k === ref.path || k.startsWith(`${ref.path}/`)).forEach(k => store.delete(k)); },
+    runTransaction: async (fn: (tx: any) => Promise<any>) => {
+      const writes: (() => void)[] = [];
+      const tx = {
+        get: async (ref: any) => snapOf(ref.path),
+        set: (ref: any, d: any) => writes.push(() => store.set(ref.path, clone(d))),
+        update: (ref: any, d: any) => writes.push(() => store.set(ref.path, { ...store.get(ref.path), ...clone(d) })),
+        delete: (ref: any) => writes.push(() => store.delete(ref.path)),
+      };
+      const r = await fn(tx);
+      writes.forEach(w => w());
+      return r;
+    },
+  },
   isAllowedLender: (email?: string, verified = true) => verified && email === 'auteur@example.com',
+  pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, msg }); return 1; },
 }));
 
 const { default: handler } = await import('../api/events');
@@ -111,54 +178,142 @@ const run = async (req: any) => {
   await handler({ headers: { host: 'ck-money.vercel.app', ...(req.headers || {}) }, ...req }, res);
   return { status, body, headers };
 };
-const post = (who: string, body: object) => run({ method: 'POST', headers: { authorization: `Bearer ${who}` }, body });
+const post = (who: string | null, body: object) => run({ method: 'POST', headers: who ? { authorization: `Bearer ${who}` } : {}, body });
 const get = (query: object) => run({ method: 'GET', query });
+const put = (id: string, d: object) => store.set(`events/${id}`, { ...SALON, id: undefined, authorUid: 'chris', ...d });
 
-beforeEach(() => { store.clear(); vi.unstubAllGlobals(); });
+beforeEach(() => { store.clear(); pushed.length = 0; vi.unstubAllGlobals(); });
 
-describe('événements : serveur', () => {
-  it('seul l’auteur publie, modifie et supprime', async () => {
+describe('sorties : serveur', () => {
+  it('seul l’auteur publie, modifie et supprime (réponses comprises)', async () => {
     expect((await post('pm', { action: 'save', event: SALON })).status).toBe(403);
     expect((await post('nobody', { action: 'save', event: SALON })).status).toBe(401);
     expect((await post('chris', { action: 'save', event: { ...SALON, id: undefined, startsAt: 'x' } })).status).toBe(400);
     const { body } = await post('chris', { action: 'save', event: { ...SALON, id: undefined } });
     const saved = store.get(`events/${body.id}`);
-    expect(saved).toMatchObject({ title: SALON.title, status: 'published', authorUid: 'chris', price: 'Gratuit' });
+    expect(saved).toMatchObject({ title: SALON.title, status: 'published', authorUid: 'chris', price: 'Gratuit', kind: 'event', goingCount: 0 });
     expect(saved.createdAt).toBeTruthy();
-    // Modifier un événement inexistant : refusé (pas de création déguisée)
+    // Modifier une sortie inexistante : refusé (pas de création déguisée)
     expect((await post('chris', { action: 'save', event: { ...SALON, id: 'inconnu' } })).status).toBe(403);
     await post('chris', { action: 'save', event: { ...SALON, id: body.id, price: '5 €' } });
     expect(store.get(`events/${body.id}`)).toMatchObject({ price: '5 €', createdAt: saved.createdAt });
+    store.set(`events/${body.id}/rsvps/pm`, { name: 'PM' });
     expect((await post('pm', { action: 'delete', id: body.id })).status).toBe(403);
     expect((await post('chris', { action: 'delete', id: body.id })).status).toBe(200);
-    expect(store.has(`events/${body.id}`)).toBe(false);
+    expect([...store.keys()].some(k => k.startsWith(`events/${body.id}`))).toBe(false);
   });
 
-  it('la liste : comptes connectés seulement ; les passés pour l’auteur uniquement ; jamais de participants', async () => {
-    store.set('events/a', { ...SALON, id: undefined, authorUid: 'chris', startsAt: '2099-01-01T10:00:00.000Z', endsAt: '2099-01-01T12:00:00.000Z' });
-    store.set('events/old', { ...SALON, id: undefined, authorUid: 'chris', startsAt: '2020-01-01T10:00:00.000Z', endsAt: '2020-01-01T12:00:00.000Z' });
-    store.set('events/draft', { ...SALON, id: undefined, authorUid: 'chris', status: 'draft' });
+  it('la liste respecte « qui le voit » : tout le monde, certaines personnes, seulement par lien', async () => {
+    put('tous', { ...FUTURE });
+    put('pm', { ...FUTURE, audience: 'some', invitees: ['pm'] });
+    put('lien', { ...FUTURE, audience: 'link' });
+    put('old', { ...PAST });
+    put('draft', { ...FUTURE, status: 'draft' });
     expect((await post('guest', { action: 'list' })).status).toBe(403);
     expect((await post('nobody', { action: 'list' })).status).toBe(401);
-    expect((await post('pm', { action: 'list' })).body.events.map((e: AppEvent) => e.id)).toEqual(['a']);
-    const mine = (await post('chris', { action: 'list' })).body.events;
-    expect(mine.map((e: AppEvent) => e.id)).toEqual(['old', 'a']);
-    expect(JSON.stringify(mine)).not.toMatch(/authorUid|attendees|participants/);
+    const ids = async (who: string) => (await post(who, { action: 'list' })).body.events.map((e: AppEvent) => e.id).sort();
+    expect(await ids('pm')).toEqual(['pm', 'tous']);
+    expect(await ids('laura')).toEqual(['tous']);
+    expect(await ids('chris')).toEqual(['lien', 'old', 'pm', 'tous']);
+    const forPm = JSON.stringify((await post('pm', { action: 'list' })).body);
+    expect(forPm).not.toMatch(/authorUid|invitees|audience|goingCount/);
+    const mine = (await post('chris', { action: 'list' })).body.events.find((e: AppEvent) => e.id === 'pm');
+    expect(mine).toMatchObject({ audience: 'some', invitees: ['pm'] });
   });
 
-  it('fiche publique sans compte, et rien pour un brouillon ou un identifiant inconnu', async () => {
-    store.set('events/salon26', { ...SALON, id: undefined, authorUid: 'chris' });
-    store.set('events/draft', { ...SALON, id: undefined, authorUid: 'chris', status: 'draft' });
+  it('fiche publique sans compte (même « par lien »), rien pour un brouillon ou un identifiant inconnu', async () => {
+    put('salon26', {});
+    put('lien', { ...FUTURE, audience: 'link', invitees: ['pm'] });
+    put('draft', { status: 'draft' });
     const r = await get({ id: 'salon26' });
     expect(r.status).toBe(200);
-    expect(r.body).toMatchObject({ id: 'salon26', title: SALON.title, venue: SALON.venue });
+    expect(r.body).toMatchObject({ id: 'salon26', title: SALON.title, venue: SALON.venue, kind: 'event' });
     expect(r.body.authorUid).toBeUndefined();
+    const l = await get({ id: 'lien' });
+    expect(l.status).toBe(200);
+    expect(l.body.invitees).toBeUndefined();
+    expect(l.body.audience).toBeUndefined();
     expect((await get({ id: 'draft' })).status).toBe(404);
     expect((await get({ id: '../loans/x' })).status).toBe(404);
   });
 
+  it('un spot terminé ne dit plus où l’auteur était', async () => {
+    put('spot', { ...PAST, kind: 'spot', venue: 'Le Comptoir', address: '80 quai de Jemmapes', description: 'Passez !' });
+    const r = (await get({ id: 'spot' })).body;
+    expect([r.venue, r.address, r.description]).toEqual(['', '', '']);
+    put('spot2', { ...FUTURE, kind: 'spot', venue: 'Le Comptoir' });
+    expect((await get({ id: 'spot2' })).body.venue).toBe('Le Comptoir');
+    // L'auteur garde tout dans sa liste
+    expect((await post('chris', { action: 'list' })).body.events.find((e: AppEvent) => e.id === 'spot').venue).toBe('Le Comptoir');
+  });
+
+  it('chill : « Je viens » avec ou sans compte, places limitées, liste visible par l’auteur seul', async () => {
+    put('chill', { ...FUTURE, kind: 'chill', capacity: 2, goingCount: 0, price: '' });
+    const T1 = 'a'.repeat(20), T2 = 'b'.repeat(20);
+    expect((await post(null, { action: 'rsvp', id: 'chill', going: true, token: T1 })).body.error).toBe('name');
+    expect((await post(null, { action: 'rsvp', id: 'chill', going: true, name: 'Awa', token: 'court' })).body.error).toBe('token');
+    const a = await post(null, { action: 'rsvp', id: 'chill', going: true, name: '<Awa>', token: T1 });
+    expect(a.body).toEqual({ going: true, placesLeft: 1 });
+    // Répondre deux fois ne compte qu'une fois
+    await post(null, { action: 'rsvp', id: 'chill', going: true, name: 'Awa', token: T1 });
+    expect(store.get('events/chill').goingCount).toBe(1);
+    store.set('profiles/pm', { fullName: 'Paul-Marie' });
+    expect((await post('pm', { action: 'rsvp', id: 'chill', going: true })).body.placesLeft).toBe(0);
+    // Complet
+    const full = await post(null, { action: 'rsvp', id: 'chill', going: true, name: 'Ben', token: T2 });
+    expect([full.status, full.body.error]).toEqual([409, 'complet']);
+    // Ce que voient les autres : le nombre de places, jamais les prénoms
+    expect(JSON.stringify((await get({ id: 'chill' })).body)).not.toMatch(/Awa|Paul/);
+    expect((await get({ id: 'chill' })).body.placesLeft).toBe(0);
+    expect((await post('pm', { action: 'list' })).body.events[0].meGoing).toBe(true);
+    expect((await post('laura', { action: 'list' })).body.events[0].meGoing).toBe(false);
+    expect((await post('pm', { action: 'rsvps', id: 'chill' })).status).toBe(403);
+    const people = (await post('chris', { action: 'rsvps', id: 'chill' })).body.people;
+    expect(people.map((p: any) => [p.name, p.member])).toEqual([['Awa', false], ['Paul-Marie', true]]);
+    // Annuler libère la place
+    expect((await post(null, { action: 'rsvp', id: 'chill', going: false, token: T1 })).body).toEqual({ going: false, placesLeft: 1 });
+    expect(store.has(`events/chill/rsvps/g_${T1}`)).toBe(false);
+  });
+
+  it('on ne répond qu’à un chill à venir', async () => {
+    put('salon', { ...FUTURE });
+    put('fini', { ...PAST, kind: 'chill' });
+    const T = 'c'.repeat(20);
+    expect((await post(null, { action: 'rsvp', id: 'salon', going: true, name: 'A', token: T })).status).toBe(404);
+    expect((await post(null, { action: 'rsvp', id: 'fini', going: true, name: 'A', token: T })).status).toBe(404);
+    expect((await post(null, { action: 'rsvp', id: 'inconnu', going: true, name: 'A', token: T })).status).toBe(404);
+  });
+
+  it('« Prévenir » : notification à tous, aux personnes choisies, ou à personne (par lien)', async () => {
+    store.set('pushTokens/pm', { tokens: ['x'] });
+    store.set('pushTokens/laura', { tokens: ['y'] });
+    store.set('pushTokens/chris', { tokens: ['z'] });
+    const spot = { ...SALON, ...FUTURE, id: undefined, kind: 'spot', title: 'Ce soir je suis au Comptoir', venue: 'Le Comptoir', price: '' };
+    const r = await post('chris', { action: 'save', event: spot, notify: true });
+    expect(r.body.notified).toBe(2);
+    expect(pushed.map(p => p.uid).sort()).toEqual(['laura', 'pm']);
+    expect(pushed[0].msg).toMatchObject({ title: 'Ce soir je suis au Comptoir', url: `/?evenement=${r.body.id}` });
+    pushed.length = 0;
+    await post('chris', { action: 'save', event: { ...spot, kind: 'chill', title: 'Chill', audience: 'some', invitees: ['pm'] }, notify: true });
+    expect(pushed.map(p => p.uid)).toEqual(['pm']);
+    expect(pushed[0].msg.title).toBe('Chill : Chill');
+    pushed.length = 0;
+    await post('chris', { action: 'save', event: { ...spot, audience: 'link' }, notify: true });
+    await post('chris', { action: 'save', event: spot });
+    expect(pushed).toEqual([]);
+  });
+
+  it('les comptes à choisir : prénoms seulement, sans l’auteur ni les invités des jeux', async () => {
+    store.set('profiles/pm', { fullName: 'Paul-Marie Ndong' });
+    expect((await post('pm', { action: 'people' })).status).toBe(403);
+    const people = (await post('chris', { action: 'people' })).body.people;
+    expect(people).toEqual([{ uid: 'laura', name: 'laura.k' }, { uid: 'pm', name: 'Paul-Marie Ndong' }]);
+    expect(JSON.stringify(people)).not.toContain('@');
+  });
+
   it('page partagée : balises d’aperçu échappées, glissées dans la vraie page', async () => {
-    store.set('events/salon26', { ...SALON, id: undefined, authorUid: 'chris', title: 'Salon "A" & co', venue: 'Paris' });
+    put('salon26', { title: 'Salon "A" & co', venue: 'Paris' });
+    put('chill', { ...FUTURE, kind: 'chill', title: 'Chill', venue: 'Chez moi', price: '' });
     const shell = '<!doctype html><html><head><title>Événement · CKMoney</title>\n<!--og-->\n</head><body><div id="root"></div></body></html>';
     const fetchMock = vi.fn(async () => ({ ok: true, text: async () => shell }));
     vi.stubGlobal('fetch', fetchMock);
@@ -171,11 +326,12 @@ describe('événements : serveur', () => {
     expect(r.body).toContain('<meta property="og:url" content="https://ck-money.vercel.app/e/salon26">');
     expect(r.body).toContain('<div id="root">');
     expect(r.body.match(/<title>/g)).toHaveLength(1);
+    expect((await get({ page: 'chill' })).body).toMatch(/og:description" content="Chill · 1(er)? juin 2099 · Chez moi"/);
     expect((await get({ page: 'inconnu' })).status).toBe(404);
   });
 
   it('fichier agenda servi au bon format', async () => {
-    store.set('events/salon26', { ...SALON, id: undefined, authorUid: 'chris' });
+    put('salon26', {});
     const r = await get({ ics: 'salon26' });
     expect(r.headers['content-type']).toContain('text/calendar');
     expect(r.body).toContain('SUMMARY:Salon des Diasporas Africaines 2026');

@@ -1,29 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { C, Icon } from './ui';
-import { DateBlock } from './EventView';
+import { DateBlock, LiveDot } from './EventView';
 import { listEvents } from '../../services/eventService';
-import { AppEvent, shortWhen, sortUpcoming } from '../../utils/events';
+import { AppEvent, isLive, sortUpcoming, summary, untilText, KIND_LABEL } from '../../utils/events';
 
 // « À découvrir » : le prochain événement, les articles et les jeux, sur l'accueil du prêteur
 // comme sur l'espace des proches.
 
-/** Grande case du prochain rendez-vous (ou de la page des événements s'il n'y en a pas). */
+/** Grande case des sorties : un spot en cours d'abord, sinon la prochaine sortie. */
 const EventsTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const [next, setNext] = useState<AppEvent | null | undefined>(undefined);
   useEffect(() => {
     let on = true;
-    listEvents().then(l => { if (on) setNext(sortUpcoming(l)[0] || null); }).catch(() => { if (on) setNext(null); });
+    listEvents().then(l => {
+      if (!on) return;
+      const upcoming = sortUpcoming(l);
+      setNext(upcoming.find(e => isLive(e)) || upcoming[0] || null);
+    }).catch(() => { if (on) setNext(null); });
     return () => { on = false; };
   }, []);
+  const live = !!next && isLive(next);
+  const label = !next ? 'Sorties' : live ? 'En ce moment' : next.kind === 'event' ? 'Prochain événement' : `${KIND_LABEL[next.kind]} à venir`;
   return (
     <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.card, color: C.ink }}>
-      {next ? <DateBlock iso={next.startsAt} /> : (
-        <span className="w-[54px] h-[54px] rounded-xl flex items-center justify-center shrink-0" style={{ background: C.ink, color: C.ochre }}><Icon name="calendar" size={24} /></span>
+      {next && !live ? <DateBlock iso={next.startsAt} /> : (
+        <span className="w-[54px] h-[54px] rounded-xl flex items-center justify-center shrink-0" style={{ background: C.ink, color: C.ochre }}><Icon name={live ? 'pin' : 'calendar'} size={24} /></span>
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-semibold" style={{ color: C.ochreText }}>{next ? 'Prochain événement' : 'Événements'}</div>
-        <div className="serif text-[17px] font-semibold leading-snug mt-0.5 line-clamp-2">{next ? next.title : 'Les rendez-vous à venir'}</div>
-        {next && <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.mute }}>{[shortWhen(next), next.venue, next.price].filter(Boolean).join(' · ')}</div>}
+        <div className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: live ? C.green : C.ochreText }}>{live && <LiveDot color={C.green} />}{label}</div>
+        <div className="serif text-[17px] font-semibold leading-snug mt-0.5 line-clamp-2">{next ? next.title : 'Événements, spots et chills'}</div>
+        {next && <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.mute }}>{live ? [next.venue, untilText(next)].filter(Boolean).join(' · ') : summary(next)}</div>}
       </div>
       <span style={{ color: C.mute }}><Icon name="chevron" size={18} /></span>
     </button>
