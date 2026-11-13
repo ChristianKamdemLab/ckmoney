@@ -5,6 +5,7 @@ import SignaturePad from './SignaturePad';
 import CKLogo from './brand/CKLogo';
 import { saveProfile } from '../services/profileService';
 import { USURY_BRACKETS } from '../config/legal';
+import { cityOf } from '../utils/contract';
 import { Screen, TopBar, H1, Field, Chips, Card, Note, Footer, Button, inputClass, inputStyle, C } from './v2/ui';
 
 interface ProfileSetupProps {
@@ -27,6 +28,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
 
   const submit = async () => {
     if (!complete) { setError('Complète les champs obligatoires (la ville de naissance au format « Ville, Pays »).'); return; }
+    if (!cityOf(p.address)) { setError('Ajoute la ville à ton adresse, après le code postal (ex. « 12 rue de la Paix, 91120 Palaiseau ») : elle figure sur les contrats.'); return; }
     setSaving(true);
     setError(null);
     try {
