@@ -53,6 +53,27 @@ export const NEWS_2026_11_13: NewsEmail = {
   ],
 };
 
+/** Ouverture du prêt à tous (13/11, validé par Christian à 16 h 22). */
+export const NEWS_2026_11_13_PRET: NewsEmail = {
+  subject: 'CKMoney s’ouvre à tous : prête à tes proches, toi aussi',
+  intro: "Jusqu'ici, seul Christian pouvait prêter avec CKMoney. Depuis aujourd'hui, l'appli est ouverte à tous : toi aussi, tu peux t'en servir pour prêter à tes proches.",
+  sections: [
+    {
+      title: 'Prêter à tes proches',
+      text: "Sur ton accueil, touche « Prêter à mes proches ». Le contrat se signe avec le doigt, les rappels partent tout seuls et tu suis chaque remboursement. Personne d'autre que tes emprunteurs ne voit que tu prêtes, et l'appli ne touche jamais à l'argent : il passe directement entre vous.",
+      link: { label: 'Ouvrir CKMoney', url: `${APP}/` },
+    },
+    {
+      title: 'Faire une demande',
+      text: "Tu peux faire ta demande à tes prêteurs directement dans l'appli, sans attendre leur lien. Une demande à la fois : la suivante quand la précédente est remboursée.",
+    },
+    {
+      title: 'Radio CK',
+      text: "Les podcasts et vidéos que Christian recommande, à écouter dans l'appli. Écoute, réagis, et dis ce que tu en penses en commentaire.",
+      link: { label: 'Écouter Radio CK', url: `${APP}/?radio` },
+    },
+  ],
+};
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
@@ -122,6 +143,12 @@ export const ANNOUNCEMENTS: Announcement[] = [
       body: 'CKMoney s’ouvre à tous : contrat signé avec le doigt, rappels automatiques, suivi des remboursements. Touche « Prêter à mes proches » sur ton accueil.',
       url: '/',
     },
+  },
+  {
+    id: '2026-11-13-email-pret-pour-tous',
+    sendAt: '2026-11-13T15:25:00.000Z', // demandé par Christian à 16 h 22 : tous les comptes, lui compris
+    emailTo: 'all',
+    email: NEWS_2026_11_13_PRET,
   },
 ];
 
