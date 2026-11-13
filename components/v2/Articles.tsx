@@ -114,7 +114,7 @@ const PressEditor: React.FC<{ initial?: Article; prefill?: Partial<PressInput>; 
     <Screen>
       <TopBar onBack={onBack} title={initial ? 'Modifier la fiche' : 'Revue de presse'} />
       <div className="px-5 pt-2 flex flex-col gap-4">
-        <Note tone="info">Une fiche présente l'article avec tes mots : une accroche et l'essentiel en quelques lignes, la source en bas. Jamais le texte du journal.</Note>
+        <Note tone="info">Une fiche présente l'article avec tes mots : une accroche et l'essentiel (plus fourni si l'article est long), la source en bas. Jamais le texte du journal.</Note>
         <Field label="Média" htmlFor="ps"><input id="ps" value={p.source} onChange={set('source')} placeholder="Jeune Afrique, Africa Intelligence…" className={inputClass} style={inputStyle} /></Field>
         <Field label="Rubrique" htmlFor="pr" hint="Facultatif : « Grande enquête », « Secret de palais »…"><input id="pr" value={p.sourceSection} onChange={set('sourceSection')} className={inputClass} style={inputStyle} /></Field>
         <Field label="Titre de l'article" htmlFor="pt"><input id="pt" value={p.title} onChange={set('title')} className={inputClass} style={inputStyle} /></Field>
