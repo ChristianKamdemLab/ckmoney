@@ -196,7 +196,7 @@ export const SlideToConfirm: React.FC<{ label: string; onConfirm: () => void; di
 };
 
 export type IconName = 'back' | 'close' | 'plus' | 'check' | 'refresh' | 'bell' | 'home' | 'list' | 'activity' | 'user' | 'search'
-  | 'chevron' | 'file' | 'chat' | 'dots' | 'info' | 'lock' | 'arrow' | 'phone' | 'calendar' | 'clock' | 'alert' | 'copy' | 'logout' | 'pin' | 'share' | 'ticket';
+  | 'chevron' | 'file' | 'chat' | 'dots' | 'info' | 'lock' | 'arrow' | 'phone' | 'calendar' | 'clock' | 'alert' | 'copy' | 'logout' | 'pin' | 'share' | 'ticket' | 'glass' | 'users';
 
 export const Icon: React.FC<{ name: IconName; size?: number }> = ({ name, size = 22 }) => {
   const p: Record<IconName, React.ReactNode> = {
@@ -217,6 +217,8 @@ export const Icon: React.FC<{ name: IconName; size?: number }> = ({ name, size =
     pin: <><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></>,
     share: <><path d="M12 15V3" /><path d="m7 8 5-5 5 5" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" /></>,
     ticket: <><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z" /><path d="M14.5 7v2M14.5 11v2M14.5 15v2" /></>,
+    glass: <><path d="M6 3h12l-1.5 8a4.5 4.5 0 0 1-9 0z" /><path d="M12 15.5V21M8.5 21h7M6.6 7h10.8" /></>,
+    users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 20a6.5 6.5 0 0 0-3-5.5" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={name === 'dots' ? 3 : 1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{p[name]}</svg>
