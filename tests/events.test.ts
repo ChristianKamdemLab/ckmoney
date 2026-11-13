@@ -185,22 +185,38 @@ const put = (id: string, d: object) => store.set(`events/${id}`, { ...SALON, id:
 beforeEach(() => { store.clear(); pushed.length = 0; vi.unstubAllGlobals(); });
 
 describe('sorties : serveur', () => {
-  it('seul l’auteur publie, modifie et supprime (réponses comprises)', async () => {
-    expect((await post('pm', { action: 'save', event: SALON })).status).toBe(403);
+  it('chaque compte publie et gère ses sorties ; pas les invités des jeux', async () => {
+    expect((await post('guest', { action: 'save', event: SALON })).status).toBe(403);
     expect((await post('nobody', { action: 'save', event: SALON })).status).toBe(401);
-    expect((await post('chris', { action: 'save', event: { ...SALON, id: undefined, startsAt: 'x' } })).status).toBe(400);
-    const { body } = await post('chris', { action: 'save', event: { ...SALON, id: undefined } });
+    expect((await post('pm', { action: 'save', event: { ...SALON, id: undefined, startsAt: 'x' } })).status).toBe(400);
+    store.set('profiles/pm', { fullName: 'Paul-Marie Ndong' });
+    const { body } = await post('pm', { action: 'save', event: { ...SALON, id: undefined } });
     const saved = store.get(`events/${body.id}`);
-    expect(saved).toMatchObject({ title: SALON.title, status: 'published', authorUid: 'chris', price: 'Gratuit', kind: 'event', goingCount: 0 });
+    expect(saved).toMatchObject({ title: SALON.title, status: 'published', authorUid: 'pm', authorName: 'Paul-Marie', kind: 'event', goingCount: 0 });
     expect(saved.createdAt).toBeTruthy();
-    // Modifier une sortie inexistante : refusé (pas de création déguisée)
-    expect((await post('chris', { action: 'save', event: { ...SALON, id: 'inconnu' } })).status).toBe(403);
-    await post('chris', { action: 'save', event: { ...SALON, id: body.id, price: '5 €' } });
+    // Modifier : seulement la sienne (pas de création déguisée non plus)
+    expect((await post('laura', { action: 'save', event: { ...SALON, id: body.id, price: '5 €' } })).status).toBe(403);
+    expect((await post('chris', { action: 'save', event: { ...SALON, id: body.id, price: '5 €' } })).status).toBe(403);
+    expect((await post('pm', { action: 'save', event: { ...SALON, id: 'inconnu' } })).status).toBe(403);
+    await post('pm', { action: 'save', event: { ...SALON, id: body.id, price: '5 €' } });
     expect(store.get(`events/${body.id}`)).toMatchObject({ price: '5 €', createdAt: saved.createdAt });
-    store.set(`events/${body.id}/rsvps/pm`, { name: 'PM' });
-    expect((await post('pm', { action: 'delete', id: body.id })).status).toBe(403);
-    expect((await post('chris', { action: 'delete', id: body.id })).status).toBe(200);
+    // Ce que les autres voient : « par Paul-Marie »
+    expect((await get({ id: body.id })).body.by).toBe('Paul-Marie');
+    // Supprimer : la sienne (avec les réponses), ou n'importe laquelle pour Christian
+    store.set(`events/${body.id}/rsvps/laura`, { name: 'Laura' });
+    expect((await post('laura', { action: 'delete', id: body.id })).status).toBe(404);
+    expect((await post('pm', { action: 'delete', id: body.id })).status).toBe(200);
     expect([...store.keys()].some(k => k.startsWith(`events/${body.id}`))).toBe(false);
+    const other = (await post('laura', { action: 'save', event: { ...SALON, id: undefined } })).body.id;
+    expect((await post('chris', { action: 'delete', id: other })).status).toBe(200);
+    expect(store.has(`events/${other}`)).toBe(false);
+  });
+
+  it('« certaines personnes » est réservé à Christian ; 10 sorties par jour au plus pour les autres', async () => {
+    expect((await post('pm', { action: 'save', event: { ...SALON, id: undefined, audience: 'some', invitees: ['laura'] } })).body.error).toBe('audience');
+    expect((await post('chris', { action: 'save', event: { ...SALON, id: undefined, audience: 'some', invitees: ['laura'] } })).status).toBe(200);
+    for (let i = 0; i < 10; i++) expect((await post('laura', { action: 'save', event: { ...SALON, id: undefined } })).status).toBe(200);
+    expect((await post('laura', { action: 'save', event: { ...SALON, id: undefined } })).status).toBe(429);
   });
 
   it('la liste respecte « qui le voit » : tout le monde, certaines personnes, seulement par lien', async () => {
@@ -211,9 +227,12 @@ describe('sorties : serveur', () => {
     put('draft', { ...FUTURE, status: 'draft' });
     expect((await post('guest', { action: 'list' })).status).toBe(403);
     expect((await post('nobody', { action: 'list' })).status).toBe(401);
+    store.set('events/laura-lien', { ...SALON, ...FUTURE, id: undefined, authorUid: 'laura', audience: 'link' });
+    store.set('events/laura-old', { ...SALON, ...PAST, id: undefined, authorUid: 'laura' });
     const ids = async (who: string) => (await post(who, { action: 'list' })).body.events.map((e: AppEvent) => e.id).sort();
     expect(await ids('pm')).toEqual(['pm', 'tous']);
-    expect(await ids('laura')).toEqual(['tous']);
+    // Ses propres sorties toujours (passées et « par lien » comprises), celles des autres selon « qui le voit »
+    expect(await ids('laura')).toEqual(['laura-lien', 'laura-old', 'tous']);
     expect(await ids('chris')).toEqual(['lien', 'old', 'pm', 'tous']);
     const forPm = JSON.stringify((await post('pm', { action: 'list' })).body);
     expect(forPm).not.toMatch(/authorUid|invitees|audience|goingCount/);
@@ -267,7 +286,7 @@ describe('sorties : serveur', () => {
     expect((await get({ id: 'chill' })).body.placesLeft).toBe(0);
     expect((await post('pm', { action: 'list' })).body.events[0].meGoing).toBe(true);
     expect((await post('laura', { action: 'list' })).body.events[0].meGoing).toBe(false);
-    expect((await post('pm', { action: 'rsvps', id: 'chill' })).status).toBe(403);
+    expect((await post('pm', { action: 'rsvps', id: 'chill' })).status).toBe(404);
     const people = (await post('chris', { action: 'rsvps', id: 'chill' })).body.people;
     expect(people.map((p: any) => [p.name, p.member])).toEqual([['Awa', false], ['Paul-Marie', true]]);
     // Annuler libère la place
@@ -301,9 +320,12 @@ describe('sorties : serveur', () => {
     await post('chris', { action: 'save', event: { ...spot, audience: 'link' }, notify: true });
     await post('chris', { action: 'save', event: spot });
     expect(pushed).toEqual([]);
+    // Une seule notification par sortie, même modifiée ensuite
+    expect((await post('chris', { action: 'save', event: { ...spot, id: r.body.id, title: 'Finalement au Baron' }, notify: true })).body.notified).toBe(0);
+    expect(pushed).toEqual([]);
   });
 
-  it('les comptes à choisir : prénoms seulement, sans l’auteur ni les invités des jeux', async () => {
+  it('les comptes à choisir (Christian seulement) : prénoms seulement, sans lui ni les invités des jeux', async () => {
     store.set('profiles/pm', { fullName: 'Paul-Marie Ndong' });
     expect((await post('pm', { action: 'people' })).status).toBe(403);
     const people = (await post('chris', { action: 'people' })).body.people;
