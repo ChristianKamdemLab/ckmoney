@@ -1,12 +1,14 @@
 import { adminAuth, adminDb, pushToUser, isAllowedLender } from './admin.js';
 import { sendMail } from './mail.js';
+import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
 //  - notification : à tous les appareils inscrits (l'appli installée avec les notifications) ;
 //  - e-mail : aux comptes CKMoney dont l'adresse est vérifiée (tous, ou seulement ceux qui n'ont pas
 //    les notifications), avec le détail des nouveautés et une invitation à installer l'appli.
 // Les annonces sont écrites ici, dans le code : les mettre en ligne passe par une fusion validée par
-// Christian. Déclenchement : GitHub Actions toutes les heures à :30 (.github/workflows/annonces.yml),
+// Christian. Une annonce peut aussi publier des sorties d'un coup (calendrier de salons), sans
+// notification. Déclenchement : GitHub Actions toutes les heures à :30 (.github/workflows/annonces.yml),
 // et le cron du matin en secours. Une annonce n'est plus envoyée 6 h après son heure.
 
 const APP = 'https://ck-money.vercel.app';
@@ -22,6 +24,7 @@ export interface Announcement {
   push?: { title: string; body: string; url: string };
   email?: NewsEmail;
   emailTo?: 'all' | 'no-push' | 'author' | 'others'; // 'author' : essai à Christian seul ; 'others' : tous sauf lui
+  events?: SeedEvent[]; // sorties à publier (voir salons.ts)
 }
 
 /** L'e-mail des nouveautés de la semaine (sert aussi d'aperçu avant envoi). */
@@ -69,6 +72,11 @@ export const ANNOUNCEMENTS: Announcement[] = [
     sendAt: '2026-11-13T08:45:00.000Z', // essai validé par Christian à 9 h 46 : tous les autres comptes
     emailTo: 'others',
     email: NEWS_2026_11_13,
+  },
+  {
+    id: '2026-11-13-salons',
+    sendAt: '2026-11-13T10:30:00.000Z', // calendrier envoyé par Christian à 11 h : salons de Paris et d'Afrique subsaharienne
+    events: SALONS_2026_2027,
   },
 ];
 
@@ -138,6 +146,11 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
+    if (a.events) {
+      // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie
+      try { Object.assign(result, await importEvents(a.events, now)); }
+      catch (err) { await ref.delete(); throw err; }
+    }
     if (a.push) {
       const uids = (await adminDb.collection('pushTokens').get()).docs.map((d: any) => d.id);
       const sent = await Promise.all(uids.map((u: string) => pushToUser(u, { ...a.push!, tag: `annonce-${a.id}` }).catch(() => 0)));

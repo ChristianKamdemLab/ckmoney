@@ -24,7 +24,7 @@ const base = (id: string, d: any): AppEvent => {
   const e: AppEvent = {
     id, kind, title: d.title, startsAt: d.startsAt, endsAt: d.endsAt, venue: d.venue || '', address: d.address || '',
     url: d.url || '', price: d.price ?? (kind === 'event' ? 'Gratuit' : ''), organizer: d.organizer || '', description: d.description || '',
-    theme: d.theme || '', drinks: d.drinks || '', capacity,
+    theme: d.theme || '', drinks: d.drinks || '', capacity, allDay: kind === 'event' && !!d.allDay,
     placesLeft: capacity ? Math.max(0, capacity - (d.goingCount || 0)) : null,
     status: d.status === 'published' ? 'published' : 'draft', updatedAt: d.updatedAt || '', by: d.authorName || '',
   };

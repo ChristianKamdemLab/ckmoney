@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   cleanEvent, whenText, shortWhen, sortUpcoming, icsFor, shareText, toLocalInput, fromLocalInput, googleCalendarUrl,
-  encodePrefill, decodePrefill, defaultSpotEnd, isLive, AppEvent,
+  encodePrefill, decodePrefill, defaultSpotEnd, isLive, AppEvent, dayStart, dayEnd, parisDay, untilText, regionOf, priceUnknown,
+  summary, monthOf,
 } from '../utils/events';
 
 // Sorties (événements, spots, chills) : mise en forme (heure de Paris), validation, agenda, et serveur
@@ -359,5 +360,73 @@ describe('sorties : serveur', () => {
     expect(r.body).toContain('SUMMARY:Salon des Diasporas Africaines 2026');
     expect(r.body).toContain('URL:https://ck-money.vercel.app/e/salon26');
     expect((await get({ ics: 'inconnu' })).status).toBe(404);
+  });
+});
+
+describe('sorties sans horaire (salons sur plusieurs jours)', () => {
+  const SIREXE: AppEvent = {
+    ...SALON, id: 'sirexe', title: 'SIREXE', allDay: true, startsAt: dayStart('2026-11-18'), endsAt: dayEnd('2026-11-22'),
+    venue: 'Parc des expositions d’Abidjan', address: 'Abidjan, Côte d’Ivoire', price: 'Dès 250 000 FCFA HT',
+  };
+
+  it('minuit et fin de journée à Paris, en hiver comme en été', () => {
+    expect(dayStart('2026-11-18')).toBe('2026-11-17T23:00:00.000Z');
+    expect(dayEnd('2026-11-22')).toBe('2026-11-22T22:59:59.000Z');
+    expect(dayStart('2027-07-01')).toBe('2027-06-30T22:00:00.000Z');
+    expect(dayEnd('2027-03-28')).toBe('2027-03-28T21:59:59.000Z'); // passage à l'heure d'été ce jour-là
+    expect(dayStart('2026-12-31', 1)).toBe('2026-12-31T23:00:00.000Z');
+    expect(dayStart('18/11/2026')).toBe('');
+    expect(parisDay(dayEnd('2026-11-22'))).toBe('2026-11-22');
+  });
+
+  it('dates en toutes lettres, sans heure', () => {
+    expect(whenText(SIREXE)).toBe('Du mercredi 18 au dimanche 22 novembre 2026');
+    expect(whenText({ allDay: true, startsAt: dayStart('2026-11-19'), endsAt: dayEnd('2026-11-19') })).toBe('Jeudi 19 novembre 2026');
+    expect(whenText({ allDay: true, startsAt: dayStart('2027-06-27'), endsAt: dayEnd('2027-07-01') })).toBe('Du dimanche 27 juin au jeudi 1er juillet 2027');
+    expect(whenText({ allDay: true, startsAt: dayStart('2026-12-30'), endsAt: dayEnd('2027-01-02') })).toBe('Du mercredi 30 décembre 2026 au samedi 2 janvier 2027');
+    expect(shortWhen(SIREXE)).toMatch(/^18–22 nov\.? 2026$/);
+    expect(shortWhen(SIREXE, false)).toMatch(/^18–22 nov\.?$/);
+    expect(shortWhen({ startsAt: dayStart('2026-11-19'), endsAt: dayEnd('2026-11-19') }, false)).toMatch(/^19 nov\.?$/);
+    // « 1er » aussi pour les sorties avec horaire
+    expect(plain(whenText({ startsAt: '2027-07-01T17:00:00.000Z', endsAt: '2027-07-01T20:00:00.000Z' }))).toBe('Jeudi 1er juillet 2027, 19 h – 22 h');
+  });
+
+  it('« en ce moment » : jusqu’à quand', () => {
+    expect(untilText(SIREXE, Date.parse('2026-11-19T10:00:00Z'))).toMatch(/^jusqu'au 22 nov\.?$/);
+    expect(untilText(SIREXE, Date.parse('2026-11-22T10:00:00Z'))).toBe('toute la journée');
+    expect(plain(untilText(SALON, Date.parse('2026-12-04T13:00:00Z')))).toMatch(/^jusqu'au 5 déc\.?, 19 h$/);
+    expect(plain(untilText(SALON, Date.parse('2026-12-05T13:00:00Z')))).toBe("jusqu'à 19 h");
+    expect(isLive(SIREXE, Date.parse('2026-11-22T21:00:00Z'))).toBe(true);
+    expect(isLive(SIREXE, Date.parse('2026-11-22T23:30:00Z'))).toBe(false);
+  });
+
+  it('agenda : journée entière (fin exclue, norme des agendas)', () => {
+    const ics = icsFor(SIREXE, 'https://x/e/sirexe');
+    expect(ics).toContain('DTSTART;VALUE=DATE:20261118');
+    expect(ics).toContain('DTEND;VALUE=DATE:20261123');
+    expect(ics).not.toContain('DTSTART:');
+    expect(new URL(googleCalendarUrl(SIREXE, 'https://x')).searchParams.get('dates')).toBe('20261118/20261123');
+  });
+
+  it('validation : ramené au jour entier, seulement pour un événement', () => {
+    const e = cleanEvent({ ...SIREXE, startsAt: '2026-11-18T09:30:00.000Z', endsAt: '2026-11-22T15:00:00.000Z' })!;
+    expect(e).toMatchObject({ allDay: true, startsAt: '2026-11-17T23:00:00.000Z', endsAt: '2026-11-22T22:59:59.000Z' });
+    expect(cleanEvent({ ...SIREXE, kind: 'chill' })!.allDay).toBe(false);
+    expect(cleanEvent({ ...SALON, allDay: 'oui' })!.allDay).toBe(false);
+    expect(cleanEvent(SALON)!.startsAt).toBe(SALON.startsAt);
+  });
+
+  it('région, prix inconnu, intertitre du mois', () => {
+    expect(regionOf(SIREXE)).toBe('afrique');
+    expect(regionOf(SALON)).toBe('paris');
+    expect(regionOf({ venue: 'Hôtel Meliá Paris La Défense', address: 'Courbevoie, France' })).toBe('paris');
+    expect(regionOf({ venue: 'Pullman Grand Karavia, Lubumbashi', address: 'Lubumbashi, RD Congo' })).toBe('afrique');
+    expect(regionOf({ venue: 'Eurexpo', address: 'Chassieu, France' })).toBe('ailleurs');
+    expect(regionOf({ venue: 'Chez moi', address: '' })).toBe('ailleurs');
+    expect(priceUnknown('Prix non communiqué')).toBe(true);
+    expect(priceUnknown('Dès 23 €')).toBe(false);
+    expect(summary({ ...SIREXE, price: 'Prix non communiqué' })).not.toContain('communiqué');
+    expect(monthOf(SIREXE.startsAt)).toBe('Novembre 2026');
+    expect(monthOf(dayStart('2027-07-01'))).toBe('Juillet 2027');
   });
 });
