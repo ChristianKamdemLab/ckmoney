@@ -41,11 +41,11 @@ const MiniCard: React.FC<{ r: number; red?: boolean; rot: number; x: number }> =
     style={{ transform: `rotate(${rot}deg)`, right: x, top: 12, color: red ? C.red : C.ink }}>{r}</div>
 );
 
-const Tile: React.FC<{ onClick: () => void; title: string; sub: string; bg: string; fg: string; subColor: string; children?: React.ReactNode }> = ({ onClick, title, sub, bg, fg, subColor, children }) => (
+const Tile: React.FC<{ onClick: () => void; title: string; sub?: string; bg: string; fg: string; subColor: string; children?: React.ReactNode }> = ({ onClick, title, sub, bg, fg, subColor, children }) => (
   <button onClick={onClick} className="relative text-left rounded-2xl p-4 pt-14 min-h-[128px] overflow-hidden" style={{ background: bg, color: fg }}>
     {children}
     <div className="serif text-[19px] font-semibold leading-tight">{title}</div>
-    <div className="text-[12.5px] mt-0.5" style={{ color: subColor }}>{sub}</div>
+    {sub && <div className="text-[12.5px] mt-0.5" style={{ color: subColor }}>{sub}</div>}
   </button>
 );
 
@@ -54,7 +54,7 @@ const Discover: React.FC<{ onArticles: () => void; onJambo: () => void; onBac: (
     <div className="px-5 pt-7 pb-3 text-[17px] font-bold">À découvrir</div>
     <div className="px-5 grid grid-cols-2 gap-2.5">
       <EventsTile onClick={onEvents} />
-      <Tile onClick={onArticles} title="Articles" sub="Les textes de Christian" bg={C.ochreSoft} fg={C.ink} subColor={C.ochreText}>
+      <Tile onClick={onArticles} title="Articles" bg={C.ochreSoft} fg={C.ink} subColor={C.ochreText}>
         <div className="absolute top-4 left-4 serif text-[34px] leading-none font-semibold" style={{ color: C.ochre }} aria-hidden="true">«</div>
       </Tile>
       <Tile onClick={onJambo} title="Jambo" sub="Fap Fap, seul ou entre amis" bg="#16204A" fg="#fff" subColor="rgba(255,255,255,.7)">

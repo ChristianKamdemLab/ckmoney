@@ -6,6 +6,7 @@ import { computeSituation } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
 import SignaturePad from '../SignaturePad';
 import { receiveLabel } from './ReceiveFields';
+import { openLoanWith } from '../../utils/requests';
 
 /** Le prêteur reçoit la demande d'un proche : accepter (vaut signature), modifier ou refuser. */
 const RequestReview: React.FC<{
@@ -18,6 +19,7 @@ const RequestReview: React.FC<{
   const name = loan.borrowerNickname || firstName(loan.borrowerName);
   const s = loan.schedule || [];
   const past = loans.filter(l => l.id !== loan.id && l.borrowerUid === loan.borrowerUid && l.lenderUid === user.id && ['active', 'paid', 'delay_requested'].includes(l.status));
+  const already = loan.borrowerUid ? openLoanWith(loans, loan.borrowerUid, user.id, loan.id) : null;
   const paidOnTime = past.filter(l => l.status === 'paid' || !computeSituation(l, LEGAL_INTEREST_RATE).isOverdue).length;
 
   const act = async (key: string, fn: () => Promise<void>, stay = false) => {
@@ -52,6 +54,7 @@ const RequestReview: React.FC<{
           <SignaturePad label="Signe dans le cadre" onSave={setSig} />
         </div>
       )}
+      {already && <div className="px-6 pt-3"><Note tone="warn">{name} a déjà {already.status === 'requested' ? 'une autre demande' : already.status === 'pending_borrower' ? 'une proposition à signer' : 'un prêt en cours'} avec toi. Une demande à la fois : tu peux refuser celle-ci.</Note></div>}
       <div className="px-6 pt-3"><Note>Accepter vaut ta signature : le contrat est créé avec ton identité et celle de {name}, qui a déjà signé sa demande. Avec une contre-proposition, tu changes le montant, la date ou les intérêts, et {name} signe tes nouvelles conditions.</Note></div>
       <div className="mt-auto px-5 pt-4 pb-[max(env(safe-area-inset-bottom),24px)] flex flex-col gap-2.5">
         <Button disabled={!sig} busy={busy === 'ok'} onClick={() => act('ok', () => acceptRequest(loan, user, profile, sig), true)}>Accepter et signer</Button>
