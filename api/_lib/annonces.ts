@@ -114,6 +114,15 @@ export const ANNOUNCEMENTS: Announcement[] = [
     sendAt: '2026-11-13T13:45:00.000Z', // raison donnée par Christian à 14 h 39 ; pas de notification
     radioComments: [{ id: 'heure-du-monde-lfi', comment: HEURE_DU_MONDE_POURQUOI }],
   },
+  {
+    id: '2026-11-13-pret-pour-tous',
+    sendAt: '2026-11-13T15:20:00.000Z', // validée par Christian à 16 h 17 : notification seulement, pas d'e-mail
+    push: {
+      title: 'Toi aussi, prête à tes proches',
+      body: 'CKMoney s’ouvre à tous : contrat signé avec le doigt, rappels automatiques, suivi des remboursements. Touche « Prêter à mes proches » sur ton accueil.',
+      url: '/',
+    },
+  },
 ];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
