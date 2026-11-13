@@ -14,8 +14,9 @@ import SignaturePad from '../SignaturePad';
 import ContractPreview from '../ContractPreview';
 import { mergeProfile } from '../../services/profileService';
 import {
-  BorrowerIdentity, Terms, signOffer, createRequest, previewTexts, scheduleSummary, LenderCard, getLenderCard, payUrl,
+  BorrowerIdentity, Terms, signOffer, createRequest, previewTexts, scheduleSummary, LenderCard, getLenderCard, payUrl, getMainLender,
 } from '../../services/loanService';
+import { openLoanWith, blockedReason } from '../../utils/requests';
 import { getUserNotifications, markNotificationAsRead } from '../../services/notificationService';
 import { amountWordsMatch } from '../../utils/frenchNumbers';
 import { buildSchedule, computeSituation, toISODate, addMonths } from '../../utils/schedule';
@@ -87,14 +88,14 @@ const IdentityStep: React.FC<{
       <div className="px-6 pt-5 flex flex-col gap-4">
         <Chips options={[{ id: 'M.', label: 'M.' }, { id: 'Mme', label: 'Mme' }]} value={b.civility} onChange={v => setB({ ...b, civility: v as 'M.' | 'Mme' })} />
         <Field label="Prénom et nom" htmlFor="fn" hint={b.fullName && !b.fullName.trim().includes(' ') ? 'Indique ton prénom et ton nom.' : undefined}>
-          <input id="fn" autoComplete="name" value={b.fullName} onChange={e => setB({ ...b, fullName: e.target.value })} className={inputClass} style={inputStyle} placeholder="Charles André" />
+          <input id="fn" autoComplete="name" value={b.fullName} onChange={e => setB({ ...b, fullName: e.target.value })} className={inputClass} style={inputStyle} placeholder="Ton prénom et ton nom" />
         </Field>
         <Field label="Date de naissance" htmlFor="bd">
           <input id="bd" type="date" value={b.birthDate} max={toISODate(new Date())} onChange={e => setB({ ...b, birthDate: e.target.value })} className={inputClass} style={inputStyle} />
         </Field>
         <CityInput label="Lieu de naissance" value={b.birthPlace} onChange={v => setB({ ...b, birthPlace: v })} required />
         <Field label="Adresse" htmlFor="ad">
-          <input id="ad" autoComplete="street-address" value={b.address} onChange={e => setB({ ...b, address: e.target.value })} className={inputClass} style={inputStyle} placeholder="12 rue de la Paix, 75002 Paris" />
+          <input id="ad" autoComplete="street-address" value={b.address} onChange={e => setB({ ...b, address: e.target.value })} className={inputClass} style={inputStyle} placeholder="Numéro et rue, code postal, ville" />
         </Field>
         {err && <Note tone="danger">{err}</Note>}
       </div>
@@ -403,6 +404,22 @@ export const RequestFlow: React.FC<{
   );
 };
 
+/** Une demande à la fois : déjà quelque chose en cours avec ce prêteur. */
+export const RequestBlocked: React.FC<{ loan: Loan; lenderFirstName: string; onOpen: () => void; onBack: () => void }> = ({ loan, lenderFirstName, onOpen, onBack }) => (
+  <Screen>
+    <TopBar onBack={onBack} />
+    <div className="flex-1 flex flex-col items-center justify-center text-center px-8" style={{ animation: 'fadeUp .3s ease-out' }}>
+      <span className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: C.ochreSoft, color: C.ochreText }}><Icon name="clock" size={30} /></span>
+      <h1 className="text-[24px] font-bold mt-5">{loan.status === 'requested' ? 'Demande déjà envoyée' : 'Un prêt à la fois'}</h1>
+      <p className="text-[15px] mt-2 leading-relaxed" style={{ color: C.mute }}>{blockedReason(loan, lenderFirstName)}</p>
+    </div>
+    <Footer><div className="flex flex-col gap-2.5">
+      <Button onClick={onOpen}>{loan.status === 'requested' ? 'Voir ma demande' : loan.status === 'pending_borrower' ? 'Voir la proposition' : 'Voir mon prêt'}</Button>
+      <Button variant="secondary" onClick={onBack}>Retour</Button>
+    </div></Footer>
+  </Screen>
+);
+
 // ---------------------------------------------------------------------------
 // Espace de l'ami : ce qu'il doit, à qui, et quand
 // ---------------------------------------------------------------------------
@@ -421,6 +438,10 @@ export const BorrowerSpace: React.FC<{
   const [menu, setMenu] = useState(false);
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const lenders = Array.from(new Set(mine.map(l => l.lenderUid).filter(Boolean))) as string[];
+  // Christian : on peut lui faire une demande directement, même sans prêt ni lien reçu
+  const [main, setMain] = useState<{ uid: string; firstName: string } | null>(null);
+  useEffect(() => { getMainLender().then(setMain); }, []);
+  const targets = Array.from(new Set([...(main ? [main.uid] : []), ...lenders])).filter(uid => uid !== p.user.id);
 
   useEffect(() => { lenders.forEach(uid => { if (!(uid in cards)) getLenderCard(uid).then(c => setCards(prev => ({ ...prev, [uid]: c }))); }); }, [lenders.join()]);
   useEffect(() => { getUserNotifications(p.user.id).then(n => setNotifs(n.filter(x => !x.read).slice(0, 3))); }, [p.user.id, p.loans]);
@@ -509,14 +530,24 @@ export const BorrowerSpace: React.FC<{
       <div className="px-5">
         {p.loading ? <div className="flex flex-col gap-2"><Skeleton /><Skeleton /></div>
           : open.length ? <Card>{open.map(row)}</Card>
-          : <div className="text-sm" style={{ color: C.mute }}>Rien en cours. Tu ne dois rien à personne.</div>}
+          : <div className="text-sm" style={{ color: C.mute }}>Rien en cours. Tu ne dois rien{main ? ` à ${main.firstName}` : ''}.</div>}
       </div>
 
-      {lenders.length > 0 && (
-        <div className="px-5 pt-5 flex flex-col gap-2.5">
-          {lenders.map(uid => {
-            const name = cards[uid]?.firstName || firstName(mine.find(l => l.lenderUid === uid)?.lenderName || '');
-            return <Button key={uid} variant="secondary" onClick={() => p.onRequest(uid, name)}><Icon name="plus" size={20} /> Demander à {name}</Button>;
+      {!p.loading && targets.length > 0 && (
+        <div className="px-5 pt-4 flex flex-col gap-3">
+          {targets.map(uid => {
+            const name = (uid === main?.uid ? main.firstName : '') || cards[uid]?.firstName || firstName(mine.find(l => l.lenderUid === uid)?.lenderName || '');
+            const busyWith = openLoanWith(p.loans, p.user.id, uid);
+            return busyWith ? (
+              <div key={uid} className="flex gap-2.5 items-start text-[13.5px] leading-snug px-1" style={{ color: C.mute }}>
+                <span className="shrink-0 mt-px"><Icon name="clock" size={17} /></span>
+                <span>{blockedReason(busyWith, name)}</span>
+              </div>
+            ) : (
+              <Button key={uid} variant={open.length ? 'secondary' : 'primary'} onClick={() => p.onRequest(uid, name)}>
+                <Icon name="plus" size={20} /> Faire une demande à {name}
+              </Button>
+            );
           })}
         </div>
       )}

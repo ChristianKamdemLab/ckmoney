@@ -87,6 +87,15 @@ export const ANNOUNCEMENTS: Announcement[] = [
       url: '/?sorties',
     },
   },
+  {
+    id: '2026-11-13-demande-directe',
+    sendAt: '2026-11-13T11:55:00.000Z', // 12 h 55 à Paris, après la mise en ligne : la nouveauté, en notification seulement
+    push: {
+      title: 'Ta demande, directement dans l’appli',
+      body: 'Plus besoin d’attendre le lien de Christian : ouvre CKMoney et touche « Faire une demande à Christian ». Une demande à la fois.',
+      url: '/',
+    },
+  },
 ];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));

@@ -15,7 +15,8 @@ import NewLoanFlow from './components/v2/NewLoanFlow';
 import LoanDetail from './components/v2/LoanDetail';
 import RequestReview from './components/v2/RequestReview';
 import Auth from './components/v2/Auth';
-import { Landing, BorrowerSignFlow, RequestFlow, BorrowerSpace, IdentityEditor } from './components/v2/FriendFlows';
+import { Landing, BorrowerSignFlow, RequestFlow, BorrowerSpace, IdentityEditor, RequestBlocked } from './components/v2/FriendFlows';
+import { openLoanWith } from './utils/requests';
 import ProfileSetup from './components/ProfileSetup';
 import LegalDocs from './components/LegalDocs';
 import ContractPreview from './components/ContractPreview';
@@ -215,7 +216,7 @@ const App: React.FC = () => {
   // Carte publique du prêteur (prénom + lien de paiement), lue via le lien de demande
   useEffect(() => {
     if (user && isLender && isProfileComplete(profile)) publishLenderCard(user.id, profile).then(setHandle).catch(e => console.warn('Carte prêteur', e));
-  }, [user?.id, isLender, profile?.fullName, profile?.paymentLink]);
+  }, [user?.id, isLender, profile?.fullName, profile?.paymentLink, profile?.penaltyRate, profile?.delayRate]);
 
   // Une fois connecté : traiter le lien d'invitation
   useEffect(() => {
@@ -320,9 +321,14 @@ const App: React.FC = () => {
           if (!isProfileComplete(profile)) return <ProfileSetup user={user} initial={profile} onSaved={p => setProfile(p)} onCancel={close} />;
           return <NewLoanFlow user={user} profile={profile} loans={loans} prefill={overlay.prefill} editLoan={overlay.edit} onClose={close}
             onDone={id => { refreshLoans().then(() => setOverlay({ k: 'loan', id })); }} />;
-        case 'request':
+        case 'request': {
+          // Une demande à la fois avec un même prêteur (aussi par le lien /christian)
+          if (loading) return <Splash />;
+          const busyWith = openLoanWith(loans, user.id, overlay.uid);
+          if (busyWith) return <RequestBlocked loan={busyWith} lenderFirstName={overlay.name} onBack={close} onOpen={() => openLoan(busyWith)} />;
           return <RequestFlow user={user} profile={profile} lenderUid={overlay.uid} lenderFirstName={overlay.name}
             onBack={close} onDone={() => { refreshLoans(); setOverlay(isLender ? { k: 'borrower' } : null); }} onProfileChanged={loadProfile} />;
+        }
         case 'sign': {
           const l = findLoan(overlay.id);
           if (!l) return <LoanLoader id={overlay.id} onLoaded={refreshLoans} onMissing={close} />;

@@ -28,7 +28,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
 
   const submit = async () => {
     if (!complete) { setError('Complète les champs obligatoires (la ville de naissance au format « Ville, Pays »).'); return; }
-    if (!cityOf(p.address)) { setError('Ajoute la ville à ton adresse, après le code postal (ex. « 12 rue de la Paix, 91120 Palaiseau ») : elle figure sur les contrats.'); return; }
+    if (!cityOf(p.address)) { setError('Ajoute la ville à ton adresse, juste après le code postal : elle figure sur les contrats.'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -60,7 +60,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
         </Field>
         <CityInput label="Ville de naissance" value={p.birthPlace} onChange={v => setP({ ...p, birthPlace: v })} required />
         <Field label="Adresse complète" htmlFor="pf-addr">
-          <input id="pf-addr" autoComplete="street-address" value={p.address} onChange={e => setP({ ...p, address: e.target.value })} placeholder="12 rue de la Paix, 13200 Arles" className={inputClass} style={inputStyle} />
+          <input id="pf-addr" autoComplete="street-address" value={p.address} onChange={e => setP({ ...p, address: e.target.value })} placeholder="Numéro et rue, code postal, ville" className={inputClass} style={inputStyle} />
         </Field>
       </div>
 

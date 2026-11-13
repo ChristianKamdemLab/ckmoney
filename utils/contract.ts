@@ -32,8 +32,8 @@ export const scheduleTable = (schedule: Installment[], currency: string) =>
     .map(i => `  Échéance ${i.index} — ${fmtDate(i.dueDate)} : ${formatMoney(i.amount, currency)} (capital ${formatMoney(i.principal, currency)}, intérêts ${formatMoney(i.interest, currency)})`)
     .join('\n');
 
-/** Ville d'une adresse (« 12 rue de la Paix, 91120 Palaiseau » → « Palaiseau ») ; vide si elle n'y est pas
- *  (« 12 résidence du Val, 91120 » : le code postal seul ne suffit pas). Sert au « Fait à … » du contrat. */
+/** Ville d'une adresse (« 3 rue X, 75011 Paris » → « Paris ») ; vide si elle n'y est pas (code postal seul).
+ *  Sert au « Fait à … » du contrat. */
 export const cityOf = (address: string) => {
   const parts = String(address || '').split(',').map(s => s.trim()).filter(Boolean);
   for (let i = parts.length - 1; i >= 0; i--) {
