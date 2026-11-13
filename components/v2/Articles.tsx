@@ -11,6 +11,8 @@ import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils
 const day = (a: Pick<Article, 'publishedAt' | 'updatedAt'>) => dateFr(a.publishedAt || a.updatedAt, { day: 'numeric', month: 'long', year: 'numeric' });
 const isPress = (a: Pick<Article, 'kind'>) => a.kind === 'press';
 const meta = (a: Article) => isPress(a) ? `${a.source} · ${day(a)}` : `${a.readMinutes} min de lecture · ${day(a)}`;
+/** « d'Africa Intelligence », « de Jeune Afrique » */
+const deMedia = (s = '') => (/^[aeiouyhàâéèêîïôûœ]/i.test(s) ? `d’${s}` : `de ${s}`);
 const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, ''); } catch { return ''; } };
 
 /** Étiquette de type : « Revue de presse · Africa Intelligence » ou « CKLabs ». */
@@ -72,7 +74,7 @@ const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () =>
         {a.sourceUrl && (
           <div className="mt-7"><Button onClick={() => window.open(a.sourceUrl, '_blank', 'noopener')}>Lire l'article{host ? ` sur ${host}` : ''} <Icon name="arrow" size={18} /></Button></div>
         )}
-        <p className="text-[13px] leading-relaxed mt-4" style={{ color: C.mute }}>Article de {a.source}, partagé par {a.authorName.split(' ')[0] || 'Christian'}. Le texte complet est sur le site du journal.</p>
+        <p className="text-[13px] leading-relaxed mt-4" style={{ color: C.mute }}>Article {deMedia(a.source)}, partagé par {a.authorName.split(' ')[0] || 'Christian'}. Le texte complet est sur le site du journal.</p>
       </article>
     </Screen>
   );
