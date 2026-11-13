@@ -81,6 +81,9 @@ describe('Jambo en ligne : arbitre', () => {
   });
 
   it("l'ordinateur joue pour un joueur absent au bout de 30 s, pas avant", async () => {
+    // Donne fixe : avec une main au hasard, l'ordinateur peut parfois annoncer au lieu de jouer
+    let seed = 7;
+    const rnd = vi.spyOn(Math, 'random').mockImplementation(() => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; });
     const code = (await call('ana', { action: 'create', name: 'Ana' })).json.code;
     await call('ben', { action: 'join', code, name: 'Ben' });
     await call('ana', { action: 'start', code });
@@ -96,6 +99,7 @@ describe('Jambo en ligne : arbitre', () => {
     // Deux téléphones qui demandent en même temps : un seul coup joué
     await call('ana', { action: 'tick', code, version: t.version });
     expect(table(code).trick).toHaveLength(1);
+    rnd.mockRestore();
   });
 
   it('une partie complète à 2 humains et 2 ordinateurs se termine, coups toujours valides', async () => {

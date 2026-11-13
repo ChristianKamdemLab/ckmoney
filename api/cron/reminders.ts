@@ -1,6 +1,7 @@
 import { adminDb, pushToUser, verifiedEmail, isAllowedLender } from '../_lib/admin.js';
 import { sendReminderMail } from '../_lib/mail.js';
 import { runMonthly } from '../_lib/monthly.js';
+import { sendDueAnnouncements } from '../_lib/annonces.js';
 import { computeSituation, daysBetween } from '../../utils/schedule.js';
 import { LEGAL_INTEREST_RATE } from '../../config/legal.js';
 
@@ -84,5 +85,7 @@ export default async function handler(req: any, res: any) {
   }
   // Le 1er du mois : bilan et sauvegarde envoyés à chaque prêteur
   const monthly = today.endsWith('-01') ? await runMonthly(today).catch(e => { console.error('monthly', e?.message); return 0; }) : 0;
-  return res.status(200).json({ today, loans: snap.size, sent, monthly });
+  // En secours de GitHub Actions : une annonce due et pas encore partie
+  const annonces = await sendDueAnnouncements().catch(e => { console.error('annonces', e?.message); return {}; });
+  return res.status(200).json({ today, loans: snap.size, sent, monthly, annonces });
 }

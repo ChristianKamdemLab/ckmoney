@@ -1,0 +1,15 @@
+name: Annonces
+
+# Toutes les heures à :30 : envoie les annonces dues (notification à tous les appareils inscrits).
+# Sans effet s'il n'y a rien à envoyer ; chaque annonce ne part qu'une fois (voir api/_lib/annonces.ts).
+on:
+  schedule:
+    - cron: '30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  envoyer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: curl -fsS -X POST https://ck-money.vercel.app/api/annonces
