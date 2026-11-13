@@ -222,4 +222,5 @@ export interface Article {
   sourceUrl?: string;      // lien vers l'article original
   sourceAuthor?: string;
   sourceSection?: string;  // rubrique (« Grande enquête », « Cameroun · Énergies »…)
+  summary?: string;        // presse : « L'essentiel », synthèse écrite avec nos mots (jamais le texte du journal)
 }

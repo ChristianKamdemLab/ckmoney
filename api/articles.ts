@@ -5,8 +5,9 @@ import { excerptOf, readMinutes } from '../utils/articleText.js';
 // POST /api/articles — l'auteur (compte prêteur autorisé, e-mail vérifié) écrit ses articles.
 //   { action: 'save', article: { id?, title, body, status, publishedAt? } }
 //   { action: 'import', articles: [{ title, body, status?, publishedAt? }, …] }   (20 au plus)
-//   { action: 'press', article: { id?, title, source, sourceUrl, sourceSection?, excerpt, publishedAt? } }
-//       fiche « revue de presse » d'un autre média : jamais le texte de l'article, seulement une accroche
+//   { action: 'press', article: { id?, title, source, sourceUrl, sourceSection?, excerpt, summary?, publishedAt? } }
+//       fiche « revue de presse » d'un autre média : une accroche et « L'essentiel » écrits avec nos mots,
+//       la source en bas ; jamais le texte de l'article
 //   { action: 'delete', id }
 // La lecture se fait directement dans Firestore : réservée aux comptes connectés (voir firestore.rules).
 // Les textes ne sont jamais dans le dépôt GitHub, qui est public.
@@ -23,12 +24,15 @@ const clean = (a: any) => {
 };
 
 export const MAX_TEASER = 200;
+export const MAX_SUMMARY = 1500;
 const cleanPress = (a: any) => {
   const s = (v: unknown, max: number) => String(v ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
   const title = s(a?.title, 200), source = s(a?.source, 60), sourceUrl = s(a?.sourceUrl, 500);
   if (!title || !source || (sourceUrl && !/^https?:\/\/\S+$/i.test(sourceUrl))) return null;
   return {
     title, source, sourceUrl, sourceSection: s(a?.sourceSection, 60), excerpt: s(a?.excerpt, MAX_TEASER),
+    // L'essentiel : synthèse avec nos mots, quelques paragraphes au plus
+    summary: String(a?.summary ?? '').replace(/[<>]/g, '').replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_SUMMARY),
     publishedAt: isIso(a?.publishedAt) ? new Date(a.publishedAt).toISOString() : undefined,
   };
 };

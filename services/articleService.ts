@@ -7,7 +7,7 @@ const fromDoc = (id: string, d: any): Article => ({
   id, title: d.title || '', body: d.body || '', excerpt: d.excerpt || '', readMinutes: d.readMinutes || 1,
   status: d.status === 'draft' ? 'draft' : 'published', publishedAt: d.publishedAt || undefined,
   updatedAt: d.updatedAt || '', authorUid: d.authorUid || '', authorName: d.authorName || 'CKLabs',
-  kind: d.kind === 'press' ? 'press' : 'own', source: d.source || '', sourceUrl: d.sourceUrl || '', sourceAuthor: d.sourceAuthor || '', sourceSection: d.sourceSection || '',
+  kind: d.kind === 'press' ? 'press' : 'own', source: d.source || '', sourceUrl: d.sourceUrl || '', sourceAuthor: d.sourceAuthor || '', sourceSection: d.sourceSection || '', summary: d.summary || '',
 });
 
 /** Articles publiés (+ brouillons de l'auteur), du plus récent au plus ancien ; brouillons en tête. */
@@ -34,6 +34,6 @@ const ok = (r: { status: number; data: any }) => {
 
 export const saveArticle = async (a: ArticleInput): Promise<string> => ok(await callApi('/api/articles', { action: 'save', article: a })).id;
 export const importArticles = async (list: ArticleInput[]): Promise<string[]> => ok(await callApi('/api/articles', { action: 'import', articles: list })).ids;
-export type PressInput = { id?: string; title: string; source: string; sourceUrl: string; sourceSection?: string; excerpt: string; publishedAt?: string };
+export type PressInput = { id?: string; title: string; source: string; sourceUrl: string; sourceSection?: string; excerpt: string; summary?: string; publishedAt?: string };
 export const savePress = async (p: PressInput): Promise<string> => ok(await callApi('/api/articles', { action: 'press', article: p })).id;
 export const deleteArticle = async (id: string) => { ok(await callApi('/api/articles', { action: 'delete', id })); };

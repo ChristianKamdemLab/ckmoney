@@ -59,6 +59,7 @@ const ReadingProgress: React.FC = () => {
 const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () => void; onEdit: () => void }> = ({ article: a, isAuthor, onBack, onEdit }) => {
   useEffect(() => { window.scrollTo(0, 0); }, [a.id]);
   const host = hostOf(a.sourceUrl);
+  const paras = (a.summary || '').split(/\n+/).filter(Boolean);
   return (
     <Screen>
       <TopBar onBack={onBack} right={isAuthor ? <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button> : undefined} />
@@ -68,13 +69,17 @@ const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () =>
         {a.sourceSection && <div className="text-[13px] font-semibold mt-0.5" style={{ color: C.mute }}>{a.sourceSection}</div>}
         <h1 className="serif text-[28px] leading-[1.18] font-semibold tracking-[-0.3px] mt-4">{frTypo(a.title)}</h1>
         <div className="text-[13px] mt-3" style={{ color: C.mute }}>{day(a)}{a.sourceAuthor ? ` · ${a.sourceAuthor}` : ''}</div>
-        {a.excerpt && (
-          <p className="serif text-[18px] leading-[1.55] mt-6 pl-4" style={{ borderLeft: `3px solid ${C.ochre}`, color: C.text2 }}>{frTypo(a.excerpt)}</p>
+        {a.excerpt && <p className="serif text-[18px] leading-[1.55] mt-6 pl-4" style={{ borderLeft: `3px solid ${C.ochre}`, color: C.text2 }}>{frTypo(a.excerpt)}</p>}
+        {paras.length > 0 && (
+          <div className="mt-7">
+            <div className="text-[13px] font-bold uppercase tracking-wide mb-3" style={{ color: C.ochreText }}>L'essentiel</div>
+            {paras.map((p, i) => <p key={i} className="text-[16.5px] leading-[1.7] mb-4" style={{ color: C.ink }}>{frTypo(p)}</p>)}
+          </div>
         )}
-        {a.sourceUrl && (
-          <div className="mt-7"><Button onClick={() => window.open(a.sourceUrl, '_blank', 'noopener')}>Lire l'article{host ? ` sur ${host}` : ''} <Icon name="arrow" size={18} /></Button></div>
-        )}
-        <p className="text-[13px] leading-relaxed mt-4" style={{ color: C.mute }}>Article {deMedia(a.source)}, partagé par {a.authorName.split(' ')[0] || 'Christian'}. Le texte complet est sur le site du journal.</p>
+        <div className="mt-6 pt-5 text-[13px] leading-relaxed" style={{ borderTop: `1px solid ${C.line}`, color: C.mute }}>
+          Source : {a.source}{a.sourceSection ? `, « ${a.sourceSection} »` : ''}, {day(a)}. Synthèse rédigée pour CKMoney et partagée par {a.authorName.split(' ')[0] || 'Christian'} ; l'article complet est sur le site du journal.
+          {a.sourceUrl && <> <a href={a.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{host || 'Voir la source'}</a></>}
+        </div>
       </article>
     </Screen>
   );
@@ -85,7 +90,7 @@ const PressEditor: React.FC<{ initial?: Article; prefill?: Partial<PressInput>; 
   const [p, setP] = useState<PressInput>(() => ({
     id: initial?.id, title: initial?.title || prefill?.title || '', source: initial?.source || prefill?.source || '',
     sourceUrl: initial?.sourceUrl || prefill?.sourceUrl || '', sourceSection: initial?.sourceSection || prefill?.sourceSection || '',
-    excerpt: initial?.excerpt || prefill?.excerpt || '', publishedAt: initial?.publishedAt || prefill?.publishedAt,
+    excerpt: initial?.excerpt || prefill?.excerpt || '', summary: initial?.summary || prefill?.summary || '', publishedAt: initial?.publishedAt || prefill?.publishedAt,
   }));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,13 +114,16 @@ const PressEditor: React.FC<{ initial?: Article; prefill?: Partial<PressInput>; 
     <Screen>
       <TopBar onBack={onBack} title={initial ? 'Modifier la fiche' : 'Revue de presse'} />
       <div className="px-5 pt-2 flex flex-col gap-4">
-        <Note tone="info">Une fiche renvoie vers le journal : son titre, une phrase d'accroche et le lien. Jamais le texte de l'article.</Note>
+        <Note tone="info">Une fiche présente l'article avec tes mots : une accroche et l'essentiel en quelques lignes, la source en bas. Jamais le texte du journal.</Note>
         <Field label="Média" htmlFor="ps"><input id="ps" value={p.source} onChange={set('source')} placeholder="Jeune Afrique, Africa Intelligence…" className={inputClass} style={inputStyle} /></Field>
         <Field label="Rubrique" htmlFor="pr" hint="Facultatif : « Grande enquête », « Secret de palais »…"><input id="pr" value={p.sourceSection} onChange={set('sourceSection')} className={inputClass} style={inputStyle} /></Field>
         <Field label="Titre de l'article" htmlFor="pt"><input id="pt" value={p.title} onChange={set('title')} className={inputClass} style={inputStyle} /></Field>
         <Field label="Date de l'article" htmlFor="pd"><input id="pd" type="date" value={dateValue} onChange={e => setP({ ...p, publishedAt: e.target.value ? new Date(`${e.target.value}T09:00:00`).toISOString() : undefined })} className={inputClass} style={inputStyle} /></Field>
         <Field label="Accroche" htmlFor="pe" hint={`Une phrase pour donner envie, ${200 - p.excerpt.length} caractères restants.`}>
           <textarea id="pe" value={p.excerpt} maxLength={200} onChange={set('excerpt')} rows={3} className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
+        </Field>
+        <Field label="L'essentiel" htmlFor="pm" hint={`Quelques lignes avec tes mots : les faits, les acteurs, les enjeux. ${1500 - (p.summary || '').length} caractères restants.`}>
+          <textarea id="pm" value={p.summary} maxLength={1500} onChange={set('summary')} rows={8} className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
         </Field>
         <Field label="Lien vers l'article" htmlFor="pu"><input id="pu" type="url" inputMode="url" value={p.sourceUrl} onChange={set('sourceUrl')} placeholder="https://" className={inputClass} style={inputStyle} /></Field>
         {error && <Note tone="danger">{error}</Note>}
@@ -404,7 +412,7 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
           <button onClick={() => go({ k: 'read', id: first.id })} className="text-left rounded-2xl p-5 pt-5" style={{ background: C.ink, color: '#fff' }}>
             <div className="flex items-center justify-between gap-2"><Kind a={first} dark /><span className="text-[11.5px] font-semibold" style={{ color: 'rgba(255,255,255,.55)' }}>Le plus récent</span></div>
             <div className="serif text-[24px] font-semibold leading-[1.18] mt-2">{frTypo(first.title)}</div>
-            {first.excerpt && <p className="text-[14px] leading-relaxed mt-3 line-clamp-3" style={{ color: 'rgba(255,255,255,.78)' }}>{isPress(first) ? `« ${frTypo(first.excerpt)} »` : frTypo(first.excerpt)}</p>}
+            {first.excerpt && <p className="text-[14px] leading-relaxed mt-3 line-clamp-3" style={{ color: 'rgba(255,255,255,.78)' }}>{frTypo(first.excerpt)}</p>}
             <div className="text-[12px] mt-4" style={{ color: 'rgba(255,255,255,.6)' }}>{meta(first)}</div>
           </button>
         )}
@@ -414,7 +422,7 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
               <button key={a.id} onClick={() => go({ k: 'read', id: a.id })} className="w-full text-left px-4 py-4" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
                 <Kind a={a} />
                 <div className="serif text-[18px] font-semibold leading-snug mt-1">{frTypo(a.title)}</div>
-                {a.excerpt && <p className="text-[14px] leading-snug mt-1.5 line-clamp-2" style={{ color: C.text2 }}>{isPress(a) ? `« ${frTypo(a.excerpt)} »` : frTypo(a.excerpt)}</p>}
+                {a.excerpt && <p className="text-[14px] leading-snug mt-1.5 line-clamp-2" style={{ color: C.text2 }}>{frTypo(a.excerpt)}</p>}
                 <div className="text-[12px] mt-2" style={{ color: C.mute }}>{meta(a)}</div>
               </button>
             ))}
