@@ -115,4 +115,18 @@ export const fromLocalInput = (v: string) => { const d = new Date(v); return v &
 /** Nom de domaine lisible du lien de réservation (billetweb.fr). */
 export const hostOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
+/** Lien « événement préparé » : les champs voyagent dans l'adresse (base64url de JSON). */
+export const encodePrefill = (e: Partial<EventInput>) => {
+  let bin = '';
+  new TextEncoder().encode(JSON.stringify(e)).forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+export const decodePrefill = (s: string): Partial<EventInput> | undefined => {
+  try {
+    const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+    const v = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : undefined;
+  } catch { return undefined; }
+};
+
 export const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
