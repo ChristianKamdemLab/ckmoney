@@ -4,7 +4,7 @@ import { Card, Button, Sheet, Note, Icon, IconName, Toast, C } from './ui';
 import { detectedPhone, isStandalone } from '../../services/install';
 
 // Fiche d'un événement, commune à l'appli et à la page publique /e/ID (sans compte, sans Firebase).
-// Pas de liste de participants : chacun réserve directement auprès de l'organisateur.
+// Pas de liste de participants.
 
 export const shareLink = (id: string) => `${window.location.origin}/e/${id}`;
 const icsLink = (id: string) => `${window.location.origin}/api/events?ics=${encodeURIComponent(id)}`;
@@ -137,13 +137,6 @@ export const EventDetail: React.FC<{ event: AppEvent; footer?: React.ReactNode }
           ))}
         </div>
       )}
-
-      <div className="px-5 pt-3">
-        <div className="flex gap-2.5 items-start text-[13px] leading-snug px-1" style={{ color: C.mute }}>
-          <span className="mt-[1px]"><Icon name="lock" size={16} /></span>
-          <span>Personne ne voit qui y va : la réservation se fait directement auprès de l'organisateur.</span>
-        </div>
-      </div>
 
       {footer}
 
