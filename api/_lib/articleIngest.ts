@@ -222,17 +222,23 @@ export const classify = (rawTitle: string, blocks: Block[], hints: Hints = {}): 
     // Les légendes de photo (« … le 29 juillet 2022 … © Photographe ») ne datent pas l'article
     const datable = [header, title, ...clean.filter(b => !isCaption(b.text)).map(b => b.text)].join('\n');
     let section = sectionTags.length ? sectionTags[0].split(/[ ,]+/).filter(Boolean).map(w => w[0] + w.slice(1).toLowerCase()).join(' · ') : undefined;
-    // Le titre de la page, quand le texte le reprend avec la rubrique collée devant (« RDC Titre »)
+    // Le titre de la page (« RDC • Titre - date - Journal »), quand le début du texte le reprend : le
+    // texte donne parfois la rubrique seule en premier (« RDC », « Enquête | Afrique centrale ») ou la colle
+    // devant le titre. Un titre de document sans rapport avec le texte ne compte pas.
     let finalTitle = stripMedia(title, media);
     const page = docTitleParts(hints.docTitle || hints.fileName, media);
-    if (page.title.length >= 15 && squash(finalTitle).endsWith(squash(page.title)) && squash(finalTitle) !== squash(page.title)) {
+    const pageKey = squash(page.title);
+    const opening = squash([finalTitle, ...clean.slice(0, 6).map(b => b.text)].join(' '));
+    if (page.title.length >= 15 && squash(finalTitle) !== pageKey && opening.includes(pageKey)) {
+      const label = finalTitle.length < 40 && !squash(finalTitle).includes(pageKey) ? finalTitle.split('|').pop()!.trim() : '';
       finalTitle = page.title;
-      section = section || page.section || undefined;
+      section = section || page.section || label || undefined;
     }
+    const teaserBlocks = bodyBlocks.filter(b => !pageKey || !pageKey.includes(squash(b.text)) || b.text.length < 20);
     const titleDate = `${hints.docTitle || ''}\n${(hints.fileName || '').replace(/_/g, '/')}`;
     return {
       kind: 'press', title: frTypo(finalTitle), source: media.name,
-      sourceUrl: url || `https://www.${media.domains[0]}`, excerpt: frTypo(pressExcerpt(bodyBlocks, title)),
+      sourceUrl: url || `https://www.${media.domains[0]}`, excerpt: frTypo(pressExcerpt(teaserBlocks, title)),
       author, section, publishedAt: findDate(dateLine ? `${dateLine}\n${datable}` : datable) || findDate(titleDate),
     };
   }
