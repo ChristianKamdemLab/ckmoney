@@ -1,6 +1,7 @@
 import { adminAuth, adminDb, pushToUser, isAllowedLender } from './admin.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
+import { importRadio, RadioSeed, RADIO_LANCEMENT } from './radioSeed.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
 //  - notification : à tous les appareils inscrits (l'appli installée avec les notifications) ;
@@ -25,6 +26,7 @@ export interface Announcement {
   email?: NewsEmail;
   emailTo?: 'all' | 'no-push' | 'author' | 'others'; // 'author' : essai à Christian seul ; 'others' : tous sauf lui
   events?: SeedEvent[]; // sorties à publier (voir salons.ts)
+  radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
 }
 
 /** L'e-mail des nouveautés de la semaine (sert aussi d'aperçu avant envoi). */
@@ -96,6 +98,16 @@ export const ANNOUNCEMENTS: Announcement[] = [
       url: '/',
     },
   },
+  {
+    id: '2026-11-13-radio-ck',
+    sendAt: '2026-11-13T13:25:00.000Z', // 14 h 25 à Paris : les trois liens envoyés par Christian, une seule notification
+    radio: RADIO_LANCEMENT,
+    push: {
+      title: 'Radio CK est en ligne',
+      body: 'Les podcasts et vidéos que Christian recommande, à écouter dans l’appli : Le Nectar, L’Heure du Monde et une vidéo. Réagis et dis ce que tu en penses.',
+      url: '/?radio',
+    },
+  },
 ];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -164,10 +176,12 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
-    if (a.events) {
-      // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie
-      try { Object.assign(result, await importEvents(a.events, now)); }
-      catch (err) { await ref.delete(); throw err; }
+    if (a.events || a.radio) {
+      // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie (avant toute notification)
+      try {
+        if (a.events) Object.assign(result, await importEvents(a.events, now));
+        if (a.radio) { const r = await importRadio(a.radio, now); Object.assign(result, { radioAdded: r.added, radioAlready: r.already, radioInvalid: r.invalid }); }
+      } catch (err) { await ref.delete(); throw err; }
     }
     if (a.push) {
       const uids = (await adminDb.collection('pushTokens').get()).docs.map((d: any) => d.id);
@@ -184,7 +198,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
       result.emails = emails;
     }
     await ref.set({ sentAt: new Date().toISOString(), ...result }, { merge: true });
-    out[a.id] = a.push && !a.email ? result.people : result;
+    out[a.id] = a.push && !a.email && !a.events && !a.radio ? result.people : result;
   }
   return out;
 };
