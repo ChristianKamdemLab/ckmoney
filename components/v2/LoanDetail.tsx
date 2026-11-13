@@ -8,7 +8,7 @@ import {
   getLenderCard, payUrl, payProvider, markFundsSent, verifyContract,
 } from '../../services/loanService';
 import ContractPreview from '../ContractPreview';
-import { sendReminderNow } from '../../services/push';
+import { sendReminderNow, cancelPayment, waiveLateFees } from '../../services/push';
 
 interface Props {
   loan: Loan;
@@ -51,6 +51,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
   const other = isLender ? (loan.borrowerNickname || firstName(loan.borrowerName)) : firstName(loan.lenderName);
   const pending = loan.status === 'pending_borrower';
   const [sheet, setSheet] = useState<null | 'pay' | 'delay' | 'more' | 'remind'>(null);
+  const [fix, setFix] = useState<null | 'waive' | Payment>(null); // correction du prêteur à confirmer
   const [showContract, setShowContract] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -135,6 +136,11 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
 
   const declared = (loan.payments || []).filter(p => p.status === 'declared');
   const history = (loan.payments || []).filter(p => p.status !== 'rejected').slice().sort((a, b) => b.date.localeCompare(a.date));
+  const confirmedPayments = history.filter(p => p.status === 'confirmed');
+  const lateFees = Math.round((s.penalty + s.lateInterest) * 100) / 100;
+  // Possible dès qu'une échéance est passée et que le contrat prévoit des frais de retard
+  const canWaive = !loan.lateFeesWaivedAt && (lateFees > 0.004 || (((loan.penaltyRate || 0) > 0 || lateRate > 0) && (loan.schedule || []).some(i => i.dueDate < toISODate(new Date()))));
+  const ok200 = async (p: Promise<{ status: number }>) => { const r = await p; if (r.status !== 200) throw new Error(String(r.status)); };
   const reminderText = pending
     ? `Salut ${other}, petit rappel : le contrat pour les ${euro2(loan.amount, loan.currency)} t'attend ici : ${loan.inviteToken ? inviteLinkFor(loan.inviteToken) : window.location.origin}`
     : s.isOverdue
@@ -331,6 +337,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
         </Card>
         <div className="text-xs mt-2 px-1 leading-relaxed" style={{ color: C.mute }}>
           {loan.interestRate ? `${loan.interestRate.toLocaleString('fr-FR')} % d'intérêt par an` : 'Sans intérêt'} · {lateRate ? `retard : ${lateRate.toLocaleString('fr-FR')} % par an sur les sommes échues` : "pas d'intérêts de retard"} · remboursement anticipé sans frais
+          {loan.lateFeesWaivedAt && ' · frais de retard abandonnés'}
           {s.lateInterest > 0 && ` · intérêts de retard courus : ${euro2(s.lateInterest, loan.currency)}`}{loan.penaltyRate ? ` · pénalité forfaitaire : ${loan.penaltyRate.toLocaleString('fr-FR')} % des sommes impayées à l'échéance` : ''}{s.penalty > 0 ? ` (${euro2(s.penalty, loan.currency)} dus)` : ''}
         </div>
       </div>
@@ -342,7 +349,9 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
             {history.map(p => (
               <div key={p.id} className="flex gap-3 text-sm">
                 <div className="w-16 shrink-0" style={{ color: C.mute }}>{dateFr(p.date, { day: 'numeric', month: 'short' })}</div>
-                <div>{euro2(p.amount, loan.currency)} · {p.method} · <span style={{ color: p.status === 'confirmed' ? C.green : C.ochreText, fontWeight: 600 }}>{p.status === 'confirmed' ? 'confirmé' : 'à confirmer'}</span></div>
+                <div style={{ color: p.status === 'cancelled' ? C.mute : undefined }}>
+                  <span style={{ textDecoration: p.status === 'cancelled' ? 'line-through' : undefined }}>{euro2(p.amount, loan.currency)} · {p.method}</span> · <span style={{ color: p.status === 'confirmed' ? C.green : p.status === 'cancelled' ? C.mute : C.ochreText, fontWeight: 600 }}>{p.status === 'confirmed' ? 'confirmé' : p.status === 'cancelled' ? 'annulé (saisi par erreur)' : 'à confirmer'}</span>
+                </div>
               </div>
             ))}
             {loan.borrowerSignedAt && (
@@ -412,8 +421,37 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
         </div>
       </Sheet>
 
-      <Sheet open={sheet === 'more'} onClose={() => { setSheet(null); setConfirmDel(false); }} title="Plus">
+      <Sheet open={sheet === 'more'} onClose={() => { setSheet(null); setConfirmDel(false); setFix(null); }} title="Plus">
         <div className="flex flex-col gap-2.5">
+          {isLender && !pending && (fix === 'waive' ? (
+            <div className="rounded-2xl p-4 flex flex-col gap-2.5" style={{ background: C.ochreSoft }}>
+              <div className="text-[15px] font-semibold">Renoncer aux frais de retard ?</div>
+              <div className="text-sm" style={{ color: C.text2 }}>{other} ne doit plus que les échéances : la pénalité et les intérêts de retard {lateFees > 0.004 ? `(${euro2(lateFees, loan.currency)} aujourd'hui) ` : ''}ne comptent plus, et n'augmenteront plus.</div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => setFix(null)}>Retour</Button>
+                <Button busy={busy === 'waive'} onClick={() => run('waive', () => ok200(waiveLateFees(loan.id)), 'Frais de retard abandonnés')}>Confirmer</Button>
+              </div>
+            </div>
+          ) : fix ? (
+            <div className="rounded-2xl p-4 flex flex-col gap-2.5" style={{ background: C.redSoft }}>
+              <div className="text-[15px] font-semibold" style={{ color: C.red }}>Annuler ce paiement de {euro2(fix.amount, loan.currency)} ?</div>
+              <div className="text-sm" style={{ color: C.text2 }}>{fix.method}, le {dateFr(fix.date, { day: 'numeric', month: 'long' })}. Il ne comptera plus dans les remboursements ; il reste visible dans l'historique, marqué « annulé ».</div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => setFix(null)}>Retour</Button>
+                <button disabled={busy === 'cancelpay'} onClick={() => run('cancelpay', () => ok200(cancelPayment(loan.id, fix.id)), 'Paiement annulé')}
+                  className="h-14 rounded-2xl text-base font-bold text-white disabled:opacity-50" style={{ background: C.red }}>{busy === 'cancelpay' ? 'Annulation…' : 'Annuler le paiement'}</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {canWaive && (
+                <Button variant="secondary" onClick={() => setFix('waive')}>Renoncer aux frais de retard{lateFees > 0.004 ? ` (${euro2(lateFees, loan.currency)})` : ''}</Button>
+              )}
+              {confirmedPayments.map(p => (
+                <Button key={p.id} variant="secondary" onClick={() => setFix(p)}>Annuler le paiement de {euro2(p.amount, loan.currency)} ({p.method}, {dateFr(p.date, { day: 'numeric', month: 'short' })})</Button>
+              ))}
+            </>
+          ))}
           {pending && loan.inviteToken && (
             <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(inviteLinkFor(loan.inviteToken!)); setToast('Lien copié'); setSheet(null); }}>Copier le lien de signature</Button>
           )}
