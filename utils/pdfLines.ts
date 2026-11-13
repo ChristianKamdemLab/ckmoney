@@ -5,11 +5,31 @@ import type { PdfLine } from './articleText';
 
 export type PdfJs = { getDocument: (src: any) => { promise: Promise<any> } };
 
-export const pdfToLines = async (pdfjs: PdfJs, data: Uint8Array): Promise<PdfLine[]> => {
+/** Ce que le PDF dit de lui-même : nombre de pages, titre du document (un PDF enregistré depuis le
+ *  navigateur porte le titre de la page, souvent « Titre - Nom du journal ») et adresses des liens. */
+export interface PdfInfo { pages: number; title: string; links: string[] }
+
+/** Trop de pages pour un article : sans doute un journal entier. */
+export class PdfTooLong extends Error {
+  constructor(public pages: number) { super(`trop_long ${pages}`); }
+}
+
+export const pdfToLines = async (pdfjs: PdfJs, data: Uint8Array, opts: { maxPages?: number; info?: PdfInfo } = {}): Promise<PdfLine[]> => {
   const doc = await pdfjs.getDocument({ data, isEvalSupported: false, fontExtraProperties: true, disableFontFace: true, verbosity: 0 }).promise;
+  const info = opts.info;
+  if (info) {
+    info.pages = doc.numPages;
+    try { info.title = String((await doc.getMetadata())?.info?.Title || '').replace(/\s+/g, ' ').trim(); } catch { /* sans métadonnées */ }
+  }
+  if (opts.maxPages && doc.numPages > opts.maxPages) throw new PdfTooLong(doc.numPages);
   const out: PdfLine[] = [];
   for (let n = 1; n <= doc.numPages; n++) {
     const page = await doc.getPage(n);
+    if (info) {
+      try {
+        for (const a of await page.getAnnotations()) if (a?.subtype === 'Link' && typeof a.url === 'string') info.links.push(a.url);
+      } catch { /* pas de liens lisibles */ }
+    }
     const height = page.getViewport({ scale: 1 }).height;
     await page.getOperatorList(); // charge les polices, pour savoir ce qui est en gras
     const boldOf = new Map<string, boolean>();

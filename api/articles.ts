@@ -86,7 +86,8 @@ export default async function handler(req: any, res: any) {
         publishedAt: p.publishedAt || prev?.publishedAt || now, updatedAt: now, authorUid: caller.uid, authorName,
         ...(prev ? {} : { createdAt: now }),
       }, { merge: true });
-      if (!prev) await notifyNewArticle(ref.id, { title: p.title, kind: 'press', source: p.source }).catch(() => 0);
+      // Nouvelle fiche, ou fiche de l'agent qui attendait son « L'essentiel » : notification, une seule fois
+      if (prev?.status !== 'published') await notifyNewArticle(ref.id, { title: p.title, kind: 'press', source: p.source }).catch(() => 0);
       return res.status(200).json({ id: ref.id });
     }
     if (body.action === 'import') {

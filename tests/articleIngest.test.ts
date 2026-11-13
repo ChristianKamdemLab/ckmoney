@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
-import { readPdf, readDocx, readText, classify, detectMedia, stripWatermark, pressExcerpt, findDate, MAX_TEASER_WORDS } from '../api/_lib/articleIngest';
+import { readPdf, readDocx, readText, classify, detectMedia, stripWatermark, pressExcerpt, findDate, MAX_TEASER_WORDS, mediaFromTitle, mediaFromLinks, docTitleParts, isIssueName, MEDIA } from '../api/_lib/articleIngest';
+import { PdfTooLong } from '../utils/pdfLines';
 
 // Agent Articles : lecture des fichiers et tri entre les textes de Christian et la revue de presse.
 // Les fichiers d'essai (tests/fixtures) sont inventés : aucun texte de journal dans le dépôt.
@@ -77,4 +78,75 @@ describe('agent Articles : tri', () => {
     if (c.kind === 'press') expect(c.publishedAt).toBeUndefined();
     expect(readText('Mon titre\n\nPremier paragraphe.\n\nChristian Kamdem — CKLabs')).toMatchObject({ title: 'Mon titre' });
   });
+
+  it('« Publié le 26.10.2026 » : date avec des points', () => {
+    expect(findDate('Par Awa Test Publié le 26.10.2026 à 5h40 GMT | 4 min')).toBe('2026-10-26T09:00:00.000Z');
+  });
 });
+
+// Novembre 2026 : quatre fichiers restés « à vérifier » alors qu'ils venaient d'Africa Intelligence et du
+// Monde. Le nom du journal n'était ni au début ni à la fin du texte (pas d'en-tête d'impression), mais
+// dans le titre du document PDF, dans le nom du fichier et dans les liens de la page.
+describe('agent Articles : reconnaître le journal sans en-tête ni pied de page', () => {
+  const AI = MEDIA.find(m => m.name === 'Africa Intelligence')!;
+  const LM = MEDIA.find(m => m.name === 'Le Monde')!;
+
+  it('titre du document « … - 26/10/2026 - Africa Intelligence » : journal, vrai titre, rubrique, auteur, date', async () => {
+    const r = await readPdf(file('presse-titre.pdf'));
+    expect(r.docTitle).toMatch(/- Africa Intelligence$/);
+    // Sans ces indices, le texte seul ne dit pas d'où il vient (c'était le bug)
+    expect(classify(r.title, r.blocks).kind).toBe('unknown');
+    const c = classify(r.title, r.blocks, { fileName: 'x.pdf', docTitle: r.docTitle, links: r.links });
+    expect(c).toMatchObject({
+      kind: 'press', source: 'Africa Intelligence', sourceUrl: 'https://www.africaintelligence.fr',
+      title: 'Un titre d’essai assez long pour la revue de presse', section: 'Afrique', author: 'Awa Test',
+      publishedAt: '2026-10-26T09:00:00.000Z',
+    });
+    expect(JSON.stringify(c)).not.toContain('Deuxième paragraphe');
+  }, 30000);
+
+  it('le nom du fichier suffit aussi (le navigateur y met « _ » à la place de « / »)', async () => {
+    const r = await readPdf(file('presse-titre.pdf'));
+    const name = "Afrique • Un titre d'essai assez long pour la revue de presse - 26_10_2026 - Africa Intelligence.pdf";
+    expect(classify(r.title, r.blocks, { fileName: name })).toMatchObject({ kind: 'press', source: 'Africa Intelligence', section: 'Afrique' });
+    expect(docTitleParts(name, AI)).toEqual({ section: 'Afrique', title: "Un titre d'essai assez long pour la revue de presse" });
+  }, 30000);
+
+  it('liens de la page : la plupart vers lemonde.fr → Le Monde, auteurs multiples', async () => {
+    const r = await readPdf(file('presse-liens.pdf'));
+    expect(r.links.filter(u => u.includes('lemonde.fr'))).toHaveLength(5);
+    expect(classify(r.title, r.blocks).kind).toBe('unknown');
+    expect(classify(r.title, r.blocks, { fileName: 'Une panne d’essai expliquée.pdf', docTitle: r.docTitle, links: r.links })).toMatchObject({
+      kind: 'press', source: 'Le Monde', title: 'Une panne d’essai expliquée', author: 'Awa Test, Paul Essai et Marie Exemple',
+    });
+  }, 30000);
+
+  it('indices prudents : un titre ordinaire ou quelques liens ne désignent pas un journal', () => {
+    expect(mediaFromTitle('Élections _ un titre ordinaire.pdf')).toBeNull();
+    expect(mediaFromTitle('Un titre | Le Monde')).toBe(LM);
+    expect(mediaFromTitle('Un titre - lemonde.fr')).toBe(LM);
+    expect(mediaFromTitle('Un titre sans séparateur Africa Intelligence')).toBeNull();
+    const lm = (n: number) => Array.from({ length: n }, (_, i) => `https://www.lemonde.fr/a/${i}`);
+    const autres = (n: number) => Array.from({ length: n }, (_, i) => `https://site${i}.example.org/`);
+    expect(mediaFromLinks(lm(2))).toBeNull();
+    expect(mediaFromLinks([...lm(3), ...autres(4)])).toBeNull();
+    expect(mediaFromLinks([...lm(4), ...autres(4), '#1', 'mailto:x@example.org'])).toBe(LM);
+    expect(detectMedia('Un texte sans nom de journal.', { links: [...lm(4), ...autres(1)] }).media).toBe(LM);
+  });
+
+  it('auteur : « Par X Publié le… » ne prend pas « Publié »', () => {
+    const c = classify('Un titre d’essai', [
+      { t: 'p', text: 'Par Olivia Essai Publié le 26.10.2026 à 5h40 GMT' },
+      { t: 'p', text: 'Un chapeau d’essai qui fait plus de soixante caractères pour compter comme un paragraphe.' },
+    ], { fileName: 'Un titre d’essai - Jeune Afrique.pdf' });
+    expect(c).toMatchObject({ kind: 'press', source: 'Jeune Afrique', author: 'Olivia Essai', publishedAt: '2026-10-26T09:00:00.000Z' });
+  });
+
+  it('un journal entier n’est pas un article', async () => {
+    expect(isIssueName("L'Équipe du Vendredi 13 Novembre 2026.pdf")).toBe(true);
+    expect(isIssueName('Le Parisien du dimanche 1er novembre 2026')).toBe(true);
+    expect(isIssueName('Ce que l’on sait de la panne du vendredi.pdf')).toBe(false);
+    await expect(readPdf(file('long.pdf'))).rejects.toBeInstanceOf(PdfTooLong);
+  }, 30000);
+});
+
