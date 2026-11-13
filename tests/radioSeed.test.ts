@@ -37,10 +37,13 @@ beforeEach(() => {
 });
 
 describe('lancement de Radio CK', () => {
-  it('trois recos au nom de Christian, dans l’ordre envoyé, sans « pourquoi » inventé', async () => {
+  it('trois recos au nom de Christian, dans l’ordre envoyé, avec ses raisons quand il les a données', async () => {
     expect(await importRadio(RADIO_LANCEMENT, NOW)).toEqual({ added: 3, already: 0, invalid: 0 });
     const a = store.get('radio/seed-nectar-markovits'), b = store.get('radio/seed-heure-du-monde-lfi'), c = store.get('radio/seed-yt-TiQDz7-irPo');
-    expect(a).toMatchObject({ platform: 'spotify', kind: 'podcast', title: '007 | The Meritocracy Trap - Daniel Markovits', show: 'Le Nectar', thumbnail: 'https://i.scdn.co/image/x', authorName: 'Christian', comment: '', commentCount: 0 });
+    expect(a).toMatchObject({ platform: 'spotify', kind: 'podcast', title: '007 | The Meritocracy Trap - Daniel Markovits', show: 'Le Nectar', thumbnail: 'https://i.scdn.co/image/x', authorName: 'Christian', commentCount: 0 });
+    expect(a.comment).toContain('on ne naît pas tous avec les mêmes avantages');
+    expect(c.comment).toContain('monogamie');
+    expect(b.comment).toBe(''); // raison non donnée par Christian : rien d'inventé
     expect(b).toMatchObject({ show: "L'Heure du Monde", embedUrl: 'https://open.spotify.com/embed/episode/5jcKC7qE3mmpiwIV0b1fHN' });
     expect(c).toMatchObject({ platform: 'youtube', kind: 'video', title: 'Titre YouTube', show: 'Une chaîne', embedUrl: 'https://www.youtube-nocookie.com/embed/TiQDz7-irPo' });
     expect(a.publishedAt > b.publishedAt && b.publishedAt > c.publishedAt).toBe(true);
