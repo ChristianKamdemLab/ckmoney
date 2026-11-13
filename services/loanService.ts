@@ -4,7 +4,7 @@ import {
 import { Loan, Payment, Invite, Profile, User, ReceiveInfo } from "../types";
 import { sendNotification } from "./notificationService";
 import { Installment } from "../utils/schedule";
-import { buildLoanContract, buildDebtAcknowledgment, sha256Hex, CONTRACT_VERSION } from "../utils/contract";
+import { buildLoanContract, buildDebtAcknowledgment, sha256Hex, CONTRACT_VERSION, cityOf } from "../utils/contract";
 import { amountToFrenchWords } from "../utils/frenchNumbers";
 
 // v2 : les prêts sont reliés aux comptes par identifiant (uid). L'ami se relie à un prêt
@@ -80,7 +80,7 @@ const lenderFields = (p: Profile, user: User) => ({
   lenderAddress: p.address,
   lenderIban: p.iban || '',
   lenderPaymentLink: p.paymentLink || '',
-  city: (p.address.split(',').pop() || '').replace(/\d+/g, '').trim() || 'Ville',
+  city: cityOf(p.address),
 });
 
 export const scheduleSummary = (s: Installment[], currency: string) => {

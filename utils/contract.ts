@@ -32,6 +32,21 @@ export const scheduleTable = (schedule: Installment[], currency: string) =>
     .map(i => `  Échéance ${i.index} — ${fmtDate(i.dueDate)} : ${formatMoney(i.amount, currency)} (capital ${formatMoney(i.principal, currency)}, intérêts ${formatMoney(i.interest, currency)})`)
     .join('\n');
 
+/** Ville d'une adresse (« 12 rue de la Paix, 91120 Palaiseau » → « Palaiseau ») ; vide si elle n'y est pas
+ *  (« 12 résidence du Val, 91120 » : le code postal seul ne suffit pas). Sert au « Fait à … » du contrat. */
+export const cityOf = (address: string) => {
+  const parts = String(address || '').split(',').map(s => s.trim()).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i];
+    const m = part.match(/\b\d{4,5}\s+([^\d].*)$/);
+    if (m) return m[1].trim();
+    if (/^(france|cameroun|belgique|suisse|canada)$/i.test(part) || /^\d+$/.test(part)) continue;
+    if (!/\d/.test(part) && (i > 0 || parts.length === 1)) return part;
+    return '';
+  }
+  return '';
+};
+
 /** Contrat de prêt signé par les deux parties. */
 export const buildLoanContract = (l: ContractInput): string => {
   const words = amountToFrenchWords(l.amount, l.currency);
@@ -123,7 +138,7 @@ Contrat signé électroniquement (art. 1366 et 1367 du Code civil) ; l’Emprunt
 ARTICLE 10 – LOI APPLICABLE ET LITIGES
 Droit français. Les parties cherchent d’abord un accord amiable ; à défaut, le tribunal compétent selon le droit commun est saisi.
 
-Fait à ${l.city || '___'}, en deux exemplaires électroniques.`;
+${l.city ? `Fait à ${l.city}, en` : 'Fait en'} deux exemplaires électroniques.`;
 };
 
 /** Reconnaissance de dette, signée par l'Emprunteur seul (article 1376 du Code civil). */
@@ -145,7 +160,7 @@ ${rate > 0 ? `Cette somme porte intérêt au taux fixe de ${rateStr(rate)} l’a
 Mention écrite par l’Emprunteur lui-même, en toutes lettres et en chiffres :
 « Bon pour la somme de [mention de l’Emprunteur] »
 
-Fait à ${l.city || '___'}.`;
+${l.city ? `Fait à ${l.city}.` : ''}`;
 };
 
 /** Empreinte SHA-256 (hexadécimal) d'un texte, pour figer le contrat signé. */
