@@ -30,6 +30,24 @@ export const importRadio = async (list: RadioSeed[], now = Date.now()) => {
   return { added, already, invalid };
 };
 
+/** Complète « pourquoi je le recommande » d'une reco déjà publiée, seulement s'il est encore vide
+ *  (une modification faite par Christian dans l'appli n'est jamais écrasée). */
+export const fillRadioComments = async (list: { id: string; comment: string }[]) => {
+  let filled = 0, kept = 0, missing = 0;
+  for (const c of list) {
+    const ref = adminDb.collection('radio').doc(`seed-${c.id}`.slice(0, 40));
+    const d = (await ref.get()).data();
+    if (!d) { missing++; continue; }
+    if (String(d.comment || '').trim()) { kept++; continue; }
+    await ref.set({ comment: String(c.comment).slice(0, 1500), updatedAt: new Date().toISOString() }, { merge: true });
+    filled++;
+  }
+  return { filled, kept, missing };
+};
+
+/** Raison donnée par Christian à 14 h 39 pour L'Heure du Monde. */
+export const HEURE_DU_MONDE_POURQUOI = "Le matin, sur le chemin du travail, c’est mon rendez-vous avec l’actualité. Pour s’informer en France, L’Heure du Monde est à mes yeux le meilleur podcast, parce qu’il traite tous les sujets sans prisme de droite ou de gauche (et, sur un sujet comme le programme d’un parti, c’est précisément ce que l’on cherche).\n\nÉcoutez, et dites-moi si vous trouvez qu’ils penchent d’un côté.";
+
 /** Liens envoyés par Christian le 13/11/2026 pour lancer Radio CK. « Pourquoi je le recommande » rédigé dans sa voix à partir
  *  de ce qu'il a dit (méritocratie, monogamie) ; rien pour L'Heure du Monde, dont il n'a pas donné la raison. */
 export const RADIO_LANCEMENT: RadioSeed[] = [
