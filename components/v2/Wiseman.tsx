@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Screen, TopBar, Button, Note, Card as Box, Avatar, Toast, Icon, inputClass, inputStyle, C, firstName } from './ui';
-import { Felt, NameStep, ShareBox } from './GameKit';
+import { Felt, NameStep, ShareBox, nameOf } from './GameKit';
 import { FELT } from './JamboTable';
 import { ensurePlayer, savedName, saveName, ERRORS } from '../../services/jamboOnline';
 import { wiseman, watchWiseman, watchCard, wisemanLink, WisemanTable, WisemanCard } from '../../services/wisemanOnline';
@@ -29,7 +29,8 @@ const Lobby: React.FC<{ t: WisemanTable; uid: string; onLeave: () => void }> = (
   return (
     <Screen>
       <TopBar onBack={onLeave} title="Le Wiseman" />
-      <ShareBox code={t.code} link={wisemanLink(t.code)} text={`On joue au Wiseman ? Trouve l'intrus avant qu'il ne te piège. Table ${t.code} : ${wisemanLink(t.code)}`} onCopied={() => setToast('Lien copié')} />
+      <ShareBox name={nameOf(t)} code={t.code} link={wisemanLink(t.code)} text={`On joue au Wiseman ? Trouve l'intrus avant qu'il ne te piège. Table ${nameOf(t)} : ${wisemanLink(t.code)}`} onCopied={() => setToast('Lien copié')}
+        onRename={isHost ? () => act('rename', 'rename') : undefined} renaming={busy === 'rename'} />
       <div className="px-5 pt-6 pb-2 text-[15px] font-bold">Joueurs ({t.seats.length} sur 10)</div>
       <div className="px-5">
         <Box>
@@ -301,8 +302,8 @@ const Wiseman: React.FC<{ playerName: string; onBack?: () => void; guest?: boole
       </Screen>
     );
     return (
-      <NameStep topTitle="Le Wiseman" eyebrow="Trouve l'intrus" title={`La table de ${hostName || 'ton ami'}`}
-        desc={`Table ${table.code} · ${table.seats.length} joueur${table.seats.length > 1 ? 's' : ''}.`}
+      <NameStep topTitle="Le Wiseman" eyebrow="Trouve l'intrus" title={`Table ${nameOf(table)}`}
+        desc={`Avec ${hostName || 'ton ami'} · ${table.seats.length} joueur${table.seats.length > 1 ? 's' : ''}.`}
         cta="M'asseoir à la table" initial={name} busy={busy} error={error} onBack={exit} onSubmit={n => go('join', n)} />
     );
   }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Screen, TopBar, Button, Note, Field, Icon, inputClass, inputStyle, C } from './ui';
 import { FELT } from './JamboTable';
+export { nameOf } from '../../games/tableNames';
 
 // Briques communes aux jeux en ligne (Jambo, Baccalauréat…) : bandeau, prénom, partage du lien.
 
@@ -32,11 +33,19 @@ export const NameStep: React.FC<{ topTitle: string; eyebrow: string; title: stri
   );
 };
 
-/** Code de la table et partage (WhatsApp, copie du lien). */
-export const ShareBox: React.FC<{ code: string; link: string; text: string; onCopied: () => void; desc?: string }> = ({ code, link, text, onCopied, desc }) => (
+/** Nom de la table, code en petit, et partage (WhatsApp, copie du lien). L'hôte peut tirer un autre nom. */
+export const ShareBox: React.FC<{ name: string; code: string; link: string; text: string; onCopied: () => void; desc?: string; onRename?: () => void; renaming?: boolean }> = ({ name, code, link, text, onCopied, desc, onRename, renaming }) => (
   <Felt>
-    <div className="text-[13px] font-semibold" style={{ color: C.ochre }}>Table</div>
-    <div className="serif text-[40px] font-semibold tracking-[3px] leading-none mt-1">{code}</div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-[13px] font-semibold" style={{ color: C.ochre }}>Table</div>
+      {onRename && (
+        <button onClick={onRename} disabled={renaming} className="h-8 px-3 rounded-full flex items-center gap-1.5 text-[12.5px] font-semibold disabled:opacity-50" style={{ background: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.85)' }}>
+          <Icon name="refresh" size={14} /> Autre nom
+        </button>
+      )}
+    </div>
+    <div className="serif text-[34px] font-semibold leading-[1.08] mt-1">{name}</div>
+    <div className="text-[12px] font-medium mt-1.5 tracking-[1.5px]" style={{ color: 'rgba(255,255,255,.5)' }}>CODE {code}</div>
     <p className="text-[14px] leading-relaxed mt-3" style={{ color: 'rgba(255,255,255,.75)' }}>{desc || "Envoie le lien à tes amis : ils entrent leur prénom et s'assoient. Pas besoin de compte."}</p>
     <div className="grid grid-cols-2 gap-2 mt-4">
       <a href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer"

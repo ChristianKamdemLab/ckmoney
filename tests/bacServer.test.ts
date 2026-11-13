@@ -54,6 +54,20 @@ const setup = async () => {
 };
 
 describe('Baccalauréat en ligne : serveur', () => {
+  it('la table a un nom (foot, séries) ; seul l’hôte en tire un autre, avant la partie', async () => {
+    const { TABLE_NAMES } = await import('../games/tableNames');
+    const code = (await call('ana', { action: 'create', name: 'Ana' })).json.code;
+    await call('ben', { action: 'join', code, name: 'Ben' });
+    const first = table(code).name;
+    expect(TABLE_NAMES).toContain(first);
+    expect((await call('ben', { action: 'rename', code })).status).toBe(403);
+    await call('ana', { action: 'rename', code });
+    expect(table(code).name).not.toBe(first);
+    expect(TABLE_NAMES).toContain(table(code).name);
+    await call('ana', { action: 'start', code });
+    expect((await call('ana', { action: 'rename', code })).status).toBe(403);
+  });
+
   it('les réponses restent cachées pendant l’écriture', async () => {
     const code = await setup();
     const t = table(code);

@@ -1,4 +1,5 @@
 import { adminAuth, adminDb } from './_lib/admin.js';
+import { pickTableName } from '../games/tableNames.js';
 import { Role, Winner, MIN_PLAYERS, MAX_PLAYERS, BLANK_MIN_PLAYERS, assignRoles, pickPair, tally, winnerOf, guessMatches, pointsFor } from '../games/wiseman.js';
 
 // POST /api/wiseman — Le Wiseman (jeu de l'intrus) en ligne entre amis.
@@ -43,7 +44,7 @@ export default async function handler(req: any, res: any) {
         const ref = tables().doc(code);
         const ok = await adminDb.runTransaction(async tx => {
           if ((await tx.get(ref)).exists) return false;
-          tx.set(ref, { code, hostUid: uid, status: 'lobby', seats: [{ uid, name }], withBlank: false, scores: {}, games: 0, version: 1, createdAt: now, updatedAt: now });
+          tx.set(ref, { code, name: pickTableName(), hostUid: uid, status: 'lobby', seats: [{ uid, name }], withBlank: false, scores: {}, games: 0, version: 1, createdAt: now, updatedAt: now });
           return true;
         });
         if (ok) return res.status(200).json({ code });
@@ -124,6 +125,11 @@ export default async function handler(req: any, res: any) {
           const rest = seats.filter(s => s.uid !== uid);
           if (!rest.length) { tx.delete(ref); return {}; }
           tx.update(ref, { ...bump, seats: rest, hostUid: isHost ? rest[0].uid : t.hostUid });
+          return {};
+        }
+        case 'rename': {
+          if (!isHost || t.status !== 'lobby') throw new Refus('hote', 403);
+          tx.update(ref, { ...bump, name: pickTableName(t.name) });
           return {};
         }
         case 'config': {
