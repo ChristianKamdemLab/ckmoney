@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, pushToUser, isAdmin } from './_lib/admin.js';
+import { adminAuth, adminDb, pushToUser, lenderMailAllowed } from './_lib/admin.js';
 import { sendReminderMail, mailEnabled } from './_lib/mail.js';
 
 // POST /api/test-mail — le prêteur s'envoie un rappel d'exemple (e-mail + notification).
@@ -9,7 +9,7 @@ export default async function handler(req: any, res: any) {
     const card = (await adminDb.collection('lenders').doc(caller.uid).get()).data();
     if (!card) return res.status(403).json({ error: 'not_lender' });
     // Les e-mails partent du Gmail de l'appli : réservés à l'administrateur ; les autres prêteurs testent la notification
-    if (!isAdmin(caller.email, caller.email_verified === true)) {
+    if (!caller.email_verified || !lenderMailAllowed(caller.email)) {
       const pushed = await pushToUser(caller.uid, { title: 'Rappel de test', body: 'Les notifications CKMoney fonctionnent.', url: '/' });
       return res.status(200).json({ mail: false, reason: 'notification_seulement', pushed });
     }

@@ -1,3 +1,4 @@
+import { adminEmails, isAdminEmail } from './roles.js';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
@@ -38,13 +39,11 @@ export const verifiedEmail = async (uid?: string): Promise<string | undefined> =
   return u?.email && u.emailVerified ? u.email : undefined;
 };
 
-/** Administrateur (Christian) : publie articles, recos et annonces, voit la liste des comptes, et ses prêts
- *  sont les seuls dont les e-mails partent du Gmail de l'appli. Prêter est ouvert à tous les comptes. */
-const allowed = () => (process.env.VITE_LENDER_EMAILS || process.env.GMAIL_USER || '')
-  .split(/[,;\s]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
-/** Adresse du prêteur et auteur (Christian). */
-export const authorEmail = () => allowed()[0] || '';
-export const isAdmin = (email?: string, emailVerified = true) =>
-  !!email && emailVerified && allowed().includes(email.toLowerCase());
+/** Administrateur (Christian) : publie articles, recos et annonces, voit la liste des comptes (voir roles.ts).
+ *  Prêter est ouvert à tous les comptes. */
+export { mailForAllLenders, lenderMailAllowed } from './roles.js';
+/** Adresse de l'auteur (Christian). */
+export const authorEmail = () => adminEmails()[0] || '';
+export const isAdmin = (email?: string, emailVerified = true) => isAdminEmail(email, emailVerified);
 /** Ancien nom (avant l'ouverture du prêt à tous) : même chose que isAdmin. */
 export const isAllowedLender = isAdmin;

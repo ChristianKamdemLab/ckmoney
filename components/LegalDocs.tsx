@@ -16,7 +16,7 @@ const UPDATED = '13 novembre 2026';
 const CGU: Section[] = [
   { t: '1. Objet et éditeur', p: [
     "CKMoney est une application éditée par Christian Kamdem (CKLabs), à titre non professionnel. Elle aide des particuliers qui se connaissent à formaliser et suivre les prêts d'argent occasionnels qu'ils se consentent, et propose aussi des articles, des recommandations (Radio CK), des sorties et des jeux entre amis.",
-    "L'application est hébergée par Vercel Inc. (site et fonctions serveur) et par Google (Firebase : comptes, base de données, notifications).",
+    "L'application est hébergée par Vercel Inc. (site et fonctions serveur) et par Google (Firebase : comptes, base de données, notifications). Contact : ckmoneyapp@gmail.com.",
   ] },
   { t: '2. Un outil, pas une plateforme', p: [
     "CKMoney ne met pas en relation des personnes qui ne se connaissent pas : il n'existe ni annuaire de prêteurs, ni recherche d'emprunteurs. Un prêt se fait toujours entre deux personnes qui se connaissent, par un lien personnel envoyé par l'une à l'autre.",
@@ -67,7 +67,7 @@ const PRIVACY: Section[] = [
   ] },
   { t: '4. Qui y a accès', p: [
     "Un prêt n'est visible que par son prêteur et son emprunteur ; ton profil, par toi seul ; l'autre partie voit ce qui figure dans votre contrat. Ton prénom apparaît à côté de tes commentaires pour les autres membres. Seul l'éditeur peut voir la liste des comptes (prénoms), pour l'administration.",
-    "Prestataires techniques, qui traitent les données pour le compte de l'application : Google (Firebase : comptes, base de données, notifications ; Gmail : e-mails), Vercel (hébergement et fonctions serveur). Ils peuvent traiter des données hors de l'Union européenne, avec les garanties prévues par le RGPD (clauses contractuelles types ou cadre de protection des données UE–États-Unis).",
+    "Prestataires techniques, qui traitent les données pour le compte de l'application : Google (Firebase : comptes, base de données, notifications ; Gmail : e-mails, envoyés depuis l'adresse de l'appli), Vercel (hébergement et fonctions serveur). Ils peuvent traiter des données hors de l'Union européenne, avec les garanties prévues par le RGPD (clauses contractuelles types ou cadre de protection des données UE–États-Unis).",
   ] },
   { t: '5. Durée de conservation', p: [
     "Les contrats et leurs données sont conservés jusqu'à cinq ans après le dernier paiement, durée de prescription de l'action en paiement (article 2224 du Code civil). Le reste est conservé tant que le compte existe ; un commentaire ou une sortie supprimé disparaît immédiatement.",
@@ -76,7 +76,7 @@ const PRIVACY: Section[] = [
     "Connexion chiffrée (HTTPS) ; règles d'accès vérifiées côté serveur pour chaque donnée ; aucun mot de passe stocké par CKMoney (connexion gérée par Google et Firebase) ; contrats figés par empreinte ; contrôles de sécurité réguliers de l'application.",
   ] },
   { t: '7. Tes droits', p: [
-    "Tu peux demander l'accès, la rectification, l'effacement, la limitation ou la portabilité de tes données, ou t'opposer à un traitement, en répondant à un e-mail de CKMoney. L'effacement ne peut pas porter sur ce qui reste nécessaire à la preuve d'un contrat en cours de conservation. Tu peux aussi saisir la CNIL (cnil.fr).",
+    "Tu peux demander l'accès, la rectification, l'effacement, la limitation ou la portabilité de tes données, ou t'opposer à un traitement, en écrivant à ckmoneyapp@gmail.com. L'effacement ne peut pas porter sur ce qui reste nécessaire à la preuve d'un contrat en cours de conservation. Tu peux aussi saisir la CNIL (cnil.fr).",
   ] },
   { t: '8. Cookies et stockage', p: [
     "CKMoney n'utilise pas de cookies publicitaires. Le navigateur garde seulement ce qui fait fonctionner l'appli (connexion, préférences). Dans Radio CK, le lecteur YouTube (version sans cookies) ou Spotify, Apple Podcasts et Deezer ne se charge que lorsque tu appuies sur lecture ; ces plateformes appliquent alors leurs propres règles.",
