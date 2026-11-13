@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppEvent, whenText, shortWhen, dayBlock, mapsUrl, googleCalendarUrl, isUpcoming, isLive, untilText, shareText, hostOf, KIND_LABEL } from '../../utils/events';
+import { AppEvent, whenText, shortWhen, dayBlock, mapsUrl, googleCalendarUrl, isUpcoming, isLive, untilText, shareText, hostOf, priceUnknown, KIND_LABEL } from '../../utils/events';
 import { Card, Button, Sheet, Note, Icon, IconName, Toast, C } from './ui';
 import { detectedPhone, isStandalone } from '../../services/install';
 
@@ -42,18 +42,18 @@ const Tag: React.FC<{ children: React.ReactNode; tone?: 'green' | 'soft' | 'ochr
 /** Ligne de liste. `note` : petite précision pour l'auteur (qui la voit, combien viennent). */
 export const EventRow: React.FC<{ event: AppEvent; onOpen: () => void; past?: boolean; note?: string }> = ({ event: e, onOpen, past, note }) => {
   const live = !past && isLive(e);
-  const free = /gratuit/i.test(e.price);
+  const free = /^\s*gratuit/i.test(e.price);
   return (
     <button onClick={onOpen} className="w-full text-left flex items-center gap-3.5 px-4 py-3.5" style={{ opacity: past ? 0.6 : 1 }}>
       <DateBlock iso={e.startsAt} tone={past ? 'soft' : 'ink'} />
       <div className="flex-1 min-w-0">
         <div className="serif text-[17px] font-semibold leading-snug">{e.title}</div>
-        <div className="text-[13px] mt-0.5 truncate" style={{ color: C.mute }}>{[live ? `En ce moment, ${untilText(e)}` : shortWhen(e), e.venue].filter(Boolean).join(' · ')}</div>
+        <div className="text-[13px] mt-0.5 truncate" style={{ color: C.mute }}>{[live ? `En ce moment, ${untilText(e)}` : shortWhen(e, !!past), e.venue].filter(Boolean).join(' · ')}</div>
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {live && <Tag tone="green"><LiveDot color={C.green} /> En ce moment</Tag>}
           {e.kind !== 'event' && !live && <Tag tone="ochre">{KIND_LABEL[e.kind]}</Tag>}
           {e.kind === 'chill' && e.meGoing && <Tag tone="green">Tu viens</Tag>}
-          {e.price && <Tag tone={free ? 'green' : 'soft'}>{e.price}</Tag>}
+          {e.price && !priceUnknown(e.price) && <Tag tone={free ? 'green' : 'soft'}>{e.price}</Tag>}
           {note && <span className="text-[11.5px] font-semibold self-center" style={{ color: C.mute }}>{note}</span>}
         </div>
       </div>
@@ -91,7 +91,7 @@ export const EventDetail: React.FC<{ event: AppEvent; rsvp?: RsvpState; extra?: 
   const upcoming = isUpcoming(e);
   const live = isLive(e);
   const link = shareLink(e.id);
-  const free = /gratuit/i.test(e.price);
+  const free = /^\s*gratuit/i.test(e.price);
   const site = hostOf(e.url);
   const hasPlace = !!(e.venue || e.address);
   const full = e.placesLeft === 0 && !rsvp?.going;
@@ -129,7 +129,7 @@ export const EventDetail: React.FC<{ event: AppEvent; rsvp?: RsvpState; extra?: 
               <span className="text-[12px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full" style={{ background: 'rgba(201,138,30,.18)', color: C.ochre }}>{shortWhen(e)}</span>
             )}
             {e.kind !== 'event' && <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: 'rgba(255,255,255,.12)', color: '#fff' }}>{KIND_LABEL[e.kind]}</span>}
-            {e.price && <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: free ? '#2E8B62' : 'rgba(255,255,255,.12)', color: '#fff' }}>{e.price}</span>}
+            {e.price && !priceUnknown(e.price) && <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: free ? '#2E8B62' : 'rgba(255,255,255,.12)', color: '#fff' }}>{e.price}</span>}
           </div>
           <h1 className="serif text-[28px] leading-[1.14] font-semibold tracking-[-0.3px] mt-4">{e.title}</h1>
           {e.organizer && <div className="text-[14px] mt-2" style={{ color: 'rgba(255,255,255,.72)' }}>{e.kind === 'event' ? 'Par' : 'Avec'} {e.organizer}</div>}
@@ -139,7 +139,10 @@ export const EventDetail: React.FC<{ event: AppEvent; rsvp?: RsvpState; extra?: 
 
       <div className="px-5 pt-3">
         <Card>
-          <Row icon="calendar" first>{live ? <>En ce moment, {untilText(e)}</> : whenText(e)}</Row>
+          <Row icon="calendar" first>
+            {live && !e.allDay ? <>En ce moment, {untilText(e)}</> : whenText(e)}
+            {live && e.allDay && <Sub>En ce moment</Sub>}
+          </Row>
           {hasPlace && (
             <Row icon="pin" onClick={() => open(mapsUrl(e))}>
               <div className="font-semibold">{e.venue || e.address}</div>
@@ -153,7 +156,7 @@ export const EventDetail: React.FC<{ event: AppEvent; rsvp?: RsvpState; extra?: 
           )}
           {e.kind === 'event' && (e.price || site) && (
             <Row icon="ticket">
-              <div className="font-semibold">{free ? 'Entrée gratuite' : e.price}</div>
+              <div className="font-semibold">{/^gratuit$/i.test(e.price.trim()) ? 'Entrée gratuite' : e.price}</div>
               {site && <Sub>Réservation sur {site}</Sub>}
             </Row>
           )}
@@ -161,7 +164,7 @@ export const EventDetail: React.FC<{ event: AppEvent; rsvp?: RsvpState; extra?: 
       </div>
 
       <div className="px-5 pt-3 flex flex-col gap-2.5">
-        {e.kind === 'event' && upcoming && e.url && <Button onClick={() => open(e.url)}><Icon name="ticket" size={20} /> {free ? 'Réserver ma place' : 'Prendre ma place'}</Button>}
+        {e.kind === 'event' && upcoming && e.url && <Button onClick={() => open(e.url)}><Icon name="ticket" size={20} /> {free ? 'Réserver ma place' : priceUnknown(e.price) ? 'Infos et billets' : 'Prendre ma place'}</Button>}
         {e.kind === 'chill' && upcoming && rsvp && (
           rsvp.going ? (
             <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: C.greenSoft, color: C.green }}>

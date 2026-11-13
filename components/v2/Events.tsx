@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Field, Chips, inputClass, inputStyle, Icon, C, firstName } from './ui';
 import { EventDetail, EventRow } from './EventView';
 import { listEvents, saveEvent, deleteEvent, rsvp, listRsvps, listPeople } from '../../services/eventService';
-import { AppEvent, Audience, EventInput, EventKind, AUDIENCE_LABEL, KIND_LABEL, isLive, isUpcoming, toLocalInput, fromLocalInput, defaultSpotEnd } from '../../utils/events';
+import { AppEvent, Audience, EventInput, EventKind, Region, AUDIENCE_LABEL, KIND_LABEL, isLive, isUpcoming, toLocalInput, fromLocalInput, defaultSpotEnd, parisDay, dayStart, dayEnd, regionOf, monthOf } from '../../utils/events';
 
 // Sorties : événements (salons…), spots (« je suis au bar X ») et chills organisés par l'auteur.
 // L'auteur choisit qui voit chaque sortie dans l'appli ; chacune a aussi sa page publique (/e/ID).
@@ -11,19 +11,21 @@ type Form = {
   id?: string; kind: EventKind; title: string; start: string; end: string; venue: string; address: string; url: string;
   price: string; organizer: string; description: string; theme: string; drinks: string; capacity: string;
   audience: Audience; invitees: string[];
+  allDay: boolean; // événement sans horaire : start et end sont des jours (« 2026-11-18 »)
 };
 
 const roundNow = () => { const d = new Date(); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0); return d.toISOString(); };
 const emptyForm = (kind: EventKind, me: string): Form => ({
   kind, title: '', start: kind === 'spot' ? toLocalInput(roundNow()) : '', end: '', venue: '', address: '', url: '',
   price: kind === 'event' ? 'Gratuit' : '', organizer: kind === 'event' ? '' : me, description: '', theme: '', drinks: '', capacity: '',
-  audience: 'all', invitees: [],
+  audience: 'all', invitees: [], allDay: false,
 });
 
 const fromEvent = (e: AppEvent): Form => ({
-  id: e.id, kind: e.kind, title: e.title, start: toLocalInput(e.startsAt), end: toLocalInput(e.endsAt), venue: e.venue, address: e.address,
+  id: e.id, kind: e.kind, title: e.title, venue: e.venue, address: e.address,
+  start: e.allDay ? parisDay(e.startsAt) : toLocalInput(e.startsAt), end: e.allDay ? parisDay(e.endsAt) : toLocalInput(e.endsAt),
   url: e.url, price: e.price, organizer: e.organizer, description: e.description, theme: e.theme, drinks: e.drinks,
-  capacity: e.capacity ? String(e.capacity) : '', audience: e.audience || 'all', invitees: e.invitees || [],
+  capacity: e.capacity ? String(e.capacity) : '', audience: e.audience || 'all', invitees: e.invitees || [], allDay: !!e.allDay,
 });
 
 /** Lien préparé (/?preparer=…) : on ne garde que les champs attendus. */
@@ -33,11 +35,18 @@ const fromPrefill = (p: Partial<EventInput>): Partial<Form> => {
   (['title', 'venue', 'address', 'url', 'price', 'organizer', 'description', 'theme', 'drinks'] as const).forEach(k => { const v = str(p[k]); if (v !== undefined) out[k] = v; });
   if (p.kind === 'spot' || p.kind === 'chill' || p.kind === 'event') out.kind = p.kind;
   if (p.audience === 'all' || p.audience === 'link') out.audience = p.audience;
-  if (str(p.startsAt)) out.start = toLocalInput(p.startsAt);
-  if (str(p.endsAt)) out.end = toLocalInput(p.endsAt);
+  const allDay = p.allDay === true && (out.kind || 'event') === 'event';
+  if (allDay) out.allDay = true;
+  if (str(p.startsAt)) out.start = allDay ? parisDay(p.startsAt) : toLocalInput(p.startsAt);
+  if (str(p.endsAt)) out.end = allDay ? parisDay(p.endsAt) : toLocalInput(p.endsAt);
   if (typeof p.capacity === 'number') out.capacity = String(p.capacity);
   return out;
 };
+
+/** Passe le formulaire en « journée entière » (dates seules) ou revient aux heures. */
+const untimed = (f: Form, allDay: boolean): Form => allDay === f.allDay ? f : allDay
+  ? { ...f, allDay, start: f.start.slice(0, 10), end: f.end.slice(0, 10) }
+  : { ...f, allDay, start: f.start ? `${f.start}T10:00` : '', end: f.end ? `${f.end}T18:00` : '' };
 
 const KIND_HINT: Record<EventKind, string> = {
   event: 'Un salon, un concert, une expo…',
@@ -103,17 +112,18 @@ const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: 
   const switchKind = (kind: EventKind) => {
     if (kind === f.kind) return;
     const fresh = emptyForm(kind, me);
+    const timed = kind !== 'event' && f.allDay ? untimed(f, false) : f;
     setF({
-      ...f, kind,
-      start: f.start || fresh.start,
+      ...timed, kind,
+      start: timed.start || fresh.start,
       price: kind === 'event' ? (f.price || 'Gratuit') : '',
       organizer: kind === 'event' ? (f.organizer === me ? '' : f.organizer) : (f.organizer || me),
     });
   };
 
   const save = async () => {
-    const startsAt = fromLocalInput(f.start);
-    const endsAt = fromLocalInput(f.end) || (f.kind === 'spot' && startsAt ? defaultSpotEnd(startsAt) : startsAt);
+    const startsAt = f.allDay ? dayStart(f.start) : fromLocalInput(f.start);
+    const endsAt = f.allDay ? dayEnd(f.end || f.start) : fromLocalInput(f.end) || (f.kind === 'spot' && startsAt ? defaultSpotEnd(startsAt) : startsAt);
     if (!f.title.trim() || !startsAt) { setError('Il faut au moins un titre et une date de début.'); return; }
     if (endsAt < startsAt) { setError('La fin doit venir après le début.'); return; }
     if (f.url && !/^https?:\/\//i.test(f.url.trim())) { setError('Le lien doit commencer par https://'); return; }
@@ -145,7 +155,12 @@ const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: 
     <textarea id={id} value={f[k] as string} onChange={set(k)} rows={rows} placeholder={placeholder}
       className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
   );
-  const dates = (
+  const dates = f.allDay ? (
+    <>
+      <Field label="Premier jour" htmlFor="es">{input('es', 'start', { type: 'date' })}</Field>
+      <Field label="Dernier jour" htmlFor="ee" hint="Vide : un seul jour.">{input('ee', 'end', { type: 'date', min: f.start || undefined })}</Field>
+    </>
+  ) : (
     <>
       <Field label={f.kind === 'spot' ? 'À partir de' : 'Début'} htmlFor="es">{input('es', 'start', { type: 'datetime-local' })}</Field>
       <Field label={f.kind === 'spot' ? "Jusqu'à" : 'Fin'} htmlFor="ee" hint={f.kind === 'spot' ? 'Vide : 4 h du matin pour un spot du soir, sinon 6 h plus tard. Le spot disparaît tout seul à cette heure-là.' : 'Vide : même heure que le début.'}>
@@ -169,6 +184,7 @@ const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: 
           <p className="text-[13px] mt-2 px-1" style={{ color: C.mute }}>{KIND_HINT[f.kind]}</p>
         </div>
         <Field label="Titre" htmlFor="et">{input('et', 'title', { placeholder: f.kind === 'spot' ? 'Ce soir, je suis au Comptoir' : f.kind === 'chill' ? 'Chill du vendredi' : 'Salon, concert, expo…' })}</Field>
+        {f.kind === 'event' && <Toggle on={f.allDay} onChange={v => setF(untimed(f, v))} label="Journée entière, sans horaire" sub="Pour un salon sur plusieurs jours, par exemple" />}
         {f.kind === 'spot' ? <>{place}{dates}</> : <>{dates}{place}</>}
         {f.kind === 'chill' && (
           <>
@@ -287,6 +303,8 @@ const Detail: React.FC<{ e: AppEvent; admin: boolean; onBack: () => void; onEdit
   );
 };
 
+const REGION_LABEL: Record<Region, string> = { paris: 'Paris', afrique: 'Afrique', ailleurs: 'Ailleurs' };
+
 const audienceNote = (e: AppEvent) => {
   const parts: string[] = [];
   parts.push('de toi');
@@ -302,6 +320,7 @@ const EventsScreen: React.FC<{ isAdmin: boolean; me?: string; onBack: () => void
   const [view, setView] = useState<{ k: 'list' } | { k: 'read'; id: string } | { k: 'edit'; id?: string; prefill?: Partial<EventInput> }>(
     prefill ? { k: 'edit', prefill } : initialId ? { k: 'read', id: initialId } : { k: 'list' });
   const [toast, setToast] = useState<string | null>(null);
+  const [region, setRegion] = useState<'tout' | Region>('tout');
 
   const load = (fresh = false) => listEvents(fresh).then(l => { setList(l); setFailed(false); }).catch(() => { setFailed(true); setList([]); });
   useEffect(() => { load(); }, []);
@@ -311,12 +330,25 @@ const EventsScreen: React.FC<{ isAdmin: boolean; me?: string; onBack: () => void
 
   const groups = useMemo(() => {
     const all = list || [];
+    const upcoming = all.filter(e => isUpcoming(e));
+    // Filtre Paris / Afrique dès qu'il y a de quoi trier
+    const here = new Set(upcoming.map(regionOf));
+    const regions = (['paris', 'afrique', 'ailleurs'] as Region[]).filter(r => here.has(r));
+    const filter = upcoming.length >= 6 && here.has('paris') && here.has('afrique');
+    const keep = (e: AppEvent) => !filter || region === 'tout' || regionOf(e) === region;
+    const next = upcoming.filter(e => !isLive(e) && keep(e));
+    const months: { label: string; items: AppEvent[] }[] = [];
+    next.forEach(e => {
+      const label = monthOf(e.startsAt);
+      const last = months[months.length - 1];
+      if (last?.label === label) last.items.push(e); else months.push({ label, items: [e] });
+    });
     return {
-      live: all.filter(e => isLive(e)),
-      next: all.filter(e => isUpcoming(e) && !isLive(e)),
-      past: all.filter(e => !isUpcoming(e)).reverse(),
+      live: upcoming.filter(e => isLive(e) && keep(e)),
+      next, months, filter, regions,
+      past: all.filter(e => !isUpcoming(e)).reverse().slice(0, 10),
     };
-  }, [list]);
+  }, [list, region]);
 
   if (view.k === 'edit') {
     const e = view.id ? list?.find(x => x.id === view.id && x.mine) : undefined;
@@ -358,8 +390,13 @@ const EventsScreen: React.FC<{ isAdmin: boolean; me?: string; onBack: () => void
       <div className="px-5 flex flex-col gap-2 pb-[max(env(safe-area-inset-bottom),28px)]">
         {!list && <><Skeleton h={88} /><Skeleton h={88} /></>}
         {failed && <Note tone="warn">Les sorties n'ont pas pu être chargées. Vérifie ta connexion.</Note>}
+        {groups.filter && (
+          <div className="pb-2" role="group" aria-label="Où">
+            <Chips options={[{ id: 'tout', label: 'Tout' }, ...groups.regions.map(r => ({ id: r, label: REGION_LABEL[r] }))]} value={region} onChange={r => setRegion(r as 'tout' | Region)} />
+          </div>
+        )}
         {section('En ce moment', groups.live)}
-        {section('À venir', groups.next)}
+        {groups.months.length > 1 ? groups.months.map(m => <React.Fragment key={m.label}>{section(m.label, m.items)}</React.Fragment>) : section('À venir', groups.next)}
         {list && !failed && !groups.live.length && !groups.next.length && (
           <Card className="px-5 py-8 text-center">
             <div className="text-[15px] font-semibold">Rien de prévu pour l'instant</div>
