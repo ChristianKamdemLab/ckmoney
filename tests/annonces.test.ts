@@ -77,6 +77,10 @@ describe('annonces', () => {
     mails.length = 0;
     await sendDueAnnouncements(at('2026-11-13T07:31:00Z'), [{ ...E, id: 'essai', emailTo: 'author' }]);
     expect(mails.map(m => m.to)).toEqual(['chris@example.com']);
+    // Tous sauf Christian (qui a déjà reçu l'essai)
+    mails.length = 0;
+    await sendDueAnnouncements(at('2026-11-13T07:31:00Z'), [{ ...E, id: 'autres', emailTo: 'others' }]);
+    expect(mails.map(m => m.to).sort()).toEqual(['awa@example.com', 'laura@example.com', 'pm@example.com']);
   });
 
   it('e-mail : texte échappé, version texte complète', () => {

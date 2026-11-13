@@ -21,7 +21,7 @@ export interface Announcement {
   sendAt: string;
   push?: { title: string; body: string; url: string };
   email?: NewsEmail;
-  emailTo?: 'all' | 'no-push' | 'author'; // 'author' : un essai à Christian seul
+  emailTo?: 'all' | 'no-push' | 'author' | 'others'; // 'author' : essai à Christian seul ; 'others' : tous sauf lui
 }
 
 /** L'e-mail des nouveautés de la semaine (sert aussi d'aperçu avant envoi). */
@@ -62,6 +62,12 @@ export const ANNOUNCEMENTS: Announcement[] = [
     id: '2026-11-13-email-essai',
     sendAt: '2026-11-13T08:30:00.000Z', // essai demandé par Christian vers 9 h 30
     emailTo: 'author',
+    email: NEWS_2026_11_13,
+  },
+  {
+    id: '2026-11-13-email-nouveautes',
+    sendAt: '2026-11-13T08:45:00.000Z', // essai validé par Christian à 9 h 46 : tous les autres comptes
+    emailTo: 'others',
     email: NEWS_2026_11_13,
   },
 ];
@@ -113,6 +119,7 @@ const emailRecipients = async (to: Announcement['emailTo']) => {
     .filter((u: any) => u.email && u.emailVerified && !u.disabled && (u.providerData || []).length > 0)
     .filter((u: any) => to !== 'no-push' || !withPush.has(u.uid))
     .filter((u: any) => to !== 'author' || isAllowedLender(u.email, true))
+    .filter((u: any) => to !== 'others' || !isAllowedLender(u.email, true))
     .map((u: any) => ({ uid: u.uid as string, email: u.email as string, firstName: names.get(u.uid) || firstNameOf(u.displayName) }));
 };
 
