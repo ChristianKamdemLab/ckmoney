@@ -63,3 +63,9 @@ export const sendTestReminder = () => callApi('/api/test-mail');
 
 /** Le prêteur envoie tout de suite un rappel à son proche (notification + e-mail). */
 export const sendReminderNow = (loanId: string) => callApi('/api/remind', { loanId });
+
+/** Le prêteur annule un paiement confirmé par erreur (il reste dans l'historique, marqué annulé). */
+export const cancelPayment = (loanId: string, paymentId: string) => callApi('/api/remind', { action: 'cancelPayment', loanId, paymentId });
+
+/** Le prêteur renonce aux frais de retard (pénalité et intérêts de retard) de ce prêt. */
+export const waiveLateFees = (loanId: string) => callApi('/api/remind', { action: 'waiveFees', loanId });

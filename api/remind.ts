@@ -5,6 +5,9 @@ import { LEGAL_INTEREST_RATE } from '../config/legal.js';
 
 // POST /api/remind { loanId } — le prêteur envoie tout de suite un rappel (notification + e-mail)
 // à son proche. Un rappel manuel par prêt et par jour au plus.
+// Corrections du prêteur sur son prêt (les règles Firestore ne permettent pas de toucher un paiement confirmé) :
+//  { action: 'cancelPayment', loanId, paymentId }  paiement confirmé par erreur → « annulé » (gardé dans l'historique)
+//  { action: 'waiveFees', loanId }                 renoncer aux frais de retard (pénalité et intérêts de retard)
 const eur = (n: number, c = 'EUR') => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === 'EUR' ? '€' : c}`;
 const fmtDate = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', timeZone: 'Europe/Paris' });
 const first = (s?: string) => (s || '').trim().split(/\s+/)[0] || '';
@@ -24,6 +27,18 @@ export default async function handler(req: any, res: any) {
     const snap = await ref.get();
     const loan: any = snap.exists ? { id: snap.id, ...snap.data() } : null;
     if (!loan || loan.lenderUid !== caller.uid || !isAllowedLender(caller.email, caller.email_verified === true)) return res.status(403).end();
+    const input = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    if (input.action === 'cancelPayment') {
+      const pref = ref.collection('payments').doc(String(input.paymentId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || '-');
+      const p = (await pref.get()).data();
+      if (!p || p.status !== 'confirmed') return res.status(409).json({ error: 'pas_confirme' });
+      await pref.set({ status: 'cancelled', cancelledAt: new Date().toISOString() }, { merge: true });
+      return res.status(200).json({ ok: true });
+    }
+    if (input.action === 'waiveFees') {
+      await ref.set({ lateFeesWaivedAt: new Date().toISOString() }, { merge: true });
+      return res.status(200).json({ ok: true });
+    }
     if (!loan.borrowerUid || !['active', 'delay_requested'].includes(loan.status)) return res.status(409).json({ error: 'pas_signe' });
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
     if ((loan.lastManualReminderAt || '').slice(0, 10) === today) return res.status(429).json({ error: 'deja_relance' });

@@ -173,8 +173,10 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
   const lateStart = base.map(i => i.lateFrom && i.lateFrom < i.dueDate ? i.lateFrom : i.dueDate);
   let lastAccrual = base.length ? lateStart.reduce((a, b) => (a < b ? a : b)) : todayISO;
 
+  // Frais de retard abandonnés par le prêteur : ni intérêts de retard, ni pénalité
+  const waived = !!loan.lateFeesWaivedAt;
   const accrueUntil = (dateISO: string) => {
-    if (lateRate <= 0 && !base.some(i => (i.lateRate || 0) > 0)) { lastAccrual = dateISO; return; }
+    if (waived || lateRate <= 0 && !base.some(i => (i.lateRate || 0) > 0)) { lastAccrual = dateISO; return; }
     // Somme des échéances échues et impayées, jour par jour (par segments).
     const from = lastAccrual < dateISO ? lastAccrual : dateISO;
     const dueDates = lateStart.filter(d => d > from && d < dateISO);
@@ -192,7 +194,7 @@ export const computeSituation = (loan: Loan, legalRate: number, today: Date = ne
   };
 
   const applyPenalties = (dateISO: string) => {
-    if (penaltyRate <= 0) return;
+    if (waived || penaltyRate <= 0) return;
     base.forEach((_inst, idx) => {
       if (!penaltyDone[idx] && lateStart[idx] < dateISO) {
         penaltyDone[idx] = true;

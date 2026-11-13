@@ -74,6 +74,7 @@ export interface Loan {
   contractCheckedAt?: string;
   counterOf?: string;
   penaltyRate?: number;         // clause pénale : % des sommes impayées à l'échéance, dû une fois
+  lateFeesWaivedAt?: string;    // le prêteur a renoncé aux frais de retard (pénalité et intérêts de retard)
   delayRate?: number;           // taux de report convenu au contrat (% par an)           // contre-proposition à la demande n°…         // le prêteur a envoyé l'argent
   borrowerPaymentLink?: string;
   borrowerReceive?: ReceiveInfo; // où l'ami veut recevoir l'argent (PayPal.me, Lydia, Revolut, IBAN…)        // message de l'ami avec sa demande
@@ -109,8 +110,9 @@ export interface Payment {
   date: string;            // date du paiement (YYYY-MM-DD)
   amount: number;
   method: string;
-  status: 'declared' | 'confirmed' | 'rejected';
+  status: 'declared' | 'confirmed' | 'rejected' | 'cancelled'; // cancelled : confirmé par erreur, annulé ensuite par le prêteur
   declaredBy: 'borrower' | 'lender';
+  cancelledAt?: string;
   declaredAt: string;
   confirmedAt?: string;
   proof?: string;          // capture (data URL), optionnelle
