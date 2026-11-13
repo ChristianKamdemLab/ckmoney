@@ -134,6 +134,23 @@ describe('agent Articles : reconnaître le journal sans en-tête ni pied de page
     expect(detectMedia('Un texte sans nom de journal.', { links: [...lm(4), ...autres(1)] }).media).toBe(LM);
   });
 
+  it('le texte commence par la rubrique seule (« Enquête | Afrique centrale », « RDC ») : vrai titre tiré du titre de page', () => {
+    const blocks = (t: string) => [
+      { t: 'h' as const, text: t },
+      { t: 'p' as const, text: 'Par Awa Test Publié le 19.10.2026 à 4h40 GMT | 9 min | Read in English' },
+      { t: 'p' as const, text: 'Un chapeau d’essai qui fait plus de soixante caractères pour compter comme un paragraphe.' },
+    ];
+    const t = "Derrière un titre d'essai assez long pour la fiche";
+    expect(classify('Enquête | Afrique centrale', blocks(t), { docTitle: `Afrique centrale • ${t} - 19/10/2026 - Africa Intelligence` })).toMatchObject({
+      kind: 'press', source: 'Africa Intelligence', title: 'Derrière un titre d’essai assez long pour la fiche', section: 'Afrique centrale',
+      excerpt: 'Un chapeau d’essai qui fait plus de soixante caractères pour compter comme un paragraphe.', publishedAt: '2026-10-19T09:00:00.000Z',
+    });
+    expect(classify('RDC', blocks(t), { fileName: `RDC • ${t} - 19_10_2026 - Africa Intelligence.pdf` })).toMatchObject({ title: 'Derrière un titre d’essai assez long pour la fiche', section: 'RDC' });
+    // Un titre de document sans rapport avec le texte ne remplace rien
+    const lm = Array.from({ length: 4 }, (_, i) => `https://www.lemonde.fr/a/${i}`);
+    expect(classify('Un vrai titre d’essai', blocks('Un intertitre'), { docTitle: 'Document sans rapport avec le texte', links: lm })).toMatchObject({ source: 'Le Monde', title: 'Un vrai titre d’essai' });
+  });
+
   it('auteur : « Par X Publié le… » ne prend pas « Publié »', () => {
     const c = classify('Un titre d’essai', [
       { t: 'p', text: 'Par Olivia Essai Publié le 26.10.2026 à 5h40 GMT' },

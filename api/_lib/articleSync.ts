@@ -176,7 +176,8 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
         await ref.set({
           ...base, kind: 'press', title: r.title, body: '', excerpt: e?.teaser || r.excerpt, readMinutes: 1, status: live ? 'published' : 'draft',
           ...(e?.summary ? { summary: e.summary } : {}),
-          source: r.source, sourceUrl: r.sourceUrl, sourceSection: r.section || '', sourceAuthor: r.author || '', publishedAt: kept || r.publishedAt || iso,
+          // La date d'une fiche est celle du journal quand on la connaît (elle ne change pas d'une lecture à l'autre)
+          source: r.source, sourceUrl: r.sourceUrl, sourceSection: r.section || '', sourceAuthor: r.author || '', publishedAt: r.publishedAt || kept || iso,
         }, { merge: true });
       } else {
         await ref.set({
