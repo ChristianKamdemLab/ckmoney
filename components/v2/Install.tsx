@@ -88,6 +88,20 @@ const AndroidGuide: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   );
 };
 
+/** Ouverture depuis un lien (/?installer, par exemple dans l'e-mail des nouveautés). */
+export const InstallFromLink: React.FC = () => {
+  const [open, setOpen] = useState(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (!sp.has('installer')) return false;
+      sp.delete('installer');
+      window.history.replaceState({}, '', `${window.location.pathname}${sp.toString() ? `?${sp}` : ''}`);
+      return !isStandalone();
+    } catch { return false; }
+  });
+  return <InstallSheet open={open} onClose={() => setOpen(false)} />;
+};
+
 export const InstallSheet: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const [phone, setPhone] = useState<'iphone' | 'android' | null>(null);
   const [done, setDone] = useState(false);
