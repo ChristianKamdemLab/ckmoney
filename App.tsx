@@ -56,20 +56,21 @@ const initialLinks = readLinks();
 // Liens vers un événement, gardés en session pour survivre à la connexion.
 try {
   const sp = new URLSearchParams(window.location.search);
-  const ev = sp.get('evenement'), prep = sp.get('preparer');
-  if (ev || prep) {
-    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep }));
+  const ev = sp.get('evenement'), prep = sp.get('preparer'), list = sp.has('sorties');
+  if (ev || prep || list) {
+    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list }));
     window.history.replaceState({}, '', '/');
   }
 } catch { /* ignore */ }
-const takeEventLink = (): { id?: string; prefill?: Partial<EventInput> } | null => {
+const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean } | null => {
   try {
     const raw = sessionStorage.getItem('ck_ev');
     if (!raw) return null;
     sessionStorage.removeItem('ck_ev');
-    const { id, prep } = JSON.parse(raw);
+    const { id, prep, list } = JSON.parse(raw);
     if (id) return { id: String(id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) };
     if (prep) return { prefill: decodePrefill(String(prep)) };
+    if (list) return { list: true };
   } catch { /* ignore */ }
   return null;
 };
@@ -186,13 +187,14 @@ const App: React.FC = () => {
     } catch { /* ignore */ }
   }, [user?.id]);
 
-  // Événements : /?evenement=<id> ouvre la fiche ; /?preparer=<…> ouvre le formulaire déjà rempli
+  // Sorties : /?sorties ouvre la liste ; /?evenement=<id> ouvre la fiche ; /?preparer=<…> ouvre le formulaire déjà rempli
   // (l'auteur n'a plus qu'à publier). Gardés le temps de la connexion.
   useEffect(() => {
     if (!user) return;
     const link = takeEventLink();
     if (link?.id) setOverlay({ k: 'events', id: link.id });
     else if (link?.prefill) setOverlay({ k: 'events', prefill: link.prefill });
+    else if (link?.list) setOverlay({ k: 'events' });
   }, [user?.id]);
 
   // Mise à jour en direct : une demande, une signature ou un paiement apparaît sans rouvrir l'appli

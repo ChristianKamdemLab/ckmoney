@@ -1,6 +1,6 @@
 // Service worker CKMoney : rend l'appli installable et ouvre l'écran d'accueil hors ligne.
 // Les données (Firebase) ne sont JAMAIS mises en cache : elles passent toujours par le réseau.
-const CACHE = 'ckmoney-v4';
+const CACHE = 'ckmoney-v5';
 // Pages publiques (jeux, événements) : jamais gardées comme page de secours de l'appli.
 const isPublicPage = (p) => ['/jambo', '/bac', '/wiseman', '/evenement'].includes(p) || p.startsWith('/e/');
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
@@ -53,11 +53,15 @@ self.addEventListener('push', (event) => {
   try { payload = event.data ? event.data.json() : {}; } catch { payload = {}; }
   const d = payload.data || payload.notification || {};
   const title = d.title || 'CKMoney';
+  // icon : le logo en couleur (grande image) ; badge : la petite icône monochrome de la barre d'état
+  // d'Android (une image en couleur y devient un carré blanc). Sur iPhone, c'est l'icône de l'appli installée.
   event.waitUntil(self.registration.showNotification(title, {
     body: d.body || '',
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    badge: '/icons/badge-96.png',
     tag: d.tag || undefined,
+    renotify: !!d.tag,
+    timestamp: Date.now(),
     data: { url: d.url || '/' },
   }));
 });
