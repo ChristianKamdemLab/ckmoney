@@ -20,6 +20,7 @@ vi.mock('../api/_lib/admin.js', () => ({
     },
   },
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, msg }); return uid === 'sans-appareil' ? 0 : 2; },
+  isAllowedLender: (email?: string) => email === 'chris@example.com',
   adminAuth: {
     listUsers: async () => ({ users: [
       { uid: 'chris', email: 'chris@example.com', emailVerified: true, providerData: [{}] },
@@ -72,6 +73,10 @@ describe('annonces', () => {
     mails.length = 0;
     await sendDueAnnouncements(at('2026-11-13T07:31:00Z'), [{ ...E, id: 'mail2', emailTo: 'all' }]);
     expect(mails.map(m => m.to).sort()).toEqual(['awa@example.com', 'chris@example.com', 'laura@example.com', 'pm@example.com']);
+    // Essai : Christian seul
+    mails.length = 0;
+    await sendDueAnnouncements(at('2026-11-13T07:31:00Z'), [{ ...E, id: 'essai', emailTo: 'author' }]);
+    expect(mails.map(m => m.to)).toEqual(['chris@example.com']);
   });
 
   it('e-mail : texte échappé, version texte complète', () => {
