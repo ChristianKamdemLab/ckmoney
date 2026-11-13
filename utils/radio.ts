@@ -93,6 +93,16 @@ export const decodeEntities = (t: string) => t
   .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
   .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
 
+/** Nom de l'émission d'après la description de la page : « Le Nectar · Episode » (Spotify),
+ *  « Listen to this episode from X on Spotify », « Écoutez cet épisode de X sur Spotify ». */
+export const showFromDescription = (desc: string) => {
+  const d = String(desc || '').trim();
+  const dot = d.match(/^(.+?)\s+·\s+(?:Episode|Épisode|Podcast)\b/i);
+  if (dot) return dot[1].trim();
+  const from = d.match(/(?:episode from|épisode de)\s+(.+?)\s+(?:on|sur)\s+(?:Spotify|Apple Podcasts|Deezer)/i);
+  return from ? from[1].trim() : '';
+};
+
 /** Titre, image et site d'une page, d'après ses balises d'aperçu (Open Graph). */
 export const ogTags = (html: string) => {
   const get = (p: string) => {

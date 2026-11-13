@@ -1,4 +1,4 @@
-import { parseMedia, ogTags, Platform } from '../../utils/radio.js';
+import { parseMedia, ogTags, showFromDescription, Platform } from '../../utils/radio.js';
 
 // Titre, émission et image d'un lien de podcast ou de vidéo, lus chez la plateforme (oEmbed, sinon
 // balises d'aperçu de la page). Aucune clé d'API. Seul l'auteur s'en sert (api/radio, action « preview »).
@@ -45,9 +45,8 @@ export const fetchMeta = async (raw: string) => {
       const og = ogTags(html);
       title ||= og.title;
       thumbnail ||= og.image;
-      // Spotify, Apple : le nom de l'émission est souvent dans la description de la page
-      const fromDesc = og.description.match(/(?:épisode de|episode from|écoutez|listen to)\s+(.+?)\s+(?:sur|on|dans)\s+(?:Spotify|Apple)/i);
-      show ||= (fromDesc && fromDesc[1]) || (og.site && !/spotify|apple|youtube|deezer/i.test(og.site) ? og.site : '');
+      // Spotify, Apple : le nom de l'émission est dans la description de la page
+      show ||= showFromDescription(og.description) || (og.site && !/spotify|apple|youtube|deezer/i.test(og.site) ? og.site : '');
     }
   }
   title = title.replace(/\s+[-|·]\s+(YouTube|Apple Podcasts|Spotify|Deezer)$/i, '').trim();
