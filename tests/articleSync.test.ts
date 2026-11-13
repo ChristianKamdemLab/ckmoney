@@ -26,9 +26,14 @@ vi.mock('../api/_lib/admin.js', () => ({
 
 const { syncArticles, CLASSIFIER } = await import('../api/_lib/articleSync');
 const PDF = 'application/pdf', DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-const drive = (files: { id: string; name: string; mimeType: string; modifiedTime: string; fixture?: string; size?: string }[]) => ({
+const GDOC = 'application/vnd.google-apps.document';
+type F = { id: string; name: string; mimeType: string; modifiedTime: string; fixture?: string; size?: string; text?: string };
+const drive = (files: F[]) => ({
   list: async () => files,
-  download: async (f: any) => ({ data: new Uint8Array(fs.readFileSync(`tests/fixtures/${files.find(x => x.id === f.id)!.fixture}`)) }),
+  download: async (f: any) => {
+    const x = files.find(y => y.id === f.id)!;
+    return x.text !== undefined ? { text: x.text } : { data: new Uint8Array(fs.readFileSync(`tests/fixtures/${x.fixture}`)) };
+  },
 });
 
 beforeEach(() => {
@@ -38,26 +43,47 @@ beforeEach(() => {
 });
 
 describe('agent Articles : publication', () => {
-  it('publie le texte de Christian en entier et la fiche presse sans le texte ; prévient tout le monde une fois', async () => {
-    const d = drive([
+  it('publie le texte de Christian en entier ; la fiche presse, sans le texte, attend son « L’essentiel »', async () => {
+    const files: F[] = [
       { id: 'f1', name: 'mon-texte.pdf', mimeType: PDF, modifiedTime: '2026-11-13T09:00:00Z', fixture: 'ckl-article.pdf' },
       { id: 'f2', name: 'ja.pdf', mimeType: PDF, modifiedTime: '2026-11-13T09:01:00Z', fixture: 'presse-ja.pdf' },
-    ]);
-    const r = await syncArticles(d, new Date('2026-11-13T10:00:00Z'));
-    expect(r.done).toEqual({ 'mon-texte.pdf': 'own', 'ja.pdf': 'press' });
+    ];
+    const r = await syncArticles(drive(files), new Date('2026-11-13T10:00:00Z'));
+    expect(r.done).toEqual({ 'mon-texte.pdf': 'own', 'ja.pdf': "press · en attente de l'essentiel" });
     const own = store.get(`articles/${store.get('articleImports/f1').articleId}`);
-    const press = store.get(`articles/${store.get('articleImports/f2').articleId}`);
+    const pressId = store.get('articleImports/f2').articleId;
     expect(own).toMatchObject({ kind: 'own', status: 'published', authorUid: 'chris', authorName: 'Christian Kamdem' });
     expect(own.body.length).toBeGreaterThan(200);
-    expect(press).toMatchObject({ kind: 'press', status: 'published', source: 'Jeune Afrique', body: '' });
-    expect(press.excerpt.split(/\s+/).length).toBeLessThanOrEqual(16);
-    // Notification « nouvel article » à tous les appareils, une fois par article
+    expect(store.get(`articles/${pressId}`)).toMatchObject({ kind: 'press', status: 'draft', source: 'Jeune Afrique', body: '' });
+    expect(store.get(`articles/${pressId}`).excerpt.split(/\s+/).length).toBeLessThanOrEqual(16);
+    // Notification « nouvel article » à tous les appareils, une fois ; la fiche en attente : Christian seul
     expect(pushed.filter(p => p.msg.title === 'Nouvel article de Christian').map(p => p.uid).sort()).toEqual(['chris', 'pm']);
-    expect(pushed.filter(p => p.msg.title === 'Revue de presse · Jeune Afrique')).toHaveLength(2);
+    expect(pushed.filter(p => p.msg.title.startsWith('Revue de presse'))).toEqual([]);
+    expect(pushed.filter(p => p.msg.title === 'Fiche à compléter · Jeune Afrique').map(p => p.uid)).toEqual(['chris']);
     // Rien de nouveau : rien ne se passe
     pushed.length = 0;
-    expect((await syncArticles(d)).done).toEqual({});
+    expect((await syncArticles(drive(files))).done).toEqual({});
     expect(pushed).toEqual([]);
+
+    // « L'essentiel » déposé à côté du PDF : la fiche est publiée avec, et tout le monde est prévenu
+    files.push({ id: 'e2', name: "ja · L'essentiel", mimeType: GDOC, modifiedTime: '2026-11-13T11:00:00Z',
+      text: "\ufeffAccroche : Une accroche d'essai écrite avec nos mots.\r\n\r\nPremier paragraphe de synthèse d'essai.\r\nDeuxième paragraphe.\r\n" });
+    expect((await syncArticles(drive(files))).done).toEqual({ 'ja.pdf': 'press' });
+    expect(store.get(`articles/${pressId}`)).toMatchObject({
+      status: 'published', body: '', excerpt: "Une accroche d'essai écrite avec nos mots.",
+      summary: "Premier paragraphe de synthèse d'essai.\n\nDeuxième paragraphe.",
+    });
+    expect(store.get('articleImports/e2')).toBeUndefined();
+    expect([...store.keys()].filter(k => k.startsWith('articles/'))).toHaveLength(2);
+    expect(pushed.filter(p => p.msg.title === 'Revue de presse · Jeune Afrique').map(p => p.uid).sort()).toEqual(['chris', 'pm']);
+
+    // Synthèse corrigée dans le document : la fiche suit, sans nouvelle notification
+    pushed.length = 0;
+    files[2] = { ...files[2], modifiedTime: '2026-11-13T12:00:00Z', text: 'Synthèse corrigée.' };
+    expect((await syncArticles(drive(files))).done).toEqual({ 'ja.pdf': 'press' });
+    expect(store.get(`articles/${pressId}`)).toMatchObject({ status: 'published', summary: 'Synthèse corrigée.' });
+    expect(pushed).toEqual([]);
+    expect((await syncArticles(drive(files))).done).toEqual({});
   }, 60000);
 
   it('fichier modifié : même article mis à jour, pas de nouvelle notification', async () => {
@@ -101,17 +127,18 @@ describe('agent Articles : relecture et garde-fous', () => {
 
   it('un brouillon « à vérifier » intact est relu : il devient une fiche, sans le texte, datée du jour de l’article', async () => {
     oldUnknown();
-    const r = await syncArticles(drive(files), new Date('2026-11-13T18:00:00Z'));
+    const withEss: F[] = [...files, { id: 'e1', name: AI_NAME.replace(/\.pdf$/, " · L'essentiel"), mimeType: GDOC, modifiedTime: 'e', text: 'Une synthèse d’essai.' }];
+    const r = await syncArticles(drive(withEss), new Date('2026-11-13T18:00:00Z'));
     expect(r.done).toEqual({ [AI_NAME]: 'press' });
     expect(store.get('articles/a1')).toMatchObject({
       kind: 'press', status: 'published', body: '', source: 'Africa Intelligence', sourceSection: 'Afrique',
-      title: 'Un titre d’essai assez long pour la revue de presse', publishedAt: '2026-10-26T09:00:00.000Z',
+      title: 'Un titre d’essai assez long pour la revue de presse', publishedAt: '2026-10-26T09:00:00.000Z', summary: 'Une synthèse d’essai.',
     });
-    expect(store.get('articleImports/f1')).toMatchObject({ status: 'press', v: CLASSIFIER, articleId: 'a1' });
+    expect(store.get('articleImports/f1')).toMatchObject({ status: 'press', v: CLASSIFIER, articleId: 'a1', essentiel: 'e' });
     expect(pushed.filter(p => p.msg.title === 'Revue de presse · Africa Intelligence')).toHaveLength(2);
     // Une seule fois
     pushed.length = 0;
-    expect((await syncArticles(drive(files))).done).toEqual({});
+    expect((await syncArticles(drive(withEss))).done).toEqual({});
     expect(pushed).toEqual([]);
   }, 60000);
 
