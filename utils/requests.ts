@@ -12,6 +12,12 @@ export const openLoanWith = (loans: Loan[], borrowerUid: string, lenderUid: stri
   loans.find(l => l.id !== exceptId && l.borrowerUid === borrowerUid && l.lenderUid === lenderUid && OPEN.includes(l.status)
     && !((l.status === 'active' || l.status === 'delay_requested') && computeSituation(l, LEGAL_INTEREST_RATE).isFullyPaid)) || null;
 
+/** Les prêteurs à qui ce compte peut faire une demande depuis son espace : ceux avec qui il a déjà un prêt
+ *  ou une demande, et ceux dont il a ouvert le lien de demande. Jamais un inconnu (pas de mise en relation). */
+export const requestTargets = (loans: Loan[], userId: string, viaLenders: string[] = []) =>
+  Array.from(new Set([...loans.filter(l => l.borrowerUid === userId).map(l => l.lenderUid || ''), ...viaLenders]))
+    .filter(uid => !!uid && uid !== userId);
+
 /** Pourquoi ce proche ne peut pas faire de nouvelle demande à ce prêteur (texte affiché sous le bouton). */
 export const blockedReason = (l: Loan, lenderFirstName: string) =>
   l.status === 'requested' ? `Ta demande est en attente : ${lenderFirstName} va l'accepter, la refuser ou te faire une autre proposition.`

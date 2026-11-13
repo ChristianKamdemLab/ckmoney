@@ -1,4 +1,4 @@
-import { adminDb, pushToUser, verifiedEmail, isAllowedLender } from '../_lib/admin.js';
+import { adminDb, pushToUser, verifiedEmail, isAdmin } from '../_lib/admin.js';
 import { sendReminderMail } from '../_lib/mail.js';
 import { runMonthly } from '../_lib/monthly.js';
 import { sendDueAnnouncements } from '../_lib/annonces.js';
@@ -56,7 +56,7 @@ export default async function handler(req: any, res: any) {
     const lenderLink = card?.paymentLink || loan.lenderPaymentLink;
     // E-mails seulement vers des adresses vérifiées, et seulement pour les prêts d'un prêteur autorisé.
     const lenderMail = await verifiedEmail(loan.lenderUid);
-    const mailOk = isAllowedLender(lenderMail);
+    const mailOk = isAdmin(lenderMail);
     const borrowerMail = mailOk ? await verifiedEmail(loan.borrowerUid) : undefined;
     const toBorrower = (amount: number) => ({ to: borrowerMail, replyTo: lenderMail, fromName: lender || 'CKMoney', payUrl: payUrl(lenderLink, amount, loan.currency) });
 

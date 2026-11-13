@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, isAllowedLender } from './admin.js';
+import { adminAuth, adminDb, isAdmin } from './admin.js';
 import { cleanEvent, cleanName, dayStart, dayEnd, isUpcoming } from '../../utils/events.js';
 
 // Sorties publiées d'un coup à partir d'un calendrier (salons…), au nom de Christian, sans notification.
@@ -19,7 +19,7 @@ export interface SeedEvent {
 
 export const importEvents = async (list: SeedEvent[], now = Date.now()) => {
   const users = (await adminAuth.listUsers(1000)).users;
-  const author = users.find((u: any) => isAllowedLender(u.email, u.emailVerified === true));
+  const author = users.find((u: any) => isAdmin(u.email, u.emailVerified === true));
   if (!author) throw new Error('auteur introuvable');
   const profile = (await adminDb.collection('profiles').doc(author.uid).get()).data();
   const authorName = cleanName(String(profile?.fullName || author.displayName || '').split(' ')[0]);

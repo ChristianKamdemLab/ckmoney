@@ -250,19 +250,6 @@ export const resolveHandle = async (handle: string): Promise<string | null> => {
   } catch { return null; }
 };
 
-/** Prêteur principal de l'appli (Christian) : ses proches lui font leurs demandes directement depuis
- *  leur espace, sans attendre son lien. Adresse courte réglable par VITE_MAIN_LENDER_HANDLE. */
-const MAIN_LENDER_HANDLE = String((import.meta as any).env?.VITE_MAIN_LENDER_HANDLE || 'christian').toLowerCase();
-let mainLender: Promise<{ uid: string; firstName: string } | null> | null = null;
-export const getMainLender = () => {
-  mainLender ||= (async () => {
-    const uid = await resolveHandle(MAIN_LENDER_HANDLE);
-    const card = uid ? await getLenderCard(uid) : null;
-    return uid && card ? { uid, firstName: card.firstName } : null;
-  })().then(r => { if (!r) mainLender = null; return r; });
-  return mainLender;
-};
-
 /** Lien permanent à envoyer une fois à ses proches : ils y font leurs demandes. */
 export const requestLinkFor = (handleOrUid: string) => `${window.location.origin}/${handleOrUid}`;
 

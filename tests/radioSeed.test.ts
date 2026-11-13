@@ -15,6 +15,7 @@ vi.mock('../api/_lib/admin.js', () => ({
   },
   pushToUser: async (uid: string) => { pushed.push(uid); return 1; },
   isAllowedLender: (e?: string, v = true) => v && e === 'chris@example.com',
+  isAdmin: (e?: string, v = true) => v && e === 'chris@example.com',
   adminAuth: { listUsers: async () => ({ users }) },
 }));
 vi.mock('../api/_lib/mail.js', () => ({ sendMail: async () => true }));

@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, isAllowedLender, pushToUser } from './_lib/admin.js';
+import { adminAuth, adminDb, isAdmin, pushToUser } from './_lib/admin.js';
 import { fetchMeta } from './_lib/radioMeta.js';
 import { cleanReco, cleanComment, isReaction, RadioItem, RadioComment } from '../utils/radio.js';
 
@@ -39,7 +39,7 @@ export default async function handler(req: any, res: any) {
   try { who = await adminAuth.verifyIdToken((req.headers.authorization || '').replace(/^Bearer /, '')); }
   catch { return res.status(401).json({ error: 'unauthorized' }); }
   if (who.firebase?.sign_in_provider === 'anonymous') return res.status(403).json({ error: 'forbidden' });
-  const author = isAllowedLender(who.email, who.email_verified === true);
+  const author = isAdmin(who.email, who.email_verified === true);
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});

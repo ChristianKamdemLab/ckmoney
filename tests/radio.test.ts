@@ -76,6 +76,7 @@ vi.mock('../api/_lib/admin.js', () => ({
   },
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, msg }); return 1; },
   isAllowedLender: (e?: string, v = true) => v && e === 'chris@example.com',
+  isAdmin: (e?: string, v = true) => v && e === 'chris@example.com',
 }));
 vi.mock('../api/_lib/radioMeta.js', () => ({ fetchMeta: async (u: string) => (u.includes('youtu') ? { platform: 'youtube', kind: 'video', url: u, title: 'Titre lu', show: 'Chaîne', thumbnail: 'https://i.ytimg.com/x.jpg', embedUrl: 'e' } : null) }));
 const handler = (await import('../api/radio')).default;

@@ -13,11 +13,12 @@ interface ProfileSetupProps {
   initial?: Profile | null;
   onSaved: (p: Profile) => void;
   onCancel?: () => void; // absent lors de la première connexion
+  lending?: boolean;      // « Prêter à mes proches » : un proche devient aussi prêteur
 }
 
 
 /** Saisie unique de l'identité du prêteur, réutilisée dans tous ses contrats. */
-const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onCancel }) => {
+const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onCancel, lending }) => {
   const [p, setP] = useState<Profile>(initial || {
     civility: 'M.', fullName: user.name, birthDate: '', birthPlace: '', address: '', iban: '', paymentLink: '', signature: '',
   });
@@ -45,9 +46,11 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
   const cap = USURY_BRACKETS[0].rate;
   return (
     <Screen>
-      {onCancel ? <TopBar onBack={onCancel} title="Mes informations" /> : <div className="px-6 pt-[max(env(safe-area-inset-top),24px)]"><CKLogo size="sm" /></div>}
-      <H1 desc="Elles figurent dans chaque contrat où tu es le prêteur. Tu ne les saisis qu'une fois et tu peux les modifier à tout moment.">
-        {onCancel ? 'Tes informations' : 'Tes informations, une fois pour toutes'}
+      {onCancel ? <TopBar onBack={onCancel} title={lending ? 'Prêter à mes proches' : 'Mes informations'} /> : <div className="px-6 pt-[max(env(safe-area-inset-top),24px)]"><CKLogo size="sm" /></div>}
+      <H1 desc={lending
+        ? "Contrats signés avec le doigt, rappels automatiques, suivi des remboursements. Ces informations figurent dans les contrats où tu prêtes ; tes emprunts et tes demandes restent à part, et personne d'autre que tes emprunteurs ne voit que tu prêtes."
+        : "Elles figurent dans chaque contrat où tu es le prêteur. Tu ne les saisis qu'une fois et tu peux les modifier à tout moment."}>
+        {lending ? 'Toi aussi, prête à tes proches' : onCancel ? 'Tes informations' : 'Tes informations, une fois pour toutes'}
       </H1>
 
       <div className="px-6 pt-5 flex flex-col gap-4">
@@ -102,7 +105,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
         <Note>Ces informations ne sont visibles que par toi, et par tes proches dans les contrats qui les concernent.</Note>
         {error && <Note tone="danger" icon="alert">{error}</Note>}
       </div>
-      <Footer><Button disabled={!complete} busy={saving} onClick={submit}>Enregistrer</Button></Footer>
+      <Footer><Button disabled={!complete} busy={saving} onClick={submit}>{lending ? 'Commencer à prêter' : 'Enregistrer'}</Button></Footer>
     </Screen>
   );
 };

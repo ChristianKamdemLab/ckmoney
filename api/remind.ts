@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, pushToUser, isAllowedLender, verifiedEmail } from './_lib/admin.js';
+import { adminAuth, adminDb, pushToUser, isAdmin, verifiedEmail } from './_lib/admin.js';
 import { sendReminderMail } from './_lib/mail.js';
 import { computeSituation } from '../utils/schedule.js';
 import { LEGAL_INTEREST_RATE } from '../config/legal.js';
@@ -26,7 +26,8 @@ export default async function handler(req: any, res: any) {
     const ref = adminDb.collection('loans').doc(String(loanId || ''));
     const snap = await ref.get();
     const loan: any = snap.exists ? { id: snap.id, ...snap.data() } : null;
-    if (!loan || loan.lenderUid !== caller.uid || !isAllowedLender(caller.email, caller.email_verified === true)) return res.status(403).end();
+    // Le prêteur de ce prêt (tout compte peut prêter), avec une adresse e-mail vérifiée
+    if (!loan || loan.lenderUid !== caller.uid || caller.email_verified !== true) return res.status(403).end();
     const input = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     if (input.action === 'cancelPayment') {
       const pref = ref.collection('payments').doc(String(input.paymentId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || '-');
@@ -62,7 +63,8 @@ export default async function handler(req: any, res: any) {
     }
     await adminDb.collection('notifications').add({ userId: loan.borrowerUid, loanId: loan.id, type: s.isOverdue ? 'danger' : 'info', title, message: body, date: new Date().toISOString(), read: false, pushedAt: new Date().toISOString() });
     const pushed = await pushToUser(loan.borrowerUid, { title, body, url: `/?loan=${loan.id}`, tag: `${loan.id}-rappel` });
-    const to = await verifiedEmail(loan.borrowerUid);
+    // E-mail seulement pour les prêts de l'administrateur (il part du Gmail de l'appli) ; sinon notification
+    const to = isAdmin(caller.email, true) ? await verifiedEmail(loan.borrowerUid) : undefined;
     const mailed = to ? await sendReminderMail({
       to, replyTo: caller.email, fromName: lender || 'CKMoney', subject: `CKMoney · ${title}`, title, body, loanId: loan.id,
       payUrl: payUrl(card?.paymentLink || loan.lenderPaymentLink, amount, loan.currency), payLabel: 'Payer maintenant',

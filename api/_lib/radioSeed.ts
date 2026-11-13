@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, isAllowedLender } from './admin.js';
+import { adminAuth, adminDb, isAdmin } from './admin.js';
 import { fetchMeta } from './radioMeta.js';
 import { cleanReco } from '../../utils/radio.js';
 
@@ -10,7 +10,7 @@ export interface RadioSeed { id: string; url: string; title?: string; show?: str
 
 export const importRadio = async (list: RadioSeed[], now = Date.now()) => {
   const users = (await adminAuth.listUsers(1000)).users;
-  const author = users.find((u: any) => isAllowedLender(u.email, u.emailVerified === true));
+  const author = users.find((u: any) => isAdmin(u.email, u.emailVerified === true));
   if (!author) throw new Error('auteur introuvable');
   const profile = (await adminDb.collection('profiles').doc(author.uid).get()).data();
   const authorName = String(profile?.fullName || author.displayName || '').trim().split(/\s+/)[0] || 'Christian';

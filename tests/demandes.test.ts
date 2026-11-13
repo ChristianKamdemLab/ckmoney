@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { openLoanWith, blockedReason } from '../utils/requests';
+import { openLoanWith, blockedReason, requestTargets } from '../utils/requests';
 import { buildSchedule } from '../utils/schedule';
 
 // Demandes directes : une seule à la fois entre un proche et un prêteur.
@@ -34,5 +34,14 @@ describe('une demande à la fois', () => {
     expect(blockedReason(L('a', 'requested'), 'Christian')).toContain('Christian va l');
     expect(blockedReason(L('a', 'pending_borrower'), 'Christian')).toContain('Christian t');
     expect(blockedReason(L('a', 'active'), 'Christian')).toContain('remboursé');
+  });
+});
+
+describe('à qui faire une demande', () => {
+  it('seulement ses prêteurs : prêt, demande ou lien ouvert ; jamais soi-même ni un inconnu', () => {
+    expect(requestTargets([], 'ami')).toEqual([]);
+    expect(requestTargets([L('a', 'paid')], 'ami')).toEqual(['chris']);
+    expect(requestTargets([L('a', 'declined', { lenderUid: 'marie' })], 'ami', ['chris', 'chris'])).toEqual(['marie', 'chris']);
+    expect(requestTargets([L('a', 'active', { borrowerUid: 'autre', lenderUid: 'ami' })], 'ami', ['ami'])).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, isAllowedLender, pushToUser } from './_lib/admin.js';
+import { adminAuth, adminDb, isAdmin, pushToUser } from './_lib/admin.js';
 import { cleanEvent, cleanName, escapeHtml, icsFor, isUpcoming, summary, AppEvent, KIND_LABEL } from '../utils/events.js';
 
 // /api/events — les sorties : événements (salons…), spots (« je suis au bar X ») et chills organisés
@@ -186,7 +186,7 @@ export default async function handler(req: any, res: any) {
     if (!member) return res.status(403).json({ error: 'forbidden' });
     // Christian (admin) : « certaines personnes » (la liste des comptes dit qui a un prêt avec lui) et
     // retrait de n'importe quelle sortie.
-    const admin = isAllowedLender(who.email, who.email_verified === true);
+    const admin = isAdmin(who.email, who.email_verified === true);
 
     if (body.action === 'list') {
       const snap = await col().where('status', '==', 'published').get();
