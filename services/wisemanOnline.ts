@@ -8,6 +8,7 @@ import type { Role, Winner } from '../games/wiseman';
 export type WSeat = { uid: string; name: string };
 export interface WisemanTable {
   code: string;
+  name?: string;        // nom de la table (foot, séries) ; le code sert à rejoindre
   hostUid: string;
   status: 'lobby' | 'clues' | 'vote' | 'guess' | 'end';
   seats: WSeat[];

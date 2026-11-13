@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Screen, TopBar, Button, Chips, Note, Card as Box, Avatar, Toast, Icon, inputClass, inputStyle, C, firstName } from './ui';
-import { Felt, NameStep, ShareBox } from './GameKit';
+import { Felt, NameStep, ShareBox, nameOf as tableName } from './GameKit';
 import { FELT } from './JamboTable';
 import { ensurePlayer, savedName, saveName, ERRORS } from '../../services/jamboOnline';
 import { bac, watchBac, bacLink, BacTable } from '../../services/bacOnline';
@@ -39,7 +39,8 @@ const Lobby: React.FC<{ t: BacTable; uid: string; onLeave: () => void }> = ({ t,
   return (
     <Screen>
       <TopBar onBack={onLeave} title="Baccalauréat" />
-      <ShareBox code={t.code} link={bacLink(t.code)} text={`On fait un Baccalauréat ? Rejoins ma table ${t.code}, sans feuille ni stylo : ${bacLink(t.code)}`} onCopied={() => setToast('Lien copié')} />
+      <ShareBox name={tableName(t)} code={t.code} link={bacLink(t.code)} text={`On fait un Baccalauréat ? Rejoins la table ${tableName(t)}, sans feuille ni stylo : ${bacLink(t.code)}`} onCopied={() => setToast('Lien copié')}
+        onRename={isHost ? async () => { setBusy('rename'); try { await bac('rename', { code: t.code }); } catch (e) { setToast(errorText(e)); } finally { setBusy(null); } } : undefined} renaming={busy === 'rename'} />
       <div className="px-5 pt-6 pb-2 text-[15px] font-bold">Joueurs ({t.seats.length})</div>
       <div className="px-5">
         <Box>
@@ -387,8 +388,8 @@ const Bac: React.FC<{ playerName: string; onBack?: () => void; guest?: boolean; 
       </Screen>
     );
     return (
-      <NameStep topTitle="Baccalauréat" eyebrow="Le petit bac entre amis" title={`La table de ${hostName || 'ton ami'}`}
-        desc={`Table ${table.code} · ${table.seats.length} joueur${table.seats.length > 1 ? 's' : ''} · ${table.rounds} manches.`}
+      <NameStep topTitle="Baccalauréat" eyebrow="Le petit bac entre amis" title={`Table ${tableName(table)}`}
+        desc={`Avec ${hostName || 'ton ami'} · ${table.seats.length} joueur${table.seats.length > 1 ? 's' : ''} · ${table.rounds} manches.`}
         cta="M'asseoir à la table" initial={name} busy={busy} error={error} onBack={exit} onSubmit={n => go('join', n)} />
     );
   }

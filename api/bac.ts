@@ -1,4 +1,5 @@
 import { adminAuth, adminDb } from './_lib/admin.js';
+import { pickTableName } from '../games/tableNames.js';
 import { DEFAULT_CATEGORIES, STOP_GRACE_S, pickLetter, autoCheck, scoreRound } from '../games/bac.js';
 
 // POST /api/bac — Baccalauréat en ligne entre amis.
@@ -41,7 +42,7 @@ export default async function handler(req: any, res: any) {
         const ok = await adminDb.runTransaction(async tx => {
           if ((await tx.get(ref)).exists) return false;
           tx.set(ref, {
-            code, hostUid: uid, status: 'lobby', seats: [{ uid, name }], categories: DEFAULT_CATEGORIES,
+            code, name: pickTableName(), hostUid: uid, status: 'lobby', seats: [{ uid, name }], categories: DEFAULT_CATEGORIES,
             rounds: 5, duration: 120, round: 0, usedLetters: [], scores: {}, version: 1, createdAt: now, updatedAt: now,
           });
           return true;
@@ -110,6 +111,11 @@ export default async function handler(req: any, res: any) {
           const rest = seats.filter(s => s.uid !== uid);
           if (!rest.length) { tx.delete(ref); return {}; }
           tx.update(ref, { ...bump, seats: rest, hostUid: isHost ? rest[0].uid : t.hostUid });
+          return {};
+        }
+        case 'rename': {
+          if (!isHost || t.status !== 'lobby') throw new Refus('hote', 403);
+          tx.update(ref, { ...bump, name: pickTableName(t.name) });
           return {};
         }
         case 'config': {

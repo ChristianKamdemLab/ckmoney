@@ -100,7 +100,7 @@ export interface TableProps {
   onQuit: () => void;
   quitTitle: string;
   quitText: string;
-  topLabel?: string;            // ex. « Table K7PM3Q »
+  topLabel?: string;            // ex. « Table Maracanã »
 }
 
 const label = (m: TableModel, i: number) => (i === 0 ? 'Toi' : m.names[i]);

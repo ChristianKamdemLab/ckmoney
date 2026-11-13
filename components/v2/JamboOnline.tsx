@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Screen, TopBar, Button, Chips, Note, Card as Box, Avatar, Field, Toast, Icon, inputClass, inputStyle, C, firstName } from './ui';
 import { Card, Play } from '../../games/fapfap';
 import { TableView, TableModel, FELT } from './JamboTable';
-import { Felt, NameStep } from './GameKit';
+import { Felt, NameStep, ShareBox, nameOf } from './GameKit';
 import { ensurePlayer, jambo, watchTable, watchHand, tableLink, savedName, saveName, OnlineTable, ERRORS } from '../../services/jamboOnline';
 
 // Jambo en ligne : une table, un lien WhatsApp, chacun joue depuis son téléphone.
@@ -17,7 +17,7 @@ const Lobby: React.FC<{ t: OnlineTable; uid: string; onLeave: () => void }> = ({
   const isHost = t.hostUid === uid;
   const host = t.seats.find(s => s.uid === t.hostUid);
   const link = tableLink(t.code);
-  const share = `Viens jouer au Fap Fap avec moi, on joue pour des points. Table ${t.code} : ${link}`;
+  const share = `Viens jouer au Fap Fap avec moi, on joue pour des points. Table ${nameOf(t)} : ${link}`;
   const act = async (key: string, action: string, body: Record<string, unknown> = {}) => {
     setBusy(key);
     try { await jambo(action, { code: t.code, ...body }); } catch (e) { setToast(errorText(e)); } finally { setBusy(null); }
@@ -25,21 +25,8 @@ const Lobby: React.FC<{ t: OnlineTable; uid: string; onLeave: () => void }> = ({
   return (
     <Screen>
       <TopBar onBack={onLeave} title="Table de jeu" />
-      <Felt>
-        <div className="text-[13px] font-semibold" style={{ color: C.ochre }}>Table</div>
-        <div className="serif text-[40px] font-semibold tracking-[3px] leading-none mt-1">{t.code}</div>
-        <p className="text-[14px] leading-relaxed mt-3" style={{ color: 'rgba(255,255,255,.75)' }}>Envoie le lien à tes amis : ils entrent leur prénom et s'assoient. Pas besoin de compte.</p>
-        <div className="grid grid-cols-2 gap-2 mt-4">
-          <a href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noopener noreferrer"
-            className="h-11 rounded-xl flex items-center justify-center gap-2 text-[14px] font-bold text-white" style={{ background: C.green }}>
-            <Icon name="chat" size={18} /> WhatsApp
-          </a>
-          <button onClick={() => { navigator.clipboard?.writeText(link); setToast('Lien copié'); }}
-            className="h-11 rounded-xl flex items-center justify-center gap-2 text-[14px] font-bold" style={{ background: 'rgba(255,255,255,.12)' }}>
-            <Icon name="copy" size={18} /> Copier le lien
-          </button>
-        </div>
-      </Felt>
+      <ShareBox name={nameOf(t)} code={t.code} link={link} text={share} onCopied={() => setToast('Lien copié')}
+        onRename={isHost ? () => act('rename', 'rename') : undefined} renaming={busy === 'rename'} />
 
       <div className="px-5 pt-6 pb-2 text-[15px] font-bold">Joueurs ({t.seats.length} sur 4)</div>
       <div className="px-5">
@@ -154,7 +141,7 @@ const OnlineGame: React.FC<{ t: OnlineTable; uid: string; hand: Card[]; onExit: 
     <>
       <TableView m={m} banner={banner} locked={!!hold} secondsLeft={secondsLeft} note={auto} showResult={!hold}
         onPlay={c => act('play', { card: c })} onClaim={() => act('claim')} onNext={() => act('next')}
-        onReplay={() => act('rematch')} replayLabel="Revanche" onQuit={onExit} topLabel={`Table ${t.code}`}
+        onReplay={() => act('rematch')} replayLabel="Revanche" onQuit={onExit} topLabel={`Table ${nameOf(t)}`}
         quitTitle="Quitter la table ?" quitText="Tu pourras revenir avec le même lien. Pendant ton absence, l'ordinateur joue pour toi au bout de 30 secondes." />
       <Toast text={toast} onDone={() => setToast(null)} />
     </>
@@ -231,7 +218,7 @@ const JamboOnline: React.FC<{ code?: string; target?: number; defaultName: strin
       </Screen>
     );
     return (
-      <NameStep topTitle="Jambo en ligne" eyebrow="Fap Fap entre amis" title={`La table de ${hostName || 'ton ami'}`} desc={`Table ${table.code} · ${table.seats.length} joueur${table.seats.length > 1 ? 's' : ''} sur 4 · partie en ${table.target} points.`}
+      <NameStep topTitle="Jambo en ligne" eyebrow="Fap Fap entre amis" title={`Table ${nameOf(table)}`} desc={`Avec ${hostName || 'ton ami'} · ${table.seats.length} joueur${table.seats.length > 1 ? 's' : ''} sur 4 · partie en ${table.target} points.`}
         cta="M'asseoir à la table" initial={name} busy={busy} error={error} onBack={exit} onSubmit={join} />
     );
   }

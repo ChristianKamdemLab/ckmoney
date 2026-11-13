@@ -8,6 +8,7 @@ export type BacSeat = { uid: string; name: string };
 export type AutoReject = 'vide' | 'lettre';
 export interface BacTable {
   code: string;
+  name?: string;        // nom de la table (foot, séries) ; le code sert à rejoindre
   hostUid: string;
   status: 'lobby' | 'writing' | 'review' | 'scores';
   seats: BacSeat[];

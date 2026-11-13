@@ -1,4 +1,5 @@
 import { adminAuth, adminDb } from './_lib/admin.js';
+import { pickTableName } from '../games/tableNames.js';
 import {
   Game, Card, Play, SUITS, RANKS, newGame, play, claim, resolveTrick, nextRound, aiMove, currentBest,
 } from '../games/fapfap.js';
@@ -62,7 +63,7 @@ export default async function handler(req: any, res: any) {
         const ref = tables().doc(code);
         const created = await adminDb.runTransaction(async tx => {
           if ((await tx.get(ref)).exists) return false;
-          tx.set(ref, { code, hostUid: uid, status: 'lobby', seats: [{ uid, name, bot: false }], target, version: 1, createdAt: now, updatedAt: now });
+          tx.set(ref, { code, name: pickTableName(), hostUid: uid, status: 'lobby', seats: [{ uid, name, bot: false }], target, version: 1, createdAt: now, updatedAt: now });
           return true;
         });
         if (created) return res.status(200).json({ code });
@@ -127,6 +128,11 @@ export default async function handler(req: any, res: any) {
           const i = Number(body.index);
           if (!isHost || t.status !== 'lobby' || !seats[i]?.bot) throw new Refus('hote', 403);
           tx.update(ref, { ...bump, seats: seats.filter((_, k) => k !== i) });
+          return {};
+        }
+        case 'rename': {
+          if (!isHost || t.status !== 'lobby') throw new Refus('hote', 403);
+          tx.update(ref, { ...bump, name: pickTableName(t.name) });
           return {};
         }
         case 'setTarget': {

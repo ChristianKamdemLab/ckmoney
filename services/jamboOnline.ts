@@ -9,6 +9,7 @@ import type { Card, Play, RoundResult } from '../games/fapfap';
 export type Seat = { uid: string | null; name: string; bot: boolean };
 export interface OnlineTable {
   code: string;
+  name?: string;        // nom de la table (foot, séries) ; le code sert à rejoindre
   hostUid: string;
   status: 'lobby' | 'playing';
   seats: Seat[];
