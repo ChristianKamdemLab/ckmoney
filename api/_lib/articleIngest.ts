@@ -47,6 +47,13 @@ export type Ingested =
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 /** Première date « 12 novembre 2026 » ou « 12/11/2026 » trouvée dans le début du texte. */
 export const findDate = (text: string): string | undefined => {
+  // D'abord la date de publication annoncée ; « Publié aujourd'hui » : la date à laquelle le fichier a été généré
+  const pub = text.match(/publi[ée]\s+le\s+((?:\d{1,2}(?:er)?\s+\p{L}+\s+20\d{2})|(?:\d{1,2}\/\d{1,2}\/20\d{2}))/iu);
+  if (pub) return findDate(pub[1].replace(/^publi.*?le\s+/i, ''));
+  if (/publi[ée]\s+aujourd/i.test(text)) {
+    const gen = text.match(/g[ée]n[ée]r[ée]\s+le\s+(\d{1,2}\/\d{1,2}\/20\d{2})/i);
+    if (gen) return findDate(gen[1]);
+  }
   const head = text.slice(0, 1500);
   const m = head.match(new RegExp(`\\b(\\d{1,2})(?:er)?\\s+(${MONTHS.join('|')})\\s+(20\\d{2})\\b`, 'i'));
   if (m) return new Date(Date.UTC(+m[3], MONTHS.indexOf(m[2].toLowerCase()), +m[1], 9)).toISOString();
@@ -153,11 +160,13 @@ export const classify = (rawTitle: string, blocks: Block[]): Ingested => {
     URL_RE.lastIndex = 0;
     const author = (text.match(/\bPar\s+([A-ZÀ-Ý][\p{L}'’-]+(?:\s+[A-ZÀ-Ý][\p{L}'’-]+){0,3})/u) || [])[1];
     const sectionTags = tags.filter(t => !(media.masthead && media.masthead.test(t)) && !new RegExp(media.name.replace(/[’']/g, '.'), 'i').test(t));
+    // Les légendes de photo (« … le 29 juillet 2022 … © Photographe ») ne datent pas l'article
+    const datable = [header, title, ...clean.filter(b => !isCaption(b.text)).map(b => b.text)].join('\n');
     const section = sectionTags.length ? sectionTags[0].split(/[ ,]+/).filter(Boolean).map(w => w[0] + w.slice(1).toLowerCase()).join(' · ') : undefined;
     return {
       kind: 'press', title: frTypo(stripMedia(title, media)), source: media.name,
       sourceUrl: url || `https://www.${media.domains[0]}`, excerpt: frTypo(pressExcerpt(bodyBlocks, title)),
-      author, section, publishedAt: findDate(dateLine ? `${dateLine}\n${text}` : text),
+      author, section, publishedAt: findDate(dateLine ? `${dateLine}\n${datable}` : datable),
     };
   }
   return { kind: 'unknown', title: frTypo(title), body: blocksToBody(clean) };
