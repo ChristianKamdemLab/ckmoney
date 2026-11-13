@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cleanEvent, whenText, shortWhen, sortUpcoming, icsFor, shareText, toLocalInput, fromLocalInput, googleCalendarUrl, AppEvent } from '../utils/events';
+import { cleanEvent, whenText, shortWhen, sortUpcoming, icsFor, shareText, toLocalInput, fromLocalInput, googleCalendarUrl, encodePrefill, decodePrefill, AppEvent } from '../utils/events';
 
 // Événements : mise en forme (heure de Paris), validation, agenda, et serveur (api/events) testé
 // avec une base Firestore simulée en mémoire.
@@ -50,6 +50,14 @@ describe('événements : mise en forme', () => {
     expect(ics.split('\r\n')[0]).toBe('BEGIN:VCALENDAR');
     const g = new URL(googleCalendarUrl(SALON, 'https://x/e/1'));
     expect(g.searchParams.get('dates')).toBe('20261204T120000Z/20261205T180000Z');
+  });
+
+  it('lien préparé : aller-retour avec accents, et refus des données cassées', () => {
+    const { id, status, ...input } = SALON;
+    expect(decodePrefill(encodePrefill(input))).toEqual(input);
+    expect(encodePrefill(input)).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(decodePrefill('%%%')).toBeUndefined();
+    expect(decodePrefill(encodePrefill([1, 2] as any))).toBeUndefined();
   });
 
   it('texte de partage et champ date-heure', () => {

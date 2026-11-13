@@ -9,12 +9,22 @@ import { AppEvent, EventInput, isUpcoming, toLocalInput, fromLocalInput } from '
 
 type Form = Omit<EventInput, 'startsAt' | 'endsAt'> & { start: string; end: string };
 
+/** Lien préparé (/?preparer=…) : on ne garde que les champs texte attendus. */
+const fromPrefill = (p: Partial<EventInput>): Partial<Form> => {
+  const str = (v: unknown) => (typeof v === 'string' ? v.slice(0, 2000) : undefined);
+  const out: Partial<Form> = {};
+  (['title', 'venue', 'address', 'url', 'price', 'organizer', 'description'] as const).forEach(k => { const v = str(p[k]); if (v !== undefined) out[k] = v; });
+  if (str(p.startsAt)) out.start = toLocalInput(p.startsAt);
+  if (str(p.endsAt)) out.end = toLocalInput(p.endsAt);
+  return out;
+};
+
 const emptyForm: Form = { title: '', start: '', end: '', venue: '', address: '', url: '', price: 'Gratuit', organizer: '', description: '' };
 
-const Editor: React.FC<{ initial?: AppEvent; onBack: () => void; onSaved: (id?: string) => void }> = ({ initial, onBack, onSaved }) => {
+const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; onBack: () => void; onSaved: (id?: string) => void }> = ({ initial, prefill, onBack, onSaved }) => {
   const [f, setF] = useState<Form>(() => initial
     ? { id: initial.id, title: initial.title, start: toLocalInput(initial.startsAt), end: toLocalInput(initial.endsAt), venue: initial.venue, address: initial.address, url: initial.url, price: initial.price, organizer: initial.organizer, description: initial.description }
-    : emptyForm);
+    : prefill ? { ...emptyForm, ...fromPrefill(prefill) } : emptyForm);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -82,10 +92,11 @@ const Editor: React.FC<{ initial?: AppEvent; onBack: () => void; onSaved: (id?: 
   );
 };
 
-const EventsScreen: React.FC<{ isAuthor: boolean; onBack: () => void; initialId?: string }> = ({ isAuthor, onBack, initialId }) => {
+const EventsScreen: React.FC<{ isAuthor: boolean; onBack: () => void; initialId?: string; prefill?: Partial<EventInput> }> = ({ isAuthor, onBack, initialId, prefill }) => {
   const [list, setList] = useState<AppEvent[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [view, setView] = useState<{ k: 'list' } | { k: 'read'; id: string } | { k: 'edit'; id?: string }>(initialId ? { k: 'read', id: initialId } : { k: 'list' });
+  const [view, setView] = useState<{ k: 'list' } | { k: 'read'; id: string } | { k: 'edit'; id?: string; prefill?: Partial<EventInput> }>(
+    prefill && isAuthor ? { k: 'edit', prefill } : initialId ? { k: 'read', id: initialId } : { k: 'list' });
   const [toast, setToast] = useState<string | null>(null);
 
   const load = (fresh = false) => listEvents(fresh).then(l => { setList(l); setFailed(false); }).catch(() => { setFailed(true); setList([]); });
@@ -95,7 +106,7 @@ const EventsScreen: React.FC<{ isAuthor: boolean; onBack: () => void; initialId?
 
   if (view.k === 'edit' && isAuthor) {
     const e = view.id ? list?.find(x => x.id === view.id) : undefined;
-    return <Editor initial={e} onBack={() => go(view.id ? { k: 'read', id: view.id } : { k: 'list' })}
+    return <Editor initial={e} prefill={view.prefill} onBack={() => go(view.id ? { k: 'read', id: view.id } : { k: 'list' })}
       onSaved={id => { load(true); setToast(id ? 'Événement publié' : 'Événement supprimé'); go(id ? { k: 'read', id } : { k: 'list' }); }} />;
   }
 

@@ -20,6 +20,7 @@ import ProfileSetup from './components/ProfileSetup';
 import LegalDocs from './components/LegalDocs';
 import ContractPreview from './components/ContractPreview';
 import CKLogo from './components/brand/CKLogo';
+import { EventInput, decodePrefill } from './utils/events';
 // Articles et Jambo : chargés seulement quand on les ouvre
 const ArticlesScreen = lazy(() => import('./components/v2/Articles'));
 const Jambo = lazy(() => import('./components/v2/Jambo'));
@@ -51,6 +52,27 @@ const readLinks = (): { i: string | null; d: string | null } => {
   } catch { return { i: null, d: null }; }
 };
 const initialLinks = readLinks();
+
+// Liens vers un événement, gardés en session pour survivre à la connexion.
+try {
+  const sp = new URLSearchParams(window.location.search);
+  const ev = sp.get('evenement'), prep = sp.get('preparer');
+  if (ev || prep) {
+    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep }));
+    window.history.replaceState({}, '', '/');
+  }
+} catch { /* ignore */ }
+const takeEventLink = (): { id?: string; prefill?: Partial<EventInput> } | null => {
+  try {
+    const raw = sessionStorage.getItem('ck_ev');
+    if (!raw) return null;
+    sessionStorage.removeItem('ck_ev');
+    const { id, prep } = JSON.parse(raw);
+    if (id) return { id: String(id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) };
+    if (prep) return { prefill: decodePrefill(String(prep)) };
+  } catch { /* ignore */ }
+  return null;
+};
 const clearParam = (key: 'i' | 'd') => {
   try { sessionStorage.removeItem(`ck_${key}`); window.history.replaceState({}, '', '/'); } catch { /* ignore */ }
 };
@@ -87,7 +109,7 @@ type Overlay =
   | { k: 'jambo'; back?: Overlay }
   | { k: 'bac'; back?: Overlay }
   | { k: 'wiseman'; back?: Overlay }
-  | { k: 'events'; back?: Overlay };
+  | { k: 'events'; back?: Overlay; id?: string; prefill?: Partial<EventInput> };
 
 const Splash = () => (
   <Screen><div className="flex-1 flex items-center justify-center"><div className="animate-pulse"><CKLogo size="lg" /></div></div></Screen>
@@ -162,6 +184,15 @@ const App: React.FC = () => {
       const id = new URLSearchParams(window.location.search).get('loan');
       if (id) { window.history.replaceState({}, '', '/'); setOverlay({ k: 'loan', id }); }
     } catch { /* ignore */ }
+  }, [user?.id]);
+
+  // Événements : /?evenement=<id> ouvre la fiche ; /?preparer=<…> ouvre le formulaire déjà rempli
+  // (l'auteur n'a plus qu'à publier). Gardés le temps de la connexion.
+  useEffect(() => {
+    if (!user) return;
+    const link = takeEventLink();
+    if (link?.id) setOverlay({ k: 'events', id: link.id });
+    else if (link?.prefill) setOverlay({ k: 'events', prefill: link.prefill });
   }, [user?.id]);
 
   // Mise à jour en direct : une demande, une signature ou un paiement apparaît sans rouvrir l'appli
@@ -271,7 +302,7 @@ const App: React.FC = () => {
         case 'jambo': return <Suspense fallback={<Splash />}><Jambo playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'wiseman': return <Suspense fallback={<Splash />}><Wiseman playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
-        case 'events': return <Suspense fallback={<Splash />}><EventsScreen isAuthor={isLender} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
+        case 'events': return <Suspense fallback={<Splash />}><EventsScreen isAuthor={isLender} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'contract': {
           const l = findLoan(overlay.id);
           return l ? <ContractPreview loan={l} onClose={() => setOverlay(isLender ? { k: 'borrower' } : null)} /> : <LoanLoader id={overlay.id} onLoaded={refreshLoans} onMissing={close} />;
