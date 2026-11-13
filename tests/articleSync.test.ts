@@ -24,9 +24,9 @@ vi.mock('../api/_lib/admin.js', () => ({
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, msg }); return 1; },
 }));
 
-const { syncArticles } = await import('../api/_lib/articleSync');
+const { syncArticles, CLASSIFIER } = await import('../api/_lib/articleSync');
 const PDF = 'application/pdf', DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-const drive = (files: { id: string; name: string; mimeType: string; modifiedTime: string; fixture?: string }[]) => ({
+const drive = (files: { id: string; name: string; mimeType: string; modifiedTime: string; fixture?: string; size?: string }[]) => ({
   list: async () => files,
   download: async (f: any) => ({ data: new Uint8Array(fs.readFileSync(`tests/fixtures/${files.find(x => x.id === f.id)!.fixture}`)) }),
 });
@@ -89,3 +89,64 @@ describe('agent Articles : publication', () => {
     expect(pushed).toEqual([]);
   }, 60000);
 });
+
+describe('agent Articles : relecture et garde-fous', () => {
+  const AI_NAME = "Afrique • Un titre d'essai assez long pour la revue de presse - 26_10_2026 - Africa Intelligence.pdf";
+  // État laissé par l'ancien tri : un brouillon « à vérifier », jamais touché depuis
+  const oldUnknown = (at = '2026-11-13T16:42:00.000Z', draft: object = {}) => {
+    store.set('articleImports/f1', { name: AI_NAME, modifiedTime: 'm1', status: 'unknown', articleId: 'a1', at });
+    store.set('articles/a1', { kind: 'own', status: 'draft', title: 'Afrique Un titre', body: 'le texte entier du journal', updatedAt: at, publishedAt: at, createdAt: at, ...draft });
+  };
+  const files = [{ id: 'f1', name: AI_NAME, mimeType: PDF, modifiedTime: 'm1', fixture: 'presse-titre.pdf' }];
+
+  it('un brouillon « à vérifier » intact est relu : il devient une fiche, sans le texte, datée du jour de l’article', async () => {
+    oldUnknown();
+    const r = await syncArticles(drive(files), new Date('2026-11-13T18:00:00Z'));
+    expect(r.done).toEqual({ [AI_NAME]: 'press' });
+    expect(store.get('articles/a1')).toMatchObject({
+      kind: 'press', status: 'published', body: '', source: 'Africa Intelligence', sourceSection: 'Afrique',
+      title: 'Un titre d’essai assez long pour la revue de presse', publishedAt: '2026-10-26T09:00:00.000Z',
+    });
+    expect(store.get('articleImports/f1')).toMatchObject({ status: 'press', v: CLASSIFIER, articleId: 'a1' });
+    expect(pushed.filter(p => p.msg.title === 'Revue de presse · Africa Intelligence')).toHaveLength(2);
+    // Une seule fois
+    pushed.length = 0;
+    expect((await syncArticles(drive(files))).done).toEqual({});
+    expect(pushed).toEqual([]);
+  }, 60000);
+
+  it('brouillon déjà retouché par Christian : on n’y touche pas', async () => {
+    oldUnknown(undefined, { updatedAt: '2026-11-13T17:00:00.000Z', body: 'mon résumé' });
+    expect((await syncArticles(drive(files))).done).toEqual({});
+    expect(store.get('articles/a1')).toMatchObject({ kind: 'own', status: 'draft', body: 'mon résumé' });
+    expect(store.get('articleImports/f1')).toMatchObject({ status: 'unknown', v: CLASSIFIER });
+    expect(pushed).toEqual([]);
+  }, 60000);
+
+  it('relu sans plus de succès : reste en brouillon, sans nouveau message', async () => {
+    store.set('articleImports/f9', { name: 'notes.pdf', modifiedTime: 'm1', status: 'unknown', articleId: 'a9', at: 't' });
+    store.set('articles/a9', { kind: 'own', status: 'draft', title: 'Notes', body: 'x', updatedAt: 't' });
+    const r = await syncArticles(drive([{ id: 'f9', name: 'notes.pdf', mimeType: PDF, modifiedTime: 'm1', fixture: 'inconnu.pdf' }]));
+    expect(r.done).toEqual({ 'notes.pdf': 'unknown' });
+    expect(store.get('articleImports/f9')).toMatchObject({ status: 'unknown', v: CLASSIFIER });
+    expect(pushed).toEqual([]);
+  }, 60000);
+
+  it('journal entier (par son nom ou ses pages) : pas d’article, un mot à Christian seul', async () => {
+    const r = await syncArticles(drive([
+      { id: 'j1', name: "L'Équipe du Vendredi 13 Novembre 2026.pdf", mimeType: PDF, modifiedTime: 'm', fixture: 'presse-ja.pdf' },
+      { id: 'j2', name: 'gros.pdf', mimeType: PDF, modifiedTime: 'm', fixture: 'long.pdf' },
+    ]));
+    expect(r.done).toEqual({ "L'Équipe du Vendredi 13 Novembre 2026.pdf": 'journal', 'gros.pdf': 'journal' });
+    expect([...store.keys()].some(k => k.startsWith('articles/'))).toBe(false);
+    expect(store.get('articleImports/j2')).toMatchObject({ status: 'journal', pages: 21 });
+    expect(pushed.map(p => [p.uid, p.msg.title])).toEqual([['chris', 'Pas un article'], ['chris', 'Pas un article']]);
+    expect(pushed[1].msg.body).toContain('21 pages');
+  }, 60000);
+
+  it('temps compté : on ne commence plus de fichier une fois le délai passé', async () => {
+    const r = await syncArticles(drive(files), new Date(), { budgetMs: -1 });
+    expect(r.done).toEqual({});
+  }, 60000);
+});
+

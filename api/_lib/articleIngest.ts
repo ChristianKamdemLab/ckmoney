@@ -1,4 +1,4 @@
-import { pdfToLines } from '../../utils/pdfLines.js';
+import { pdfToLines, PdfInfo } from '../../utils/pdfLines.js';
 import { linesToArticle, blocksToBody, excerptOf, Block, frTypo } from '../../utils/articleText.js';
 
 // Agent Articles : lit un fichier (PDF, Word, Google Doc) déposé dans le dossier Drive et décide :
@@ -47,9 +47,10 @@ export type Ingested =
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 /** Première date « 12 novembre 2026 » ou « 12/11/2026 » trouvée dans le début du texte. */
 export const findDate = (text: string): string | undefined => {
-  // D'abord la date de publication annoncée ; « Publié aujourd'hui » : la date à laquelle le fichier a été généré
-  const pub = text.match(/publi[ée]\s+le\s+((?:\d{1,2}(?:er)?\s+\p{L}+\s+20\d{2})|(?:\d{1,2}\/\d{1,2}\/20\d{2}))/iu);
-  if (pub) return findDate(pub[1].replace(/^publi.*?le\s+/i, ''));
+  // D'abord la date de publication annoncée (« Publié le 12 novembre 2026 », « le 12/11/2026 » ou
+  // « le 12.11.2026 ») ; « Publié aujourd'hui » : la date à laquelle le fichier a été généré
+  const pub = text.match(/publi[ée]\s+le\s+((?:\d{1,2}(?:er)?\s+\p{L}+\s+20\d{2})|(?:\d{1,2}[/.]\d{1,2}[/.]20\d{2}))/iu);
+  if (pub) return findDate(pub[1].replace(/\./g, '/'));
   if (/publi[ée]\s+aujourd/i.test(text)) {
     const gen = text.match(/g[ée]n[ée]r[ée]\s+le\s+(\d{1,2}\/\d{1,2}\/20\d{2})/i);
     if (gen) return findDate(gen[1]);
@@ -65,8 +66,42 @@ export const findDate = (text: string): string | undefined => {
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
-/** Le média d'un texte : d'abord par l'adresse du site (en-tête ou pied de page), puis par son nom. */
-export const detectMedia = (text: string): { media: Media | null; url: string } => {
+/** Ce que l'on sait du fichier en dehors de son texte : son nom, le titre du document PDF et les adresses
+ *  de ses liens. Un PDF enregistré depuis le navigateur garde le titre de la page (« Titre - 26/10/2026 -
+ *  Africa Intelligence ») et les liens de la page, qui pointent presque tous vers le site du journal. */
+export interface Hints { fileName?: string; docTitle?: string; links?: string[] }
+
+const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  .replace(/\.(fr|com|cm|net)$/, '').replace(/[^a-z0-9]/g, '');
+const hostDomains = (m: Media) => m.domains.filter(d => !d.includes('/'));
+
+/** « … - Africa Intelligence », « … | Le Monde » : le nom du journal à la fin d'un titre de page ou d'un
+ *  nom de fichier (le navigateur y remplace « / » et « : » par « _ »). */
+export const mediaFromTitle = (s?: string): Media | null => {
+  const seg = String(s || '').replace(/\.(pdf|docx?)$/i, '').match(/\s(?:[-–—|_])\s+([^-–—|_]+?)\s*$/)?.[1];
+  if (!seg) return null;
+  const n = norm(seg);
+  return MEDIA.find(m => norm(m.name) === n || hostDomains(m).some(d => norm(d) === n)) || null;
+};
+
+/** Le journal vers lequel pointent la plupart des liens du document (au moins 3, et la moitié). */
+export const mediaFromLinks = (links: string[] = []): Media | null => {
+  const counts = new Map<Media, number>();
+  let total = 0;
+  for (const u of links) {
+    const host = hostOf(u);
+    if (!/^https?:/i.test(u) || !host) continue;
+    total++;
+    const m = MEDIA.find(x => hostDomains(x).some(d => host === d || host.endsWith(`.${d}`)));
+    if (m) counts.set(m, (counts.get(m) || 0) + 1);
+  }
+  const [best, n] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] || [null, 0];
+  return best && n >= 3 && n * 2 >= total ? best : null;
+};
+
+/** Le média d'un texte : d'abord par l'adresse du site (en-tête ou pied de page), puis par son nom, puis
+ *  par le titre du document ou le nom du fichier, enfin par les liens. */
+export const detectMedia = (text: string, hints: Hints = {}): { media: Media | null; url: string } => {
   const urls = (text.match(URL_RE) || []).map(u => u.replace(/[.,;:]+$/, ''));
   for (const u of urls) {
     const full = u.replace(/^https?:\/\/(www\.)?/, '');
@@ -80,6 +115,10 @@ export const detectMedia = (text: string): { media: Media | null; url: string } 
   if (byDomain) return { media: byDomain, url: '' };
   const byName = MEDIA.find(x => x.masthead && x.masthead.test(edges));
   if (byName) return { media: byName, url: '' };
+  const byTitle = mediaFromTitle(hints.docTitle) || mediaFromTitle(hints.fileName);
+  if (byTitle) return { media: byTitle, url: '' };
+  const byLinks = mediaFromLinks(hints.links);
+  if (byLinks) return { media: byLinks, url: '' };
   // Une adresse de site inconnu, en en-tête ou en pied de page : on cite ce site
   const edgeUrl = (edges.match(URL_RE) || [])[0];
   if (edgeUrl && hostOf(edgeUrl)) return { media: { name: hostOf(edgeUrl), domains: [hostOf(edgeUrl)] }, url: edgeUrl.replace(/[.,;:]+$/, '') };
@@ -126,10 +165,30 @@ const stripMedia = (title: string, media: Media | null) =>
 const PRINT_HEADER = /^\d{1,2}\/\d{1,2}\/\d{2,4}[,\s]+\d{1,2}\D?\d{2}\b/;
 const PAGE_NO = /^\d+\s*\/\s*\d+$/;
 
+/** Le titre de la page sans le nom du journal ni la date (« RDC • Titre - 26/10/2026 - Africa
+ *  Intelligence » → rubrique « RDC », titre « Titre »). */
+export const docTitleParts = (docTitle: string | undefined, media: Media) => {
+  let t = String(docTitle || '').replace(/\.(pdf|docx?)$/i, '').replace(/(\d)_(?=\d)/g, '$1/').trim();
+  for (let k = 0; k < 3; k++) {
+    const seg = t.match(/\s(?:[-–—|_])\s+([^-–—|_]+?)\s*$/)?.[1];
+    if (!seg || !(mediaFromTitle(` - ${seg}`) === media || /^\d{1,2}[/_.]\d{1,2}[/_.]\d{2,4}$/.test(seg))) break;
+    t = t.slice(0, t.length - t.match(/\s(?:[-–—|_])\s+[^-–—|_]+?\s*$/)![0].length).trim();
+  }
+  const [section, title] = t.includes(' • ') ? [t.slice(0, t.indexOf(' • ')).trim(), t.slice(t.indexOf(' • ') + 3).trim()] : ['', t];
+  return { section, title };
+};
+const squash = (s: string) => norm(s);
+
+// « Par Prénom Nom », « Par A, B et C » : jamais « Publié », « Mis à jour »… qui suivent souvent le nom
+const NAME = "[A-ZÀ-Ý][\\p{L}'’-]+(?:\\s+(?!Publi|Mis\\b|Mise\\b|Modifi|Le\\b|La\\b|Les\\b)[A-ZÀ-Ý][\\p{L}'’-]+){0,3}";
+const AUTHOR_RE = new RegExp(`\\bPar\\s+(${NAME}(?:(?:,\\s+|\\s+et\\s+)${NAME})*)`, 'u');
+
 /** Décide quoi faire d'un texte déjà découpé en titre + blocs. */
-export const classify = (rawTitle: string, blocks: Block[]): Ingested => {
+export const classify = (rawTitle: string, blocks: Block[], hints: Hints = {}): Ingested => {
   const header = PRINT_HEADER.test(rawTitle) || /https?:\/\//.test(rawTitle) ? rawTitle : '';
   const all = [{ t: 'p' as const, text: rawTitle }, ...blocks];
+  // En-têtes d'impression trop longs pour servir de titre : ils citent souvent le journal
+  const printed = blocks.filter(b => PRINT_HEADER.test(b.text)).map(b => b.text);
   const tags = all.filter(b => isTagLine(b.text)).map(b => b.text.replace(/\s+/g, ' ').trim());
   const dateLine = all.find(b => isDateLine(b.text))?.text;
   let clean = blocks.filter(b => !PRINT_HEADER.test(b.text) && !PAGE_NO.test(b.text) && !NOISE.some(r => r.test(b.text)) && !isTagLine(b.text) && !isDateLine(b.text));
@@ -154,19 +213,27 @@ export const classify = (rawTitle: string, blocks: Block[]): Ingested => {
     // La signature reste en bas de l'article
     return { kind: 'own', title: frTypo(title), body: blocksToBody(clean), publishedAt: findDate(text) };
   }
-  const { media, url } = detectMedia(text);
+  const { media, url } = detectMedia([...printed, text].join('\n'), hints);
   if (media) {
     const bodyBlocks = clean.filter(b => !(URL_RE.test(b.text) && b.text.length < 200));
     URL_RE.lastIndex = 0;
-    const author = (text.match(/\bPar\s+([A-ZÀ-Ý][\p{L}'’-]+(?:\s+[A-ZÀ-Ý][\p{L}'’-]+){0,3})/u) || [])[1];
+    const author = (text.match(AUTHOR_RE) || [])[1];
     const sectionTags = tags.filter(t => !(media.masthead && media.masthead.test(t)) && !new RegExp(media.name.replace(/[’']/g, '.'), 'i').test(t));
     // Les légendes de photo (« … le 29 juillet 2022 … © Photographe ») ne datent pas l'article
     const datable = [header, title, ...clean.filter(b => !isCaption(b.text)).map(b => b.text)].join('\n');
-    const section = sectionTags.length ? sectionTags[0].split(/[ ,]+/).filter(Boolean).map(w => w[0] + w.slice(1).toLowerCase()).join(' · ') : undefined;
+    let section = sectionTags.length ? sectionTags[0].split(/[ ,]+/).filter(Boolean).map(w => w[0] + w.slice(1).toLowerCase()).join(' · ') : undefined;
+    // Le titre de la page, quand le texte le reprend avec la rubrique collée devant (« RDC Titre »)
+    let finalTitle = stripMedia(title, media);
+    const page = docTitleParts(hints.docTitle || hints.fileName, media);
+    if (page.title.length >= 15 && squash(finalTitle).endsWith(squash(page.title)) && squash(finalTitle) !== squash(page.title)) {
+      finalTitle = page.title;
+      section = section || page.section || undefined;
+    }
+    const titleDate = `${hints.docTitle || ''}\n${(hints.fileName || '').replace(/_/g, '/')}`;
     return {
-      kind: 'press', title: frTypo(stripMedia(title, media)), source: media.name,
+      kind: 'press', title: frTypo(finalTitle), source: media.name,
       sourceUrl: url || `https://www.${media.domains[0]}`, excerpt: frTypo(pressExcerpt(bodyBlocks, title)),
-      author, section, publishedAt: findDate(dateLine ? `${dateLine}\n${datable}` : datable),
+      author, section, publishedAt: findDate(dateLine ? `${dateLine}\n${datable}` : datable) || findDate(titleDate),
     };
   }
   return { kind: 'unknown', title: frTypo(title), body: blocksToBody(clean) };
@@ -174,11 +241,21 @@ export const classify = (rawTitle: string, blocks: Block[]): Ingested => {
 
 // ---------- Lecture des fichiers
 
+/** Au-delà, ce n'est plus un article mais un journal entier (ou un livre) : on ne le lit pas. */
+export const MAX_PAGES = 20;
+
 export const readPdf = async (data: Uint8Array) => {
   const { getResolvedPDFJS } = await import('unpdf');
   const pdfjs = await getResolvedPDFJS();
-  return linesToArticle(stripWatermark(await pdfToLines(pdfjs as any, data)));
+  const info: PdfInfo = { pages: 0, title: '', links: [] };
+  const article = linesToArticle(stripWatermark(await pdfToLines(pdfjs as any, data, { maxPages: MAX_PAGES, info })));
+  return { ...article, docTitle: info.title, links: info.links, pages: info.pages };
 };
+
+/** « L'Équipe du vendredi 13 novembre 2026 » : le nom d'un numéro entier, pas d'un article. */
+export const isIssueName = (name: string) =>
+  /\bdu\s+(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+\d{1,2}(?:er)?\s+\p{L}+\s+20\d{2}\s*$/iu
+    .test(name.replace(/\.(pdf|docx?)$/i, '').trim());
 
 const decode = (s: string) => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
 

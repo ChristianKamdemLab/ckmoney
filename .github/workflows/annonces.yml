@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: '30 * * * *'
   workflow_dispatch:
+    inputs:
+      essai:
+        description: "Essai : classer les articles du dossier sans rien publier ni envoyer"
+        type: boolean
+        default: false
 
 jobs:
   envoyer:
@@ -14,7 +19,8 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Annonces
+        if: ${{ !inputs.essai }}
         run: curl -fsS -X POST https://ck-money.vercel.app/api/annonces
         continue-on-error: true
       - name: Articles du dossier Drive
-        run: curl -fsS --max-time 70 -X POST https://ck-money.vercel.app/api/articles-sync
+        run: curl -fsS --max-time 70 -X POST "https://ck-money.vercel.app/api/articles-sync${{ inputs.essai && '?dry=1' || '' }}"
