@@ -38,10 +38,13 @@ export const verifiedEmail = async (uid?: string): Promise<string | undefined> =
   return u?.email && u.emailVerified ? u.email : undefined;
 };
 
-/** Comptes autorisés à prêter et à faire partir des e-mails depuis le Gmail de l'appli. */
+/** Administrateur (Christian) : publie articles, recos et annonces, voit la liste des comptes, et ses prêts
+ *  sont les seuls dont les e-mails partent du Gmail de l'appli. Prêter est ouvert à tous les comptes. */
 const allowed = () => (process.env.VITE_LENDER_EMAILS || process.env.GMAIL_USER || '')
   .split(/[,;\s]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
 /** Adresse du prêteur et auteur (Christian). */
 export const authorEmail = () => allowed()[0] || '';
-export const isAllowedLender = (email?: string, emailVerified = true) =>
+export const isAdmin = (email?: string, emailVerified = true) =>
   !!email && emailVerified && allowed().includes(email.toLowerCase());
+/** Ancien nom (avant l'ouverture du prêt à tous) : même chose que isAdmin. */
+export const isAllowedLender = isAdmin;

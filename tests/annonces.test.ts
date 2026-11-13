@@ -21,6 +21,7 @@ vi.mock('../api/_lib/admin.js', () => ({
   },
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, msg }); return uid === 'sans-appareil' ? 0 : 2; },
   isAllowedLender: (email?: string) => email === 'chris@example.com',
+  isAdmin: (email?: string) => email === 'chris@example.com',
   adminAuth: {
     listUsers: async () => ({ users: [
       { uid: 'chris', email: 'chris@example.com', emailVerified: true, providerData: [{}] },

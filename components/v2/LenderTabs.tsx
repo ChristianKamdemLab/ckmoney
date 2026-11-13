@@ -27,7 +27,8 @@ interface Props {
   onEditProfile: () => void;
   onLogout: () => void;
   onLegal: (v: 'cgu' | 'privacy') => void;
-  onBorrowerSpace?: () => void;
+  onBorrowerSpace?: () => void;   // accueil : « Voir ce que je dois » (seulement s'il emprunte)
+  onBorrowerArea?: () => void;    // profil : ses emprunts et ses demandes à d'autres prêteurs (toujours)
   onArticles: () => void;
   onJambo: () => void;
   onBac: () => void;
@@ -100,7 +101,7 @@ const LenderTabs: React.FC<Props> = (p) => {
   const greeting = firstName(p.profile?.fullName || p.user.name);
 
 
-  const shareText = `Salut ! Pour tes demandes de dépannage, passe désormais par mon appli : tu choisis le montant et la date de remboursement, je reçois la demande et je te réponds vite. Tout est au même endroit, même le lien pour me rembourser. ${p.requestLink}`;
+  const shareText = `Salut ! Pour tes demandes de dépannage, passe désormais par CKMoney : tu choisis le montant et la date de remboursement, je reçois la demande et je te réponds vite. Tout est au même endroit, même le lien pour me rembourser. ${p.requestLink}`;
   const shareSheet = (
     <>
       <Sheet open={shareOpen} onClose={() => setShareOpen(false)} title="Ton lien de demande">
@@ -259,11 +260,11 @@ const LenderTabs: React.FC<Props> = (p) => {
               setToast('Envoi en cours…');
               try {
                 const r = await sendTestReminder();
-                setToast(r.status !== 200 ? "L'envoi a échoué" : r.data.reason === 'gmail_non_configure' ? "Gmail n'est pas encore configuré"
+                setToast(r.status !== 200 ? "L'envoi a échoué" : r.data.reason === 'notification_seulement' ? (r.data.pushed ? 'Notification envoyée' : 'Active les notifications pour recevoir le test') : r.data.reason === 'gmail_non_configure' ? "Gmail n'est pas encore configuré"
                   : r.data.mail ? `E-mail envoyé à ${r.data.to}${r.data.pushed ? ' + notification' : ''}` : "L'e-mail n'a pas pu partir : vérifie le mot de passe d'application");
               } catch { setToast("L'envoi a échoué"); }
             }],
-            ...(p.onBorrowerSpace ? [['Ce que je dois', p.onBorrowerSpace] as const] : []),
+            ...(p.onBorrowerArea || p.onBorrowerSpace ? [['Mes emprunts et demandes', (p.onBorrowerArea || p.onBorrowerSpace)!] as const] : []),
             ['Conditions d’utilisation', () => p.onLegal('cgu')],
             ['Confidentialité', () => p.onLegal('privacy')],
           ].map(([label, fn], i) => (

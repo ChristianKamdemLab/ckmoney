@@ -164,6 +164,7 @@ vi.mock('../api/_lib/admin.js', () => ({
     },
   },
   isAllowedLender: (email?: string, verified = true) => verified && email === 'auteur@example.com',
+  isAdmin: (email?: string, verified = true) => verified && email === 'auteur@example.com',
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, msg }); return 1; },
 }));
 

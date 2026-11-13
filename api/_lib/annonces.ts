@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, pushToUser, isAllowedLender } from './admin.js';
+import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
 import { importRadio, RadioSeed, RADIO_LANCEMENT, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
@@ -162,8 +162,8 @@ const emailRecipients = async (to: Announcement['emailTo']) => {
   return list.users
     .filter((u: any) => u.email && u.emailVerified && !u.disabled && (u.providerData || []).length > 0)
     .filter((u: any) => to !== 'no-push' || !withPush.has(u.uid))
-    .filter((u: any) => to !== 'author' || isAllowedLender(u.email, true))
-    .filter((u: any) => to !== 'others' || !isAllowedLender(u.email, true))
+    .filter((u: any) => to !== 'author' || isAdmin(u.email, true))
+    .filter((u: any) => to !== 'others' || !isAdmin(u.email, true))
     .map((u: any) => ({ uid: u.uid as string, email: u.email as string, firstName: names.get(u.uid) || firstNameOf(u.displayName) }));
 };
 

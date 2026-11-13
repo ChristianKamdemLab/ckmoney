@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, isAllowedLender } from './_lib/admin.js';
+import { adminAuth, adminDb, isAdmin } from './_lib/admin.js';
 import { notifyNewArticle } from './_lib/articleSync.js';
 import { excerptOf, readMinutes } from '../utils/articleText.js';
 
@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
   let caller;
   try { caller = await adminAuth.verifyIdToken((req.headers.authorization || '').replace(/^Bearer /, '')); }
   catch { return res.status(401).json({ error: 'unauthorized' }); }
-  if (!isAllowedLender(caller.email, caller.email_verified === true)) return res.status(403).json({ error: 'not_author' });
+  if (!isAdmin(caller.email, caller.email_verified === true)) return res.status(403).json({ error: 'not_author' });
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});

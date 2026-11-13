@@ -159,6 +159,8 @@ export interface Profile {
   delayRate?: number;        // prêteur : taux de retard appliqué quand un proche demande un report (% par an)
   penaltyRate?: number;      // prêteur : pénalité forfaitaire par défaut en cas de retard (% des sommes impayées)
   signature?: string;   // signature dessinée, réutilisable
+  lender?: boolean;     // a choisi de prêter à ses proches (« Prêter à mes proches »)
+  viaLenders?: string[]; // prêteurs dont il a ouvert le lien de demande : il peut leur refaire une demande
   updatedAt?: string;
 }
 

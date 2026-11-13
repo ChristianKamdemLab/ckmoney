@@ -14,9 +14,9 @@ import SignaturePad from '../SignaturePad';
 import ContractPreview from '../ContractPreview';
 import { mergeProfile } from '../../services/profileService';
 import {
-  BorrowerIdentity, Terms, signOffer, createRequest, previewTexts, scheduleSummary, LenderCard, getLenderCard, payUrl, getMainLender,
+  BorrowerIdentity, Terms, signOffer, createRequest, previewTexts, scheduleSummary, LenderCard, getLenderCard, payUrl,
 } from '../../services/loanService';
-import { openLoanWith, blockedReason } from '../../utils/requests';
+import { openLoanWith, blockedReason, requestTargets } from '../../utils/requests';
 import { getUserNotifications, markNotificationAsRead } from '../../services/notificationService';
 import { amountWordsMatch } from '../../utils/frenchNumbers';
 import { buildSchedule, computeSituation, toISODate, addMonths } from '../../utils/schedule';
@@ -430,6 +430,7 @@ export const BorrowerSpace: React.FC<{
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
   onOpenContract: (l: Loan) => void;
   onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void;
+  onBecomeLender?: () => void;   // « Prêter à mes proches » (absent si déjà prêteur)
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);
   const open = mine.filter(l => ['active', 'delay_requested', 'pending_borrower', 'requested'].includes(l.status));
@@ -438,12 +439,11 @@ export const BorrowerSpace: React.FC<{
   const [menu, setMenu] = useState(false);
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const lenders = Array.from(new Set(mine.map(l => l.lenderUid).filter(Boolean))) as string[];
-  // Christian : on peut lui faire une demande directement, même sans prêt ni lien reçu
-  const [main, setMain] = useState<{ uid: string; firstName: string } | null>(null);
-  useEffect(() => { getMainLender().then(setMain); }, []);
-  const targets = Array.from(new Set([...(main ? [main.uid] : []), ...lenders])).filter(uid => uid !== p.user.id);
+  // Ses prêteurs : ceux avec qui il a déjà un prêt ou une demande, et ceux dont il a ouvert le lien de demande.
+  // Jamais un inconnu : l'appli n'est pas une plateforme qui met en relation.
+  const targets = requestTargets(p.loans, p.user.id, p.profile?.viaLenders);
 
-  useEffect(() => { lenders.forEach(uid => { if (!(uid in cards)) getLenderCard(uid).then(c => setCards(prev => ({ ...prev, [uid]: c }))); }); }, [lenders.join()]);
+  useEffect(() => { targets.forEach(uid => { if (!(uid in cards)) getLenderCard(uid).then(c => setCards(prev => ({ ...prev, [uid]: c }))); }); }, [targets.join()]);
   useEffect(() => { getUserNotifications(p.user.id).then(n => setNotifs(n.filter(x => !x.read).slice(0, 3))); }, [p.user.id, p.loans]);
 
   const owed = open.filter(l => l.status === 'active' || l.status === 'delay_requested').reduce((a, l) => a + computeSituation(l, LEGAL_INTEREST_RATE).totalDueNow, 0);
@@ -530,13 +530,14 @@ export const BorrowerSpace: React.FC<{
       <div className="px-5">
         {p.loading ? <div className="flex flex-col gap-2"><Skeleton /><Skeleton /></div>
           : open.length ? <Card>{open.map(row)}</Card>
-          : <div className="text-sm" style={{ color: C.mute }}>Rien en cours. Tu ne dois rien{main ? ` à ${main.firstName}` : ''}.</div>}
+          : <div className="text-sm" style={{ color: C.mute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>}
       </div>
 
       {!p.loading && targets.length > 0 && (
         <div className="px-5 pt-4 flex flex-col gap-3">
           {targets.map(uid => {
-            const name = (uid === main?.uid ? main.firstName : '') || cards[uid]?.firstName || firstName(mine.find(l => l.lenderUid === uid)?.lenderName || '');
+            const name = cards[uid]?.firstName || firstName(mine.find(l => l.lenderUid === uid)?.lenderName || '');
+            if (!name || cards[uid] === null) return null; // prêteur qui ne prête plus (plus de carte publique)
             const busyWith = openLoanWith(p.loans, p.user.id, uid);
             return busyWith ? (
               <div key={uid} className="flex gap-2.5 items-start text-[13.5px] leading-snug px-1" style={{ color: C.mute }}>
@@ -570,6 +571,21 @@ export const BorrowerSpace: React.FC<{
             </Card>
           </div>
         </>
+      )}
+
+      {p.onBecomeLender && !p.loading && (
+        <div className="px-5 pt-6">
+          <div className="rounded-2xl p-4" style={{ background: C.ochreSoft }}>
+            <div className="flex items-start gap-3">
+              <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: C.ochre, color: C.ink }}><Icon name="users" size={20} /></span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[15px] font-bold">Toi aussi, prête à tes proches</div>
+                <div className="text-[13.5px] leading-snug mt-1" style={{ color: C.text2 }}>Contrat signé avec le doigt, rappels automatiques, suivi des remboursements. Tes emprunts restent à part.</div>
+              </div>
+            </div>
+            <Button className="mt-3" onClick={p.onBecomeLender}>Prêter à mes proches</Button>
+          </div>
+        </div>
       )}
 
       {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} />}

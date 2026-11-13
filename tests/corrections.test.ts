@@ -46,6 +46,7 @@ vi.mock('../api/_lib/admin.js', () => ({
   adminDb: { collection: (c: string) => ({ doc: (id: string) => ref(`${c}/${id}`), add: async () => undefined }) },
   pushToUser: async () => 0, verifiedEmail: async () => null,
   isAllowedLender: (e?: string, v = true) => v && e === 'chris@example.com',
+  isAdmin: (e?: string, v = true) => v && e === 'chris@example.com',
 }));
 vi.mock('../api/_lib/mail.js', () => ({ sendReminderMail: async () => false }));
 const handler = (await import('../api/remind')).default;

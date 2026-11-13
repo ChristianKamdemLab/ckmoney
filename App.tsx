@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useState, ErrorInfo, ReactNode, Suspense
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { Loan, Profile, User, Invite, isProfileComplete } from './types';
-import { getProfile } from './services/profileService';
+import { getProfile, mergeProfile } from './services/profileService';
 import {
   getUserLoans, getLoanById, watchUserLoans, getInvite, claimInvite, getLenderCard, publishLenderCard, requestLinkFor, resolveHandle, LenderCard, KnownFriend,
 } from './services/loanService';
 import { checkAutomaticNotifications } from './services/notificationService';
 import { refreshPushToken } from './services/push';
-import { canCreateLoans } from './config/legal';
+import { isAdminEmail } from './config/legal';
 import { Screen, TabBar, Button, Note, Toast, C, euro2, dateFr } from './components/v2/ui';
 import LenderTabs from './components/v2/LenderTabs';
 import NewLoanFlow from './components/v2/NewLoanFlow';
@@ -111,6 +111,7 @@ type Overlay =
   | { k: 'profile' }
   | { k: 'identity' }
   | { k: 'borrower' }
+  | { k: 'lend' }
   | { k: 'legal'; v: 'cgu' | 'privacy' }
   | { k: 'contract'; id: string }
   | { k: 'articles'; back?: Overlay; id?: string; prefill?: Partial<PressInput> }
@@ -130,7 +131,8 @@ const App: React.FC = () => {
   useEffect(() => onAuthStateChanged(auth, u => { setFbUser(u); setAuthReady(true); }), []);
   // Un invité du Jambo (connexion anonyme) n'est pas un compte CKMoney : il voit l'écran de connexion.
   const user: User | null = fbUser && !fbUser.isAnonymous ? toUser(fbUser) : null;
-  const isLender = !!user && canCreateLoans(user.email);
+  // Christian administre l'appli ; tout compte peut prêter à ses proches (« Prêter à mes proches »)
+  const isAdmin = !!user && isAdminEmail(user.email);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
@@ -139,6 +141,7 @@ const App: React.FC = () => {
   const [tab, setTab] = useState<'home' | 'loans' | 'activity' | 'profile'>('home');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const isLender = !!user && (isAdmin || profile?.lender === true || loans.some(l => l.lenderUid === user.id));
 
   // Liens entrants
   const [inviteToken, setInviteToken] = useState<string | null>(initialLinks.i);
@@ -243,6 +246,12 @@ const App: React.FC = () => {
     clearParam('d'); setRequestLender(null);
     if (requestLender === user.id) { setToast("C'est ton lien de demande : envoie-le à tes proches."); return; }
     if (!lenderCard) { setLinkError("Ce lien de demande n'est pas valable."); return; }
+    // On retient ce prêteur : le proche pourra lui refaire une demande depuis son espace, sans le lien
+    const via = profile?.viaLenders || [];
+    if (!via.includes(requestLender)) {
+      const next = [...via, requestLender].slice(-20);
+      mergeProfile(user.id, { viaLenders: next }).then(() => setProfile(p => p ? { ...p, viaLenders: next } : p)).catch(() => undefined);
+    }
     setOverlay({ k: 'request', uid: requestLender, name: lenderCard.firstName });
   }, [user?.id, requestLender, lenderCard]);
 
@@ -311,17 +320,23 @@ const App: React.FC = () => {
     const content = (() => {
       switch (overlay.k) {
         case 'legal': return <LegalDocs view={overlay.v} onClose={close} />;
-        case 'articles': return <Suspense fallback={<Splash />}><ArticlesScreen user={user} isAuthor={isLender} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
+        case 'articles': return <Suspense fallback={<Splash />}><ArticlesScreen user={user} isAuthor={isAdmin} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'jambo': return <Suspense fallback={<Splash />}><Jambo playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'wiseman': return <Suspense fallback={<Splash />}><Wiseman playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'radio': return <Suspense fallback={<Splash />}><RadioScreen initialId={overlay.id} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
-        case 'events': return <Suspense fallback={<Splash />}><EventsScreen isAdmin={isLender} me={profile?.fullName || user.name} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
+        case 'events': return <Suspense fallback={<Splash />}><EventsScreen isAdmin={isAdmin} me={profile?.fullName || user.name} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'contract': {
           const l = findLoan(overlay.id);
           return l ? <ContractPreview loan={l} onClose={() => setOverlay(isLender ? { k: 'borrower' } : null)} /> : <LoanLoader id={overlay.id} onLoaded={refreshLoans} onMissing={close} />;
         }
         case 'profile': return <ProfileSetup user={user} initial={profile} onSaved={p => { setProfile(p); close(); setToast('Informations enregistrées'); }} onCancel={close} />;
+        case 'lend': return <ProfileSetup user={user} initial={profile} lending onCancel={close}
+          onSaved={async p => {
+            await mergeProfile(user.id, { lender: true }).catch(() => undefined);
+            setProfile({ ...p, lender: true }); setOverlay(null); setTab('home'); window.scrollTo(0, 0);
+            setToast('C’est prêt : tu peux prêter à tes proches');
+          }} />;
         case 'identity': return <IdentityEditor user={user} profile={profile} onClose={close} onSaved={() => { loadProfile(); setToast('Informations enregistrées'); }} />;
         case 'new':
           if (!isProfileComplete(profile)) return <ProfileSetup user={user} initial={profile} onSaved={p => setProfile(p)} onCancel={close} />;
@@ -369,7 +384,8 @@ const App: React.FC = () => {
       <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
         onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} />
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })}
+        onBecomeLender={() => setOverlay({ k: 'lend' })} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
   );
@@ -382,7 +398,7 @@ const App: React.FC = () => {
       <LenderTabs tab={tab} user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
         onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}
-        onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined}
+        onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined} onBorrowerArea={() => setOverlay({ k: 'borrower' })}
         onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} />
       <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo(0, 0); }} onCreate={() => setOverlay({ k: 'new' })} badge={toHandle} />
       <Toast text={toast} onDone={() => setToast(null)} />

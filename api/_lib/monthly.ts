@@ -1,4 +1,4 @@
-import { adminDb, verifiedEmail, isAllowedLender } from './admin.js';
+import { adminDb, verifiedEmail, isAdmin } from './admin.js';
 import { sendMail } from './mail.js';
 import { computeSituation } from '../../utils/schedule.js';
 import { LEGAL_INTEREST_RATE, DECLARATION_THRESHOLD_EUR, HABITUAL_LENDING_WARNING_COUNT, ratesOutdated } from '../../config/legal.js';
@@ -21,7 +21,7 @@ export const runMonthly = async (today: string) => {
   for (const l of lenders.docs) {
     const uid = l.id;
     const email = await verifiedEmail(uid);
-    if (!email || !isAllowedLender(email)) continue;
+    if (!email || !isAdmin(email)) continue;
     const snap = await adminDb.collection('loans').where('lenderUid', '==', uid).get();
     const loans: any[] = [];
     for (const d of snap.docs) {

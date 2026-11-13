@@ -47,17 +47,17 @@ export const HABITUAL_LENDING_WARNING_COUNT = 4;
 export const MAX_INSTALLMENTS = 60;
 
 /**
- * Comptes autorisés à créer des prêts en tant que prêteur (outil personnel).
- * Renseignez VITE_LENDER_EMAILS dans Vercel, séparés par des virgules.
- * Vide = tout utilisateur connecté peut créer un prêt.
+ * Administrateur de l'appli (Christian) : articles, Radio CK, annonces, liste des comptes.
+ * VITE_LENDER_EMAILS dans Vercel (nom historique), séparés par des virgules. Vide = personne.
+ * Prêter est ouvert à tous les comptes (bouton « Prêter à mes proches »).
  */
 export const LENDER_ALLOWLIST: string[] = ((import.meta as any).env?.VITE_LENDER_EMAILS || '')
   .split(',')
   .map((e: string) => e.trim().toLowerCase())
   .filter(Boolean);
 
-export const canCreateLoans = (email: string | undefined | null) =>
-  LENDER_ALLOWLIST.length === 0 || (!!email && LENDER_ALLOWLIST.includes(email.toLowerCase()));
+export const isAdminEmail = (email: string | undefined | null) =>
+  !!email && LENDER_ALLOWLIST.includes(email.toLowerCase());
 
 /**
  * Pénalité forfaitaire de retard (clause pénale, art. 1231-5 C. civ.) : pas de plafond légal
