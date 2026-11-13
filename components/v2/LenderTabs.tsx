@@ -8,6 +8,7 @@ import Discover from './Discover';
 import { InstallCard, InstallButton } from './Install';
 import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
+import { reopenRequest } from '../../services/loanService';
 import { computeSituation } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
 import { fetchExchangeRate } from '../../services/exchangeRate';
@@ -81,6 +82,7 @@ const LenderTabs: React.FC<Props> = (p) => {
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [reopening, setReopening] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -169,6 +171,10 @@ const LenderTabs: React.FC<Props> = (p) => {
 
   if (p.tab === 'loans') {
     const done = mine.filter(l => !open.includes(l));
+    // Demandes classées depuis moins de 30 jours, sans contre-proposition envoyée : on peut y revenir
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const declined = p.loans.filter(l => l.lenderUid === p.user.id && l.status === 'declined' && l.initiatedBy === 'borrower'
+      && (l.createdAt || '') > since && !p.loans.some(x => x.counterOf === l.id));
     return (
       <Screen bottomPad>
         <div className="px-5 pt-[max(env(safe-area-inset-top),20px)]"><h1 className="text-[26px] font-bold pt-3">Mes prêts</h1></div>
@@ -182,6 +188,28 @@ const LenderTabs: React.FC<Props> = (p) => {
             <div className="px-5"><Card>{done.map((l, i) => <LoanRow key={l.id} loan={l} onOpen={p.onOpenLoan} first={i === 0} />)}</Card></div>
           </>
         )}
+        {declined.length > 0 && (
+          <>
+            <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Demandes refusées</div>
+            <div className="px-5">
+              <Card>
+                {declined.map((l, i) => (
+                  <div key={l.id} className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
+                    <Avatar name={l.borrowerNickname || firstName(l.borrowerName)} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[15px] font-semibold truncate">{l.borrowerNickname || firstName(l.borrowerName)} · {euro2(l.amount, l.currency)}</div>
+                      <div className="text-[13px]" style={{ color: C.mute }}>Demande du {dateFr(l.createdAt, { day: 'numeric', month: 'short' })}</div>
+                    </div>
+                    <button disabled={reopening === l.id} className="h-10 px-4 rounded-xl text-[14px] font-bold shrink-0 disabled:opacity-50" style={{ background: C.soft, color: C.ink }}
+                      onClick={async () => { setReopening(l.id); try { await reopenRequest(l); p.onOpenLoan({ ...l, status: 'requested' }); } catch { setToast("Ça n'a pas marché, réessaie."); } finally { setReopening(null); } }}>{reopening === l.id ? '…' : 'Reprendre'}</button>
+                  </div>
+                ))}
+              </Card>
+              <div className="text-[12.5px] mt-2 px-1" style={{ color: C.mute }}>Tu peux revenir sur une demande refusée : elle repasse en « à traiter », pour l'accepter ou faire une contre-proposition.</div>
+            </div>
+          </>
+        )}
+        <Toast text={toast} onDone={() => setToast(null)} />
       </Screen>
     );
   }

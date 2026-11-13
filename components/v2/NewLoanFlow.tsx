@@ -48,6 +48,8 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
         dueDate: (editLoan.schedule || []).length === 1 ? editLoan.schedule![0].dueDate : undefined, counterOf: undefined as string | undefined }
     : prefillIn;
   const [step, setStep] = useState(prefill?.amount ? 3 : 1);
+  // Contre-proposition : le montant demandé par le proche (le prêteur peut en proposer un autre)
+  const requested = prefill?.counterOf ? prefill.amount : undefined;
   // Étape 1 : montant
   const [value, setValue] = useState(prefill?.amount ? String(prefill.amount).replace('.', ',') : '0');
   const amount = parseFloat(value.replace(',', '.')) || 0;
@@ -173,8 +175,8 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
   // ---------- Étape 1 : montant
   if (step === 1) return (
     <Screen>
-      <TopBar onBack={onClose} progress={[1, 3]} />
-      <H1>Combien prêtes-tu ?</H1>
+      <TopBar onBack={prefill?.amount ? () => setStep(3) : onClose} progress={[1, 3]} />
+      {requested ? <H1 sub={`${friendLabel} a demandé ${euro(requested, currency)}`}>Combien proposes-tu ?</H1> : <H1>Combien prêtes-tu ?</H1>}
       <div className="flex-1 flex flex-col items-center justify-center gap-3 py-6">
         <Amount size={64} color={amount ? C.ink : '#9A9CA8'}>{display} {currency === 'EUR' ? '€' : currency}</Amount>
         <div className="flex gap-2">
@@ -188,7 +190,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
           <button key={k} onClick={() => press(k)} aria-label={k === '⌫' ? 'Effacer' : k} className="h-[60px] rounded-[14px] text-[26px] font-medium active:bg-black/5">{k}</button>
         ))}
       </div>
-      <Footer><Button disabled={amount <= 0} onClick={() => setStep(2)}>Continuer</Button></Footer>
+      <Footer><Button disabled={amount <= 0} onClick={() => setStep(friend || prefill?.friend ? 3 : 2)}>Continuer</Button></Footer>
     </Screen>
   );
 
@@ -242,8 +244,11 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
     const lateLabel = lateMode === 'legal' ? 'taux légal si retard' : lateMode === 'none' ? 'sans intérêts de retard' : `${lateRate.toLocaleString('fr-FR')} % si retard`;
     return (
       <Screen>
-        <TopBar onBack={() => setStep(prefill?.amount ? 1 : 2)} progress={[3, 3]} />
-        <H1 sub={`${euro(amount, currency)} pour ${friendLabel}`}>Comment veux-tu être remboursé ?</H1>
+        <TopBar onBack={prefill?.amount ? onClose : () => setStep(2)} progress={[3, 3]} />
+        <H1 sub={<span className="inline-flex items-center gap-2 flex-wrap">
+          <span>{euro(amount, currency)} pour {friendLabel}{requested && amount !== requested ? ` (demandé : ${euro(requested, currency)})` : ''}</span>
+          <button onClick={() => setStep(1)} className="font-semibold underline underline-offset-2" style={{ color: C.ink }}>Modifier le montant</button>
+        </span>}>{requested ? 'Ta contre-proposition' : 'Comment veux-tu être remboursé ?'}</H1>
         <div className="px-6 pt-5">
           <Chips value={plan} onChange={v => setPlan(v as any)} options={[{ id: 'once', label: 'En une fois' }, { id: 'm3', label: '3 mois' }, { id: 'm6', label: '6 mois' }, { id: 'custom', label: 'Sur mesure' }]} />
         </div>
@@ -371,7 +376,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
   // ---------- Étape 4 : envoi
   const link = result ? inviteLinkFor(result.token) : '';
   const message = prefill?.counterOf
-    ? `Salut ${friendLabel}, pour ta demande de ${euro(amount, currency)}, je te propose plutôt : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `remboursement le ${dateFr(schedule[0].dueDate)}`}${rate ? `, ${rate.toLocaleString('fr-FR')} % d'intérêts par an` : ', sans intérêt'}. Si ça te va, signe ici : ${link}`
+    ? `Salut ${friendLabel}, pour ta demande de ${euro(requested || amount, currency)}, je te propose plutôt ${requested && requested !== amount ? `${euro(amount, currency)}, ` : ': '}${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `remboursement le ${dateFr(schedule[0].dueDate)}`}${rate ? `, ${rate.toLocaleString('fr-FR')} % d'intérêts par an` : ', sans intérêt'}. Si ça te va, signe ici : ${link}`
     : alreadyGiven
     ? `Salut ${friendLabel}, comme on en a parlé, je mets au propre les ${euro(amount, currency)} que je t'ai prêtés le ${dateFr(loanDate)} : ${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)} à partir du ${dateFr(schedule[0].dueDate)}` : `${schedule[0].dueDate < toISODate(new Date()) ? 'remboursement prévu le' : 'à rembourser le'} ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}. Tu peux le lire et le signer ici : ${link}`
     : `Salut ${friendLabel}, voici le contrat pour les ${euro(amount, currency)} (${schedule.length > 1 ? `${schedule.length} × ${euro2(schedule[0].amount, currency)}` : `à rembourser le ${dateFr(schedule[0].dueDate)}`}${rate ? '' : ', sans intérêt'}). Tu peux le lire et le signer ici : ${link}`;

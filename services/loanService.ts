@@ -135,6 +135,8 @@ export const createOffer = async (args: {
     claimedBy: null,
   };
   await setDoc(doc(db, "invites", token), invite);
+  // Contre-proposition envoyée : la demande d'origine est classée (sans notification « non retenue »)
+  if (args.counterOf) await updateDoc(doc(db, LOANS, args.counterOf), { status: 'declined' }).catch(() => undefined);
   if (args.knownBorrowerUid) {
     await sendNotification({
       userId: args.knownBorrowerUid, loanId: ref.id, type: 'action_required',
@@ -452,6 +454,11 @@ export const declineRequest = async (loan: Loan, lenderFirstName: string, silent
       message: `${lenderFirstName} n'a pas pu accepter ta demande de ${loan.amount} ${loan.currency}.`,
     });
   }
+};
+
+/** Le prêteur revient sur une demande classée (refus, ou contre-proposition abandonnée). */
+export const reopenRequest = async (loan: Loan) => {
+  await updateDoc(doc(db, LOANS, loan.id), { status: 'requested' });
 };
 
 export const deleteOffer = async (loan: Loan) => {

@@ -59,8 +59,8 @@ const RequestReview: React.FC<{
       <div className="mt-auto px-5 pt-4 pb-[max(env(safe-area-inset-bottom),24px)] flex flex-col gap-2.5">
         <Button disabled={!sig} busy={busy === 'ok'} onClick={() => act('ok', () => acceptRequest(loan, user, profile, sig), true)}>Accepter et signer</Button>
         <div className="grid grid-cols-2 gap-2.5">
-          <Button variant="secondary" className="!text-[15px] whitespace-nowrap" onClick={async () => {
-            await declineRequest(loan, firstName(profile.fullName), true).catch(() => undefined);
+          {/* La demande n'est classée qu'une fois la contre-proposition envoyée (voir createOffer) */}
+          <Button variant="secondary" className="!text-[15px] whitespace-nowrap" onClick={() => {
             onModify({ uid: loan.borrowerUid, nickname: name, phone: loan.borrowerPhone, lastLoan: loan }, loan.amount, s[s.length - 1]?.dueDate);
           }}>Contre-proposition</Button>
           <Button variant="danger" busy={busy === 'no'} onClick={() => act('no', () => declineRequest(loan, firstName(profile.fullName)))}>Refuser</Button>
