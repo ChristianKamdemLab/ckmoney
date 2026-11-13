@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { InstallFromLink } from './components/v2/Install';
 import { initInstall } from './services/install';
 
 // L'invite d'installation d'Android n'arrive qu'une fois, au chargement : on la garde tout de suite.
@@ -17,6 +18,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <App />
+    <InstallFromLink />
   </React.StrictMode>
 );
 
