@@ -66,6 +66,20 @@ describe('lancement de Radio CK', () => {
     expect(await sendDueAnnouncements(NOW + 60_000, [A])).toEqual({ '2026-11-13-radio-ck': 'déjà envoyée' });
   });
 
+  it('raison de L’Heure du Monde : ajoutée si vide, jamais par-dessus une modification de Christian, sans notification', async () => {
+    await importRadio(RADIO_LANCEMENT, NOW);
+    const A = ANNOUNCEMENTS.find(x => x.id === '2026-11-13-radio-heure-du-monde')!;
+    expect(A.push).toBeUndefined();
+    const out: any = await sendDueAnnouncements(Date.parse('2026-11-13T13:50:00Z'), [A]);
+    expect(out['2026-11-13-radio-heure-du-monde']).toMatchObject({ filled: 1, kept: 0, missing: 0 });
+    expect(store.get('radio/seed-heure-du-monde-lfi').comment).toContain('sans prisme de droite ou de gauche');
+    expect(pushed).toEqual([]);
+    store.set('radio/seed-heure-du-monde-lfi', { ...store.get('radio/seed-heure-du-monde-lfi'), comment: 'Mon texte' });
+    const { fillRadioComments } = await import('../api/_lib/radioSeed');
+    expect(await fillRadioComments([{ id: 'heure-du-monde-lfi', comment: 'autre' }])).toEqual({ filled: 0, kept: 1, missing: 0 });
+    expect(store.get('radio/seed-heure-du-monde-lfi').comment).toBe('Mon texte');
+  });
+
   it('sans compte de Christian : rien n’est envoyé et l’annonce se relance', async () => {
     users = [];
     const A = ANNOUNCEMENTS.find(x => x.id === '2026-11-13-radio-ck')!;
