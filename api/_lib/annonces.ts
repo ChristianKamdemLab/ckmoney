@@ -78,6 +78,15 @@ export const ANNOUNCEMENTS: Announcement[] = [
     sendAt: '2026-11-13T10:30:00.000Z', // calendrier envoyé par Christian à 11 h : salons de Paris et d'Afrique subsaharienne
     events: SALONS_2026_2027,
   },
+  {
+    id: '2026-11-13-salons-notif',
+    sendAt: '2026-11-13T10:40:00.000Z', // une seule notification pour les 32 salons, validée par Christian à 11 h 35
+    push: {
+      title: '32 salons ajoutés dans Sorties',
+      body: "Paris et Afrique : SIREXE, Ambition Africa, Africa CEO Forum, Rétromobile, Japan Expo… Filtre Paris ou Afrique, et ajoute-les à ton agenda.",
+      url: '/?sorties',
+    },
+  },
 ];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
