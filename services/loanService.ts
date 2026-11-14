@@ -6,6 +6,7 @@ import { sendNotification } from "./notificationService";
 import { Installment } from "../utils/schedule";
 import { buildLoanContract, buildDebtAcknowledgment, sha256Hex, CONTRACT_VERSION, cityOf } from "../utils/contract";
 import { amountToFrenchWords } from "../utils/frenchNumbers";
+import { delayRequestMessage } from "../utils/wording";
 
 // v2 : les prêts sont reliés aux comptes par identifiant (uid). L'ami se relie à un prêt
 // grâce au lien personnel reçu sur WhatsApp (collection invites/{jeton}).
@@ -501,16 +502,16 @@ export const markLoanPaid = async (loanId: string) => {
 
 // --- DÉLAIS -----------------------------------------------------------------
 
-export const requestDelay = async (loan: Loan, newDate: string, quote?: { principal: number; interest: number; total: number }, lateRate = 0) => {
+export const requestDelay = async (loan: Loan, newDate: string, quote?: { principal: number; interest: number; penalty?: number; total: number }, lateRate = 0) => {
   await updateDoc(doc(db, LOANS, loan.id), {
     status: 'delay_requested', delayProposedDate: newDate, delayRequestDate: new Date().toISOString(),
   });
   if (loan.lenderUid) {
+    const name = loan.borrowerNickname || firstName(loan.borrowerName);
+    const dateLabel = new Date(newDate).toLocaleDateString('fr-FR');
     await sendNotification({
       userId: loan.lenderUid, loanId: loan.id, type: 'action_required', title: 'Demande de délai',
-      message: quote
-        ? `${loan.borrowerNickname || firstName(loan.borrowerName)} propose de payer le ${new Date(newDate).toLocaleDateString('fr-FR')} : ${quote.principal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € + ${quote.interest.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € d'intérêts de retard${lateRate ? ` (${lateRate.toLocaleString('fr-FR')} %/an)` : ''} = ${quote.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €.`
-        : `${loan.borrowerNickname || firstName(loan.borrowerName)} propose de reporter au ${new Date(newDate).toLocaleDateString('fr-FR')}.`,
+      message: quote ? delayRequestMessage(name, dateLabel, quote, lateRate) : `${name} propose de reporter au ${dateLabel}.`,
       actionType: 'review_delay',
     });
   }
