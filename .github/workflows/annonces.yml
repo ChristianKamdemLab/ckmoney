@@ -1,11 +1,14 @@
 name: Annonces et articles
 
-# Toutes les heures à :30 : envoie les annonces dues (notification, e-mail) et publie les nouveaux
+# Tous les quarts d'heure : envoie les annonces dues (notification, e-mail) et publie les nouveaux
 # articles du dossier Drive « CKMoney – Articles à publier » (agent Articles).
 # Sans effet s'il n'y a rien à envoyer ; chaque annonce ne part qu'une fois (voir api/_lib/annonces.ts).
+# GitHub retarde ou saute souvent les passages programmés (le 14/11 : 3 passages en 20 h avec un seul
+# horaire par heure) : d'où plusieurs horaires, hors des minutes rondes, et la tâche « L'essentiel
+# CKMoney » qui lance aussi ce workflow juste après avoir écrit une synthèse.
 on:
   schedule:
-    - cron: '30 * * * *'
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
     inputs:
       essai:

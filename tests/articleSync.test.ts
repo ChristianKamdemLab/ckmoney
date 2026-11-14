@@ -24,7 +24,7 @@ vi.mock('../api/_lib/admin.js', () => ({
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, msg }); return 1; },
 }));
 
-const { syncArticles, CLASSIFIER } = await import('../api/_lib/articleSync');
+const { syncArticles, CLASSIFIER, parseEssentiel } = await import('../api/_lib/articleSync');
 const PDF = 'application/pdf', DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const GDOC = 'application/vnd.google-apps.document';
 type F = { id: string; name: string; mimeType: string; modifiedTime: string; fixture?: string; size?: string; text?: string };
@@ -183,6 +183,57 @@ describe('agent Articles : relecture et garde-fous', () => {
   it('temps compté : on ne commence plus de fichier une fois le délai passé', async () => {
     const r = await syncArticles(drive(files), new Date(), { budgetMs: -1 });
     expect(r.done).toEqual({});
+  }, 60000);
+});
+
+describe('agent Articles : le document « L’essentiel » peut donner la source et le titre', () => {
+  it('lit les lignes d’en-tête (Accroche, Source, Titre, Date, Auteur, Lien), même séparées par des lignes vides', () => {
+    expect(parseEssentiel("\ufeffAccroche : Une accroche.\r\n\r\nSource : Reuters\r\nTitre : Un titre d'essai\r\nDate : 12/11/2026\r\nAuteur : Awa Test\r\nLien : https://www.reuters.com/x\r\n\r\nPremier paragraphe.\r\n\r\nSecond.")).toEqual({
+      teaser: 'Une accroche.', source: 'Reuters', title: "Un titre d'essai", date: '2026-11-12T09:00:00.000Z', author: 'Awa Test',
+      link: 'https://www.reuters.com/x', summary: 'Premier paragraphe.\n\nSecond.',
+    });
+    expect(parseEssentiel('Lien : javascript:alert(1)\nTexte.').link).toBe('');
+  });
+
+  it('capture d’écran sans texte : « Pas de texte lisible », puis fiche publiée depuis le document', async () => {
+    const files: F[] = [{ id: 'img', name: 'Screenshot_20261114_112933_Chrome.PDF.pdf', mimeType: PDF, modifiedTime: 'm', fixture: 'image-seule.pdf' }];
+    expect((await syncArticles(drive(files))).done).toEqual({ 'Screenshot_20261114_112933_Chrome.PDF.pdf': 'erreur' });
+    expect(pushed.map(p => [p.uid, p.msg.title])).toEqual([['chris', 'Pas de texte lisible']]);
+    pushed.length = 0;
+    files.push({ id: 'e', name: "Screenshot_20261114_112933_Chrome.PDF · L'essentiel", mimeType: GDOC, modifiedTime: 'e1',
+      text: "Accroche : Une accroche d'essai.\nSource : Reuters\nTitre : Un titre d'essai en anglais\nDate : 12/11/2026\nUne synthèse d'essai avec nos mots." });
+    expect((await syncArticles(drive(files))).done).toEqual({ 'Screenshot_20261114_112933_Chrome.PDF.pdf': 'press' });
+    const id = store.get('articleImports/img').articleId;
+    expect(store.get(`articles/${id}`)).toMatchObject({
+      kind: 'press', status: 'published', body: '', source: 'Reuters', sourceUrl: 'https://www.reuters.com',
+      title: "Un titre d'essai en anglais", excerpt: "Une accroche d'essai.", summary: "Une synthèse d'essai avec nos mots.", publishedAt: '2026-11-12T09:00:00.000Z',
+    });
+    expect(pushed.filter(p => p.msg.title === 'Revue de presse · Reuters').map(p => p.uid).sort()).toEqual(['chris', 'pm']);
+    pushed.length = 0;
+    expect((await syncArticles(drive(files))).done).toEqual({});
+  }, 60000);
+
+  it('source introuvable dans le PDF : le document la donne, la fiche est publiée', async () => {
+    const files: F[] = [
+      { id: 'u', name: 'article.pdf', mimeType: PDF, modifiedTime: 'm', fixture: 'inconnu.pdf' },
+      { id: 'e', name: "article · L'essentiel", mimeType: GDOC, modifiedTime: 'e1', text: 'Accroche : Accroche.\nSource : The Washington Post\nSynthèse.' },
+    ];
+    expect((await syncArticles(drive(files))).done).toEqual({ 'article.pdf': 'press' });
+    expect(store.get(`articles/${store.get('articleImports/u').articleId}`)).toMatchObject({
+      kind: 'press', status: 'published', body: '', source: 'The Washington Post', sourceUrl: 'https://www.washingtonpost.com', summary: 'Synthèse.',
+    });
+  }, 60000);
+
+  it('fichier resté « à vérifier » : le document arrivé ensuite le publie, sans message en double', async () => {
+    store.set('articleImports/u', { name: 'article.pdf', modifiedTime: 'm', status: 'unknown', articleId: 'a', at: 't', v: CLASSIFIER });
+    store.set('articles/a', { kind: 'own', status: 'draft', title: 'x', body: 'texte entier', updatedAt: 't' });
+    const files: F[] = [
+      { id: 'u', name: 'article.pdf', mimeType: PDF, modifiedTime: 'm', fixture: 'inconnu.pdf' },
+      { id: 'e', name: "article · L'essentiel", mimeType: GDOC, modifiedTime: 'e1', text: 'Accroche : Accroche.\nSource : Un site inconnu\nTitre : Un titre\nSynthèse.' },
+    ];
+    expect((await syncArticles(drive(files))).done).toEqual({ 'article.pdf': 'press' });
+    expect(store.get('articles/a')).toMatchObject({ kind: 'press', status: 'published', body: '', source: 'Un site inconnu', sourceUrl: '', title: 'Un titre' });
+    expect(pushed.filter(p => p.msg.title === 'Article à vérifier')).toEqual([]);
   }, 60000);
 });
 
