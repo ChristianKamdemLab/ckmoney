@@ -37,6 +37,19 @@ export const MEDIA: Media[] = [
   { name: 'Cameroon Tribune', domains: ['cameroon-tribune.cm'], masthead: /cameroon\s+tribune/i },
   { name: 'Actu Cameroun', domains: ['actucameroun.com'] },
   { name: 'Le Monde Afrique', domains: ['lemonde.fr/afrique'] },
+  { name: 'The Washington Post', domains: ['washingtonpost.com'] },
+  { name: 'The New York Times', domains: ['nytimes.com'] },
+  { name: 'The Wall Street Journal', domains: ['wsj.com'] },
+  { name: 'The Guardian', domains: ['theguardian.com'] },
+  { name: 'The Economist', domains: ['economist.com'] },
+  { name: 'Politico', domains: ['politico.com', 'politico.eu'] },
+  { name: 'CNN', domains: ['cnn.com'] },
+  { name: 'Associated Press', domains: ['apnews.com'] },
+  { name: 'AFP', domains: ['afp.com'] },
+  { name: 'Al Jazeera', domains: ['aljazeera.com'] },
+  { name: 'Courrier international', domains: ['courrierinternational.com'] },
+  { name: "L'Express", domains: ['lexpress.fr'] },
+  { name: "L'Obs", domains: ['nouvelobs.com'] },
 ];
 
 export type Ingested =
@@ -44,6 +57,7 @@ export type Ingested =
   | { kind: 'press'; title: string; source: string; sourceUrl: string; excerpt: string; author?: string; section?: string; publishedAt?: string }
   | { kind: 'unknown'; title: string; body: string };
 
+const EN_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 /** Première date « 12 novembre 2026 » ou « 12/11/2026 » trouvée dans le début du texte. */
 export const findDate = (text: string): string | undefined => {
@@ -60,6 +74,9 @@ export const findDate = (text: string): string | undefined => {
   if (m) return new Date(Date.UTC(+m[3], MONTHS.indexOf(m[2].toLowerCase()), +m[1], 9)).toISOString();
   const n = head.match(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/);
   if (n && +n[2] >= 1 && +n[2] <= 12) return new Date(Date.UTC(+n[3], +n[2] - 1, +n[1], 9)).toISOString();
+  // Journaux anglophones : « November 12, 2026 »
+  const en = head.match(new RegExp(`\\b(${EN_MONTHS.join('|')})\\s+(\\d{1,2}),?\\s+(20\\d{2})\\b`, 'i'));
+  if (en) return new Date(Date.UTC(+en[3], EN_MONTHS.indexOf(en[1].toLowerCase()), +en[2], 9)).toISOString();
   return undefined;
 };
 
@@ -71,14 +88,14 @@ const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\.
  *  Africa Intelligence ») et les liens de la page, qui pointent presque tous vers le site du journal. */
 export interface Hints { fileName?: string; docTitle?: string; links?: string[] }
 
-const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+export const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
   .replace(/\.(fr|com|cm|net)$/, '').replace(/[^a-z0-9]/g, '');
 const hostDomains = (m: Media) => m.domains.filter(d => !d.includes('/'));
 
 /** « … - Africa Intelligence », « … | Le Monde » : le nom du journal à la fin d'un titre de page ou d'un
  *  nom de fichier (le navigateur y remplace « / » et « : » par « _ »). */
 export const mediaFromTitle = (s?: string): Media | null => {
-  const seg = String(s || '').replace(/\.(pdf|docx?)$/i, '').match(/\s(?:[-–—|_])\s+([^-–—|_]+?)\s*$/)?.[1];
+  const seg = String(s || '').replace(/(\.(pdf|docx?))+$/i, '').match(/\s(?:[-–—|_])\s+([^-–—|_]+?)\s*$/)?.[1];
   if (!seg) return null;
   const n = norm(seg);
   return MEDIA.find(m => norm(m.name) === n || hostDomains(m).some(d => norm(d) === n)) || null;
@@ -168,7 +185,7 @@ const PAGE_NO = /^\d+\s*\/\s*\d+$/;
 /** Le titre de la page sans le nom du journal ni la date (« RDC • Titre - 26/10/2026 - Africa
  *  Intelligence » → rubrique « RDC », titre « Titre »). */
 export const docTitleParts = (docTitle: string | undefined, media: Media) => {
-  let t = String(docTitle || '').replace(/\.(pdf|docx?)$/i, '').replace(/(\d)_(?=\d)/g, '$1/').trim();
+  let t = String(docTitle || '').replace(/(\.(pdf|docx?))+$/i, '').replace(/(\d)_(?=\d)/g, '$1/').trim();
   for (let k = 0; k < 3; k++) {
     const seg = t.match(/\s(?:[-–—|_])\s+([^-–—|_]+?)\s*$/)?.[1];
     if (!seg || !(mediaFromTitle(` - ${seg}`) === media || /^\d{1,2}[/_.]\d{1,2}[/_.]\d{2,4}$/.test(seg))) break;

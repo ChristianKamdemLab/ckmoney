@@ -1,6 +1,6 @@
 import { adminAuth, adminDb, authorEmail, pushToUser } from './admin.js';
 import { DriveFile } from './drive.js';
-import { classify, readDocx, readPdf, readText, isIssueName, Ingested, Hints } from './articleIngest.js';
+import { classify, readDocx, readPdf, readText, isIssueName, findDate, norm, MEDIA, Ingested, Hints } from './articleIngest.js';
 import { PdfTooLong } from '../../utils/pdfLines.js';
 import { excerptOf, readMinutes } from '../../utils/articleText.js';
 
@@ -81,13 +81,42 @@ export const isEssentielDoc = (f: DriveFile) => !!TYPES[f.mimeType] && TYPES[f.m
 export const essentielName = (pdfName: string) => `${baseName(pdfName)} · ${ESSENTIEL}`;
 export const MAX_SUMMARY = 4000;
 
-/** Le document : une première ligne facultative « Accroche : … », puis la synthèse (un paragraphe par ligne). */
+/** Le document : en tête, des lignes facultatives « Accroche : … », « Source : … » (le journal),
+ *  « Titre : … », « Date : 12/11/2026 », « Auteur : … », « Lien : https://… » ; puis la synthèse, un
+ *  paragraphe par ligne. La source et le titre permettent de publier la fiche même quand le PDF ne dit
+ *  pas d'où il vient ou ne se lit pas (capture d'écran). */
 export const parseEssentiel = (raw: string) => {
   const lines = raw.replace(/^\ufeff/, '').split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  let teaser = '';
-  if (/^accroche\s*:/i.test(lines[0] || '')) teaser = lines.shift()!.replace(/^accroche\s*:\s*/i, '').replace(/[<>]/g, '').slice(0, 200);
-  const summary = lines.join('\n\n').replace(/[<>]/g, '').slice(0, MAX_SUMMARY).trim();
-  return { teaser, summary };
+  const head: Record<string, string> = {};
+  while (lines.length) {
+    const m = lines[0].match(/^(accroche|source|journal|titre|date|auteur|lien)\s*:\s*(.*)$/i);
+    if (!m) break;
+    head[m[1].toLowerCase()] = m[2].replace(/[<>]/g, '').trim();
+    lines.shift();
+  }
+  const link = /^https:\/\/[^\s"'<>]+$/.test(head.lien || '') ? head.lien : '';
+  return {
+    teaser: (head.accroche || '').slice(0, 200),
+    source: (head.source || head.journal || '').slice(0, 80),
+    title: (head.titre || '').slice(0, 200),
+    date: head.date ? findDate(head.date.replace(/\./g, '/')) : undefined,
+    author: (head.auteur || '').slice(0, 120),
+    link,
+    summary: lines.join('\n\n').replace(/[<>]/g, '').slice(0, MAX_SUMMARY).trim(),
+  };
+};
+type Essentiel = ReturnType<typeof parseEssentiel>;
+
+/** La fiche décrite par le document « L'essentiel » seul (source et titre donnés). */
+const pressFromEssentiel = (e: Essentiel, fallbackTitle = ''): Ingested | null => {
+  const title = e.title || fallbackTitle;
+  if (!e.source || !title || !e.summary) return null;
+  const media = MEDIA.find(m => norm(m.name) === norm(e.source));
+  return {
+    kind: 'press', title, source: media?.name || e.source, excerpt: e.teaser,
+    sourceUrl: e.link || (media ? `https://www.${media.domains[0].split('/')[0]}` : ''),
+    author: e.author || undefined, publishedAt: e.date,
+  };
 };
 
 const readEssentiel = async (f: DriveFile, deps: SyncDeps) => {
@@ -108,7 +137,12 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
   const done: Record<string, string> = {};
   let me: Awaited<ReturnType<typeof author>> | null = null;
   let handled = 0;
-  const essentiels = new Map(files.filter(isEssentielDoc).map(f => [keyOf(f.name), f] as const));
+  // Un document par article ; s'il y en a deux du même nom, le plus récent compte
+  const essentiels = new Map<string, DriveFile>();
+  for (const d of files.filter(isEssentielDoc)) {
+    const cur = essentiels.get(keyOf(d.name));
+    if (!cur || d.modifiedTime > cur.modifiedTime) essentiels.set(keyOf(d.name), d);
+  }
   for (const f of files.filter(x => !isEssentielDoc(x))) {
     if (handled >= MAX_PER_RUN || Date.now() - t0 > (opts.budgetMs ?? TIME_BUDGET_MS)) break;
     const state = (await imports.doc(f.id).get()).data();
@@ -117,9 +151,9 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
     // ancien : on le relit une fois, si le brouillon n'a pas été touché depuis. Fiche de presse dont
     // « L'essentiel » est arrivé ou a changé : on la reprend.
     const retry = !!state && state.modifiedTime === f.modifiedTime && ['unknown', 'erreur'].includes(state.status) && (state.v || 1) < CLASSIFIER;
-    const essChanged = !!state && state.status === 'press' && (state.essentiel || '') !== (ess?.modifiedTime || '');
+    const essChanged = !!state && ['press', 'unknown', 'erreur'].includes(state.status) && (state.essentiel || '') !== (ess?.modifiedTime || '');
     if (state && state.modifiedTime === f.modifiedTime && !retry && !essChanged) continue;
-    if (retry && state!.status === 'unknown') {
+    if ((retry || essChanged) && state!.status === 'unknown') {
       const draft = state!.articleId ? (await articles.doc(state!.articleId).get()).data() : undefined;
       if (!draft || draft.status !== 'draft' || draft.updatedAt !== state!.at) {
         if (!opts.dry) await imports.doc(f.id).set({ ...state, v: CLASSIFIER }, { merge: true });
@@ -132,9 +166,19 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
       try {
         if (!TYPES[f.mimeType]) { done[f.name] = 'format'; continue; }
         if (notAnArticle(f)) { done[f.name] = 'journal'; continue; }
-        const { title, blocks, hints } = await read(f, deps);
-        const r = classify(title || f.name, blocks, hints);
-        done[f.name] = `${r.kind} · ${r.kind === 'press' ? `${r.source} · ${ess ? 'avec' : 'sans'} l'essentiel · ` : ''}${r.title.slice(0, 80)}`;
+        const e = ess ? await readEssentiel(ess, deps) : null;
+        let r: Ingested;
+        try {
+          const { title, blocks, hints } = await read(f, deps);
+          if (!title && !blocks.length) throw new Error('vide');
+          r = classify(title || f.name, blocks, hints);
+        } catch (err) {
+          const fromDoc = !(err instanceof PdfTooLong) && e ? pressFromEssentiel(e) : null;
+          if (!fromDoc) throw err;
+          r = fromDoc;
+        }
+        if (r.kind === 'unknown' && e) r = pressFromEssentiel(e, r.title) || r;
+        done[f.name] = `${r.kind} · ${r.kind === 'press' ? `${r.source} · ${e?.summary ? 'avec' : 'sans'} l'essentiel · ` : ''}${r.title.slice(0, 80)}`;
       } catch (e: any) { done[f.name] = e instanceof PdfTooLong ? 'journal' : `erreur ${String(e?.message || e).slice(0, 80)}`; }
       continue;
     }
@@ -158,9 +202,22 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
     }
     if (notAnArticle(f)) { await tooLong(); continue; }
     try {
-      const { title, blocks, hints } = await read(f, deps);
-      if (!title && !blocks.length) throw new Error('vide');
-      const r: Ingested = classify(title || f.name.replace(/\.[a-z0-9]+$/i, ''), blocks, hints);
+      const e = ess ? await readEssentiel(ess, deps) : null;
+      let r: Ingested;
+      try {
+        const { title, blocks, hints } = await read(f, deps);
+        if (!title && !blocks.length) throw new Error('vide');
+        r = classify(title || f.name.replace(/\.[a-z0-9]+$/i, ''), blocks, hints);
+      } catch (err) {
+        // Illisible (capture d'écran sans texte…) : la fiche peut venir du document seul
+        const fromDoc = !(err instanceof PdfTooLong) && e ? pressFromEssentiel(e) : null;
+        if (!fromDoc) throw err;
+        r = fromDoc;
+      }
+      if (r.kind === 'unknown' && e) r = pressFromEssentiel(e, r.title) || r;
+      else if (r.kind === 'press' && e) {
+        r = { ...r, title: e.title || r.title, publishedAt: r.publishedAt || e.date, author: r.author || e.author || undefined, sourceUrl: e.link || r.sourceUrl };
+      }
       const ref = state?.articleId ? articles.doc(state.articleId) : articles.doc();
       const prev = (await ref.get()).data();
       // La date d'un article déjà en ligne ne bouge pas ; celle d'un brouillon, si
@@ -171,7 +228,6 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
       let live = r.kind === 'own';
       if (r.kind === 'press') {
         // Publiée seulement avec « L'essentiel » (ou si elle l'était déjà) ; jamais le texte du journal
-        const e = ess ? await readEssentiel(ess, deps) : null;
         live = !!e?.summary || (prev?.kind === 'press' && prev?.status === 'published');
         await ref.set({
           ...base, kind: 'press', title: r.title, body: '', excerpt: e?.teaser || r.excerpt, readMinutes: 1, status: live ? 'published' : 'draft',
@@ -186,10 +242,10 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
           publishedAt: kept || (r.kind === 'own' ? r.publishedAt : undefined) || iso,
         }, { merge: true });
       }
-      await track(r.kind, { articleId: ref.id, ...(r.kind === 'press' ? { essentiel: ess?.modifiedTime || '' } : {}) });
+      await track(r.kind, { articleId: ref.id, essentiel: ess?.modifiedTime || '' });
       if (r.kind === 'unknown') {
         // Relu sans plus de succès : Christian a déjà été prévenu la première fois
-        if (!retry) await pushToUser(me.uid, { title: 'Article à vérifier', body: `« ${r.title} » : je n'ai pas reconnu sa source. Il t'attend en brouillon.`, url: `/?article=${ref.id}`, tag: `import-${f.id}` }).catch(() => 0);
+        if (!retry && !essChanged) await pushToUser(me.uid, { title: 'Article à vérifier', body: `« ${r.title} » : je n'ai pas reconnu sa source. Il t'attend en brouillon.`, url: `/?article=${ref.id}`, tag: `import-${f.id}` }).catch(() => 0);
       } else if (live) {
         await notifyNewArticle(ref.id, { title: r.title, kind: r.kind, source: r.kind === 'press' ? r.source : undefined, authorFirst: me.first });
       } else if (r.kind === 'press' && state?.status !== 'press') {
@@ -199,8 +255,11 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
       done[f.name] = r.kind === 'press' ? (live ? 'press' : "press · en attente de l'essentiel") : r.kind;
     } catch (e: any) {
       if (e instanceof PdfTooLong) { await tooLong(e.pages); continue; }
-      await track('erreur', { error: String(e?.message || e).slice(0, 200), ...(state?.articleId ? { articleId: state.articleId } : {}) });
-      if (!retry) await pushToUser(me.uid, { title: 'Article non lu', body: `« ${f.name} » n'a pas pu être lu. Essaie de l'enregistrer à nouveau en PDF.`, url: '/', tag: `import-${f.id}` }).catch(() => 0);
+      await track('erreur', { error: String(e?.message || e).slice(0, 200), essentiel: ess?.modifiedTime || '', ...(state?.articleId ? { articleId: state.articleId } : {}) });
+      const empty = String(e?.message || '') === 'vide';
+      if (!retry && !essChanged) await pushToUser(me.uid, empty
+        ? { title: 'Pas de texte lisible', body: `« ${f.name} » est une image (capture d'écran ?). La fiche sera publiée avec son « L'essentiel ».`, url: '/', tag: `import-${f.id}` }
+        : { title: 'Article non lu', body: `« ${f.name} » n'a pas pu être lu. Essaie de l'enregistrer à nouveau en PDF.`, url: '/', tag: `import-${f.id}` }).catch(() => 0);
       done[f.name] = 'erreur';
     }
   }

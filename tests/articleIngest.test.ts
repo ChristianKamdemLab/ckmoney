@@ -151,6 +151,13 @@ describe('agent Articles : reconnaître le journal sans en-tête ni pied de page
     expect(classify('Un vrai titre d’essai', blocks('Un intertitre'), { docTitle: 'Document sans rapport avec le texte', links: lm })).toMatchObject({ source: 'Le Monde', title: 'Un vrai titre d’essai' });
   });
 
+  it('journaux anglophones : nom en fin de fichier « .PDF.pdf », date « November 12, 2026 »', () => {
+    expect(mediaFromTitle('Un titre - The Washington Post.PDF.pdf')?.name).toBe('The Washington Post');
+    expect(findDate('By Reuters November 12, 2026 10:00 PM')).toBe('2026-11-12T09:00:00.000Z');
+    // Un journal anglophone cité à la fin d'un autre article ne compte pas
+    expect(detectMedia('Un texte qui cite The New York Times et The Washington Post en passant.').media).toBeNull();
+  });
+
   it('auteur : « Par X Publié le… » ne prend pas « Publié »', () => {
     const c = classify('Un titre d’essai', [
       { t: 'p', text: 'Par Olivia Essai Publié le 26.10.2026 à 5h40 GMT' },
