@@ -213,6 +213,16 @@ describe('agent Articles : le document « L’essentiel » peut donner la source
     expect((await syncArticles(drive(files))).done).toEqual({});
   }, 60000);
 
+  it('deux documents « L’essentiel » pour le même article : le plus récent compte', async () => {
+    const files: F[] = [
+      { id: 'u', name: 'article.pdf', mimeType: PDF, modifiedTime: 'm', fixture: 'inconnu.pdf' },
+      { id: 'e2', name: "article · L'essentiel", mimeType: GDOC, modifiedTime: '2026-11-14T13:00:00Z', text: 'Source : Reuters\nTitre : Nouveau\nSynthèse récente.' },
+      { id: 'e1', name: "article · L'essentiel", mimeType: GDOC, modifiedTime: '2026-11-14T11:00:00Z', text: 'Synthèse ancienne.' },
+    ];
+    expect((await syncArticles(drive(files))).done).toEqual({ 'article.pdf': 'press' });
+    expect(store.get(`articles/${store.get('articleImports/u').articleId}`)).toMatchObject({ source: 'Reuters', title: 'Nouveau', summary: 'Synthèse récente.' });
+  }, 60000);
+
   it('source introuvable dans le PDF : le document la donne, la fiche est publiée', async () => {
     const files: F[] = [
       { id: 'u', name: 'article.pdf', mimeType: PDF, modifiedTime: 'm', fixture: 'inconnu.pdf' },

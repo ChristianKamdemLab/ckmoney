@@ -137,7 +137,12 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
   const done: Record<string, string> = {};
   let me: Awaited<ReturnType<typeof author>> | null = null;
   let handled = 0;
-  const essentiels = new Map(files.filter(isEssentielDoc).map(f => [keyOf(f.name), f] as const));
+  // Un document par article ; s'il y en a deux du même nom, le plus récent compte
+  const essentiels = new Map<string, DriveFile>();
+  for (const d of files.filter(isEssentielDoc)) {
+    const cur = essentiels.get(keyOf(d.name));
+    if (!cur || d.modifiedTime > cur.modifiedTime) essentiels.set(keyOf(d.name), d);
+  }
   for (const f of files.filter(x => !isEssentielDoc(x))) {
     if (handled >= MAX_PER_RUN || Date.now() - t0 > (opts.budgetMs ?? TIME_BUDGET_MS)) break;
     const state = (await imports.doc(f.id).get()).data();
