@@ -16,9 +16,15 @@ const colRef = (name: string): any => ({
     get: async () => ({ docs: [...store.keys()].filter(k => k.startsWith(`${name}/`) && k.split('/').length === 2 && store.get(k)[f] === v).map(snapOf) }),
   }),
 });
-vi.mock('../api/_lib/admin.js', () => ({ adminDb: { collection: colRef } }));
+const pushed: any[] = [];
+vi.mock('../api/_lib/admin.js', () => ({
+  adminDb: { collection: colRef },
+  adminAuth: { getUserByEmail: async () => ({ uid: 'chris' }) },
+  authorEmail: () => 'auteur@example.com',
+  pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, title: msg.title }); return 1; },
+}));
 
-const { speechText, hashOf, generateAudios, loadAudio } = await import('../api/_lib/voice');
+const { speechText, hashOf, generateAudios, loadAudio, PAUSE_RETRY_MS } = await import('../api/_lib/voice');
 
 const calls: { url: string; body?: any }[] = [];
 const fakeFetch = (async (url: string, init?: any) => {
@@ -28,7 +34,7 @@ const fakeFetch = (async (url: string, init?: any) => {
 }) as any;
 
 beforeEach(() => {
-  store.clear(); calls.length = 0;
+  store.clear(); calls.length = 0; pushed.length = 0;
   process.env.ELEVENLABS_API_KEY = 'cle-de-test';
   delete process.env.ELEVENLABS_VOICE_ID;
 });
@@ -61,5 +67,33 @@ describe('Écouter L’essentiel', () => {
     store.set('articles/a', { kind: 'press', status: 'published', title: 'T', source: 'R', summary: 'S.' });
     expect(await generateAudios({ budgetMs: 10_000, f: fakeFetch })).toEqual({});
     expect(calls).toEqual([]);
+  });
+
+  it('crédits épuisés : pause, Christian prévenu une fois, un essai par jour, reprise dès que le compte est rechargé', async () => {
+    let quota = true;
+    const f = (async (url: string, init?: any) => {
+      calls.push({ url });
+      if (url.endsWith('/voices')) return new Response(JSON.stringify({ voices: [{ voice_id: 'v2', name: 'Christian voice' }] }));
+      if (quota) return new Response(JSON.stringify({ detail: { status: 'quota_exceeded' } }), { status: 401 });
+      return new Response(new Uint8Array(10));
+    }) as any;
+    ['a', 'b', 'c'].forEach(id => store.set(`articles/${id}`, { kind: 'press', status: 'published', title: id, source: 'R', summary: 'S.' }));
+    const t = Date.parse('2026-11-19T10:00:00Z');
+    expect((await generateAudios({ budgetMs: 10_000, f, now: t })).a).toBe('audio : quota');
+    expect(store.get('settings/voice')).toMatchObject({ pausedAt: '2026-11-19T10:00:00.000Z', reason: 'quota' });
+    expect(pushed).toEqual([{ uid: 'chris', title: 'Audio en pause' }]);
+    // Pendant la pause : aucun appel à ElevenLabs
+    calls.length = 0;
+    expect(await generateAudios({ budgetMs: 10_000, f, now: t + 3600_000 })).toEqual({ voix: 'en pause' });
+    expect(calls).toEqual([]);
+    // Le lendemain, toujours sans crédits : un seul essai, pas de nouveau message
+    expect(Object.keys(await generateAudios({ budgetMs: 10_000, f, now: t + PAUSE_RETRY_MS + 1 }))).toHaveLength(1);
+    expect(pushed).toHaveLength(1);
+    // Compte rechargé : l'essai du jour réussit, la pause est levée, puis tout reprend
+    quota = false;
+    expect(Object.values(await generateAudios({ budgetMs: 10_000, f, now: t + 2 * PAUSE_RETRY_MS + 2 }))).toEqual(['audio']);
+    expect(store.get('settings/voice').pausedAt).toBeNull();
+    expect(pushed.map(p => p.title)).toEqual(['Audio en pause', 'Audio relancé']);
+    expect(Object.values(await generateAudios({ budgetMs: 10_000, f, now: t + 2 * PAUSE_RETRY_MS + 3 }))).toEqual(['audio', 'audio']);
   });
 });
