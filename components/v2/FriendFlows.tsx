@@ -21,7 +21,7 @@ import { getUserNotifications, markNotificationAsRead } from '../../services/not
 import { amountWordsMatch } from '../../utils/frenchNumbers';
 import { buildSchedule, computeSituation, toISODate, addMonths } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE, rateCapFor } from '../../config/legal';
-import { lateFeesDetail } from '../../utils/wording';
+import { lateFeesDetail, dueAtSigning } from '../../utils/wording';
 
 const identityOf = (p: Partial<Profile> | null | undefined, user: User): BorrowerIdentity => ({
   civility: p?.civility || 'M.',
@@ -177,12 +177,15 @@ export const BorrowerSignFlow: React.FC<{
   const todayISO = toISODate(new Date());
   const overdueFrom = s.find(i => i.dueDate < todayISO)?.dueDate;
   const lateRateNum = loan.lateRateMode === 'legal' ? LEGAL_INTEREST_RATE : (loan.lateInterestRate || 0);
+  // Échéance déjà passée : la pénalité et les intérêts de retard sont dus dès la signature, on l'annonce avant
+  const sitNow = computeSituation(loan, LEGAL_INTEREST_RATE);
+  const lateNow = dueAtSigning(sitNow);
+  const lateNowDetail = lateFeesDetail(sitNow.penalty, sitNow.lateInterest, n => euro2(n, loan.currency));
   const [payLinkUrl, setPayLinkUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!overdueFrom || !loan.lenderUid) return;
     getLenderCard(loan.lenderUid).then(c => {
-      const sit = computeSituation(loan, LEGAL_INTEREST_RATE);
-      setPayLinkUrl(payUrl(c?.paymentLink || loan.lenderPaymentLink, Math.round((sit.overdueAmount + sit.lateInterest + sit.penalty) * 100) / 100, loan.currency));
+      setPayLinkUrl(payUrl(c?.paymentLink || loan.lenderPaymentLink, lateNow.total, loan.currency));
     });
   }, [loan.id]);
 
@@ -212,7 +215,8 @@ export const BorrowerSignFlow: React.FC<{
         {overdueFrom ? (
           <Note tone="warn">
             Le remboursement était prévu le {dateFr(overdueFrom, { day: 'numeric', month: 'long' })}. En signant, tu reconnais devoir cette somme.
-            Tu pourras ensuite rembourser tout de suite, ou proposer une nouvelle date à {lender}
+            {lateNowDetail ? <> Comme cette date est passée, les frais de retard du contrat s'appliquent dès la signature : {lateNowDetail}, soit <strong>{euro2(lateNow.total, loan.currency)}</strong> à régler aujourd'hui.</> : null}
+            {' '}Tu pourras ensuite rembourser tout de suite, ou proposer une nouvelle date à {lender}
             {loan.lateRateMode !== 'none' ? <> : les intérêts de retard ({lateRateNum.toLocaleString('fr-FR')} % par an) courent alors depuis le {dateFr(overdueFrom, { day: 'numeric', month: 'long' })} jusqu'au paiement</> : null}.
           </Note>
         ) : <Note>Tu peux rembourser plus tôt, sans frais. Si tu as besoin de plus de temps, tu pourras demander un délai depuis l'appli.</Note>}
@@ -250,7 +254,7 @@ export const BorrowerSignFlow: React.FC<{
       ? <>{lender} est prévenu. Le remboursement est en retard : règle-le maintenant, ou propose une nouvelle date avec le bouton « Délai » de ton prêt.</>
       : <>{lender} est prévenu. Tu retrouves ton prêt, tes échéances et le contrat dans ton espace.</>}>
       {overdueFrom && payLinkUrl && (
-        <a href={payLinkUrl} target="_blank" rel="noopener noreferrer" className="h-14 rounded-2xl flex items-center justify-center text-base font-bold text-white" style={{ background: C.ink }}>Payer maintenant</a>
+        <a href={payLinkUrl} target="_blank" rel="noopener noreferrer" className="h-14 rounded-2xl flex items-center justify-center text-base font-bold text-white" style={{ background: C.ink }}>Payer {euro2(lateNow.total, loan.currency)} maintenant</a>
       )}
       <Button variant={overdueFrom && payLinkUrl ? 'secondary' : 'primary'} onClick={onDone}>{overdueFrom ? 'Proposer une nouvelle date' : 'Voir mon espace'}</Button>
     </Done>

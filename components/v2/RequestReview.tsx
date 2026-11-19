@@ -7,6 +7,7 @@ import { LEGAL_INTEREST_RATE } from '../../config/legal';
 import SignaturePad from '../SignaturePad';
 import { receiveLabel } from './ReceiveFields';
 import { openLoanWith } from '../../utils/requests';
+import { lateTermsLabel } from '../../utils/wording';
 
 /** Le prêteur reçoit la demande d'un proche : accepter (vaut signature), modifier ou refuser. */
 const RequestReview: React.FC<{
@@ -20,6 +21,8 @@ const RequestReview: React.FC<{
   const s = loan.schedule || [];
   const past = loans.filter(l => l.id !== loan.id && l.borrowerUid === loan.borrowerUid && l.lenderUid === user.id && ['active', 'paid', 'delay_requested'].includes(l.status));
   const already = loan.borrowerUid ? openLoanWith(loans, loan.borrowerUid, user.id, loan.id) : null;
+  // Ce que la demande prévoit en cas de retard, pénalité forfaitaire comprise (reprise des réglages du prêteur)
+  const lateTerms = lateTermsLabel(loan.lateRateMode, loan.lateInterestRate || 0, loan.penaltyRate);
   const paidOnTime = past.filter(l => l.status === 'paid' || !computeSituation(l, LEGAL_INTEREST_RATE).isOverdue).length;
 
   const act = async (key: string, fn: () => Promise<void>, stay = false) => {
@@ -43,7 +46,7 @@ const RequestReview: React.FC<{
         <KV rows={[
           ['Il propose', s.length > 1 ? `${s.length} × ${euro2(s[0].amount, loan.currency)}` : `En une fois`],
           [s.length > 1 ? 'Échéances' : 'Date', s.length > 1 ? `du ${dateFr(s[0].dueDate, { day: 'numeric', month: 'short' })} au ${dateFr(s[s.length - 1].dueDate, { day: 'numeric', month: 'short' })}` : dateFr(s[0]?.dueDate || loan.repaymentDate)],
-          ['Intérêts · retard', `${loan.interestRate ? `${loan.interestRate} %` : 'Aucun'} · ${loan.lateRateMode === 'none' ? 'rien' : 'taux légal'}`],
+          ['Intérêts · retard', `${loan.interestRate ? `${loan.interestRate.toLocaleString('fr-FR')} %` : 'Aucun'} · ${lateTerms.charAt(0).toLowerCase()}${lateTerms.slice(1)}`],
           ['Il veut recevoir', loan.borrowerReceive ? receiveLabel(loan.borrowerReceive) : loan.borrowerPaymentLink || 'Non précisé'],
           ['Historique avec lui', past.length ? `${past.length} prêt(s), ${paidOnTime === past.length ? 'à jour' : 'retard en cours'}` : 'Premier prêt'],
         ]} />

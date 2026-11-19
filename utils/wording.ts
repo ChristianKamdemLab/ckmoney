@@ -21,3 +21,25 @@ export const lateTermsLabel = (mode: 'none' | 'legal' | 'custom' | undefined, la
   if (!(penaltyRate > 0)) return interest || 'Aucune pénalité';
   return interest ? `${interest} + pénalité ${pct(penaltyRate)} %` : `Pénalité ${pct(penaltyRate)} %`;
 };
+
+/**
+ * Message reçu par le prêteur quand un proche propose une nouvelle date. Le détail s'additionne
+ * jusqu'au total : somme due, pénalité forfaitaire s'il y en a une, intérêts de retard.
+ */
+export const delayRequestMessage = (
+  name: string, dateLabel: string,
+  quote: { principal: number; interest: number; penalty?: number; total: number },
+  lateRate = 0,
+): string => {
+  const eur = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  const penalty = (quote.penalty || 0) > 0.004 ? ` + ${eur(quote.penalty || 0)} de pénalité` : '';
+  const rate = lateRate ? ` (${lateRate.toLocaleString('fr-FR')} %/an)` : '';
+  return `${name} propose de payer le ${dateLabel} : ${eur(quote.principal)}${penalty} + ${eur(quote.interest)} d'intérêts de retard${rate} = ${eur(quote.total)}.`;
+};
+
+/**
+ * Ce qui est dû dès la signature quand l'échéance est déjà passée (contrat signé en retard) :
+ * la somme échue, la pénalité et les intérêts de retard déjà courus, et leur total.
+ */
+export const dueAtSigning = (s: { overdueAmount: number; penalty: number; lateInterest: number }) =>
+  ({ total: Math.round((s.overdueAmount + s.penalty + s.lateInterest) * 100) / 100 });
