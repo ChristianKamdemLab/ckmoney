@@ -68,3 +68,8 @@ export const RADIO_2026_11_19: RadioSeed[] = [
   { id: 'hdm-inside-deutsche-bank', url: 'https://open.spotify.com/episode/6Eh82LUo8VJ6gCetCIS7EM', title: '« Inside Deutsche Bank » : plongée dans la banque aux mille scandales', show: "L'Heure du Monde",
     comment: "15,6 millions de documents et environ 230 journalistes pour raconter comment une des plus grandes banques du monde contournerait ses propres engagements, entre soupçons de blanchiment et clients sous sanctions. Pour qui s’intéresse à l’argent et à ceux qui le gardent, c’est une enquête à écouter jusqu’au bout. La question que je me pose : qui contrôle vraiment les banques ?" },
 ];
+
+/** Envoyé par Christian le 19/11/2026 à 18 h 21, sans « pourquoi je le recommande » pour l'instant. */
+export const RADIO_2026_11_19_SOIR: RadioSeed[] = [
+  { id: 'cesoir-logement-2027', url: 'https://open.spotify.com/episode/0WGw8y4fDxfvkwwNnuh4Ax', title: 'Logement : la bombe sociale de 2027 ?', show: 'C ce soir' },
+];
