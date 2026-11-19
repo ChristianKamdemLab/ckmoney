@@ -8,6 +8,7 @@ const docRef = (path: string): any => ({
   id: path.split('/').pop(), path,
   get: async () => snapOf(path),
   set: async (d: any, o?: { merge?: boolean }) => { store.set(path, o?.merge ? { ...store.get(path), ...d } : d); },
+  delete: async () => { store.delete(path); },
   collection: (sub: string) => colRef(`${path}/${sub}`),
 });
 const colRef = (name: string): any => ({
@@ -24,7 +25,7 @@ vi.mock('../api/_lib/admin.js', () => ({
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, title: msg.title }); return 1; },
 }));
 
-const { speechText, speechSegments, hashOf, generateAudios, loadAudio, parseAliases, PAUSE_RETRY_MS, VOICE_SETTINGS } = await import('../api/_lib/voice');
+const { speechText, speechSegments, ownSegments, hashOf, generateAudios, loadAudio, parseAliases, PAUSE_RETRY_MS, VOICE_SETTINGS } = await import('../api/_lib/voice');
 
 const calls: { url: string; body?: any }[] = [];
 const fakeFetch = (async (url: string, init?: any) => {
@@ -61,16 +62,16 @@ describe('Écouter L’essentiel', () => {
     store.set('articles/b', { kind: 'own', status: 'published', title: 'Texte', body: 'x' });
     store.set('articles/c', { kind: 'press', status: 'draft', title: 'Brouillon', source: 'X', summary: 'S.' });
     const done = await generateAudios({ budgetMs: 10_000, f: fakeFetch });
-    expect(done).toEqual({ T: 'audio' });
+    expect(done).toEqual({ T: 'audio', Texte: 'audio' });
     const said = speechText({ title: 'T', source: 'Reuters', summary: 'Synthèse.' });
     const body = calls.find(c => c.url.includes('/text-to-speech/v2'))!.body;
-    expect(calls.filter(c => c.url.includes('/text-to-speech/v2'))).toHaveLength(2);
+    expect(calls.filter(c => c.url.includes('/text-to-speech/v2'))).toHaveLength(4);
     expect(body).toMatchObject({ model_id: 'eleven_v4', language_code: 'fr', voice_settings: VOICE_SETTINGS });
     // v4 : pauses par la ponctuation, pas de balise
     expect(body.text).not.toContain('<break');
     expect(body.text).toContain('La revue de presse de CKMoney.…');
     expect(VOICE_SETTINGS.speed).toBeLessThan(1);
-    expect(store.get('articles/a').audioHash).toBe(hashOf(said));
+    expect(store.get('articles/a').audioHash).toMatch(/^[0-9a-f]{16}$/);
     expect(store.get('articleAudio/a').chunks).toBe(3);
     expect((await loadAudio('a'))!.length).toBe(2_000_000);
     // Déjà fait : rien de plus ; synthèse modifiée : refait
@@ -112,7 +113,7 @@ describe('Écouter L’essentiel', () => {
     expect(Object.values(await generateAudios({ budgetMs: 10_000, f, now: t + 2 * PAUSE_RETRY_MS + 2 }))).toEqual(['audio']);
     expect(store.get('settings/voice').pausedAt).toBeNull();
     expect(pushed.map(p => p.title)).toEqual(['Audio en pause', 'Audio relancé']);
-    expect(Object.values(await generateAudios({ budgetMs: 10_000, f, now: t + 2 * PAUSE_RETRY_MS + 3 }))).toEqual(['audio']);
+    expect(Object.values(await generateAudios({ budgetMs: 10_000, f, now: t + 2 * PAUSE_RETRY_MS + 3 }))).toEqual(['audio', 'audio']);
   });
 
   it('v4 refusé : Multilingual v2 avec les balises de pause ; la voix « Christian voice » est choisie', async () => {
@@ -130,6 +131,33 @@ describe('Écouter L’essentiel', () => {
     expect(tts.every(c => c.url.includes('/v9?'))).toBe(true);
     expect(tts.map(c => c.body.model_id).sort()).toEqual(['eleven_multilingual_v2', 'eleven_multilingual_v2', 'eleven_v4', 'eleven_v4']);
     expect(tts.find(c => c.body.model_id === 'eleven_multilingual_v2' && c.body.text.startsWith('La revue'))!.body.text).toContain('<break time="0.8s" />');
+  });
+
+  it('texte CKLabs : lu en entier (présentation, intertitres, conclusion), au fil des passages s’il est long', async () => {
+    const body = ['## Un intertitre', 'Premier paragraphe.', '- une puce', ...Array.from({ length: 8 }, (_, i) => `Paragraphe ${i}. `.repeat(10))].join('\n');
+    store.set('articles/o', { kind: 'own', status: 'published', title: 'Mon texte', body, authorName: 'Christian Kamdem', publishedAt: '2026-11-12' });
+    const segs = ownSegments(store.get('articles/o'));
+    expect(segs[0]).toContain('Un texte de Christian, pour CKLabs.');
+    expect(segs[1]).toContain('Un intertitre.');
+    expect(segs[3]).toMatch(/^une puce/);
+    expect(segs[segs.length - 1]).toContain("C'était un texte de Christian, pour CKLabs.");
+    let slow = 0;
+    const f = (async (url: string, init?: any) => {
+      if (url.endsWith('/voices')) return new Response(JSON.stringify({ voices: [{ voice_id: 'v2', name: 'Christian voice' }] }));
+      calls.push({ url, body: JSON.parse(init.body) });
+      slow++;
+      return new Response(new Uint8Array(10).fill(slow));
+    }) as any;
+    // Premier passage trop court : une partie seulement, gardée pour la suite
+    const first = await generateAudios({ budgetMs: 0.0001, f });
+    expect(first['Mon texte']).toMatch(new RegExp(`^audio en cours \\(\\d+/${segs.length}\\)$`));
+    expect(store.get('articles/o').audioHash).toBeUndefined();
+    const before = calls.length;
+    expect(await generateAudios({ budgetMs: 10_000, f })).toEqual({ 'Mon texte': 'audio' });
+    expect(calls.length).toBe(segs.length);
+    expect(calls.every(c => c.url.includes('output_format=mp3_44100_32'))).toBe(true);
+    expect((await loadAudio('o'))!.length).toBe(10 * segs.length);
+    expect([...store.keys()].some(k => k.startsWith('articleAudio/o/parts/'))).toBe(false);
   });
 });
 

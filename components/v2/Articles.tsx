@@ -57,7 +57,7 @@ const ReadingProgress: React.FC = () => {
 };
 
 /** « L'essentiel » lu par la voix de Christian : chargé seulement au toucher. */
-const Listen: React.FC<{ id: string }> = ({ id }) => {
+const Listen: React.FC<{ id: string; label?: string }> = ({ id, label = "Écouter L'essentiel" }) => {
   const [src, setSrc] = useState('');
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
@@ -69,7 +69,7 @@ const Listen: React.FC<{ id: string }> = ({ id }) => {
       className="mt-6 w-full h-[52px] rounded-[14px] flex items-center justify-center gap-2.5 text-[15px] font-semibold"
       style={{ background: C.ink, color: '#fff' }}>
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>
-      {state === 'loading' ? 'Chargement…' : state === 'error' ? 'Réessayer' : "Écouter L'essentiel"}
+      {state === 'loading' ? 'Chargement…' : state === 'error' ? 'Réessayer' : label}
     </button>
   );
 };
@@ -181,6 +181,7 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
             <div className="text-[13px]" style={{ color: C.mute }}>{meta(article)}</div>
           </div>
         </div>
+        {article.audio && article.status === 'published' && <Listen id={article.id} label="Écouter le texte" />}
         <div className="pt-7"><Blocks blocks={blocks} /></div>
         <div className="flex justify-center pt-4" aria-hidden="true"><div className="w-10 h-[3px] rounded-full" style={{ background: C.ochre }} /></div>
       </article>
