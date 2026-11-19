@@ -64,7 +64,11 @@ describe('Écouter L’essentiel', () => {
     const done = await generateAudios({ budgetMs: 10_000, f: fakeFetch });
     expect(done).toEqual({ T: 'audio' });
     const said = speechText({ title: 'T', source: 'Reuters', summary: 'Synthèse.' });
-    expect(calls.find(c => c.url.includes('/text-to-speech/v2'))?.body).toMatchObject({ text: said, model_id: 'eleven_multilingual_v2', language_code: 'fr', voice_settings: VOICE_SETTINGS });
+    const body = calls.find(c => c.url.includes('/text-to-speech/v2'))?.body;
+    expect(body).toMatchObject({ model_id: 'eleven_v4', language_code: 'fr', voice_settings: VOICE_SETTINGS });
+    // v4 : pauses par la ponctuation, pas de balise
+    expect(body.text).not.toContain('<break');
+    expect(body.text).toContain('La revue de presse de CKMoney.…');
     expect(VOICE_SETTINGS.speed).toBeLessThan(1);
     expect(store.get('articles/a').audioHash).toBe(hashOf(said));
     expect(store.get('articleAudio/a').chunks).toBe(3);
@@ -110,4 +114,21 @@ describe('Écouter L’essentiel', () => {
     expect(pushed.map(p => p.title)).toEqual(['Audio en pause', 'Audio relancé']);
     expect(Object.values(await generateAudios({ budgetMs: 10_000, f, now: t + 2 * PAUSE_RETRY_MS + 3 }))).toEqual(['audio', 'audio']);
   });
+
+  it('v4 refusé : Multilingual v2 avec les balises de pause ; la voix « Christian voice » est choisie', async () => {
+    const f = (async (url: string, init?: any) => {
+      const body = init?.body ? JSON.parse(init.body) : undefined;
+      calls.push({ url, body });
+      if (url.endsWith('/voices')) return new Response(JSON.stringify({ voices: [{ voice_id: 'x', name: 'Christian ancien' }, { voice_id: 'v9', name: 'Christian voice' }] }));
+      if (body.model_id === 'eleven_v4') return new Response('{"detail":"unsupported"}', { status: 400 });
+      return new Response(new Uint8Array(5));
+    }) as any;
+    process.env.ELEVENLABS_API_KEY = 'autre-cle';
+    store.set('articles/a', { kind: 'press', status: 'published', title: 'T', source: 'R', summary: 'S.' });
+    expect(await generateAudios({ budgetMs: 10_000, f })).toEqual({ T: 'audio' });
+    const tts = calls.filter(c => c.url.includes('/text-to-speech/'));
+    expect(tts.map(c => [c.url.includes('/v9?'), c.body.model_id])).toEqual([[true, 'eleven_v4'], [true, 'eleven_multilingual_v2']]);
+    expect(tts[1].body.text).toContain('<break time="0.8s" />');
+  });
 });
+

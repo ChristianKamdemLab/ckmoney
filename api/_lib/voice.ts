@@ -15,7 +15,14 @@ export const voiceEnabled = () => !!process.env.ELEVENLABS_API_KEY;
 
 // Réglages de la voix (19/11, retour de Christian : trop rapide, sans pauses, pas assez « podcast »).
 // Changer un réglage ou VOICE_VERSION refait tous les audios.
-export const VOICE_VERSION = 2;
+export const VOICE_VERSION = 3;
+// Modèle ElevenLabs : Eleven v4 (19/11, choix de Christian), sinon ELEVENLABS_MODEL. Si v4 refuse la
+// demande, on retombe sur Multilingual v2. v4 ne lit pas les balises <break> : les pauses y passent par
+// la ponctuation.
+export const MODEL = () => process.env.ELEVENLABS_MODEL || 'eleven_v4';
+const FALLBACK_MODEL = 'eleven_multilingual_v2';
+const forModel = (text: string, model: string) =>
+  model === 'eleven_multilingual_v2' ? text : text.replace(/\s*<break time="([\d.]+)s" \/>\s*/g, (_, t) => (+t >= 1 ? '…\n\n' : '… '));
 export const VOICE_SETTINGS = { stability: 0.6, similarity_boost: 0.8, style: 0.1, use_speaker_boost: true, speed: 0.88 };
 const pause = (s: number) => ` <break time="${s.toFixed(1)}s" /> `;
 
@@ -50,29 +57,33 @@ export const speechText = (a: { title?: string; source?: string; summary?: strin
   ].join('\n\n');
   return text.slice(0, MAX_SPEECH);
 };
-export const hashOf = (s: string) => createHash('sha1').update(`${VOICE_VERSION}|${JSON.stringify(VOICE_SETTINGS)}|${s}`).digest('hex').slice(0, 16);
+export const hashOf = (s: string) => createHash('sha1').update(`${VOICE_VERSION}|${MODEL()}|${JSON.stringify(VOICE_SETTINGS)}|${s}`).digest('hex').slice(0, 16);
 
 type Fetch = typeof fetch;
-let cachedVoice = '';
+const cachedVoice = new Map<string, string>();
 const voiceId = async (f: Fetch) => {
   if (process.env.ELEVENLABS_VOICE_ID) return process.env.ELEVENLABS_VOICE_ID;
-  if (cachedVoice) return cachedVoice;
   const r = await f(`${API}/voices`, { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY! } });
   if (!r.ok) throw new Error(`voices_${r.status}`);
   const voices: { voice_id: string; name: string }[] = (await r.json())?.voices || [];
-  const wanted = (process.env.ELEVENLABS_VOICE_NAME || 'christian').toLowerCase();
+  const wanted = (process.env.ELEVENLABS_VOICE_NAME || 'christian voice').toLowerCase();
+  const key = `${process.env.ELEVENLABS_API_KEY}|${wanted}`;
+  if (cachedVoice.has(key)) return cachedVoice.get(key)!;
   const v = voices.find(x => x.name.toLowerCase() === wanted) || voices.find(x => x.name.toLowerCase().includes(wanted));
   if (!v) throw new Error('voice_not_found');
-  return (cachedVoice = v.voice_id);
+  cachedVoice.set(key, v.voice_id);
+  return v.voice_id;
 };
 
-export const synthesize = async (text: string, f: Fetch = fetch): Promise<Buffer> => {
+export const synthesize = async (text: string, f: Fetch = fetch, model = MODEL()): Promise<Buffer> => {
   const id = await voiceId(f);
   const r = await f(`${API}/text-to-speech/${encodeURIComponent(id)}?output_format=mp3_44100_64`, {
     method: 'POST',
     headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-    body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2', language_code: 'fr', voice_settings: VOICE_SETTINGS }),
+    body: JSON.stringify({ text: forModel(text, model), model_id: model, language_code: 'fr', voice_settings: VOICE_SETTINGS }),
   });
+  // Modèle refusé (paramètre non pris en charge, modèle indisponible sur le compte) : Multilingual v2
+  if ((r.status === 400 || r.status === 422) && model !== FALLBACK_MODEL) return synthesize(text, f, FALLBACK_MODEL);
   if (!r.ok) {
     const detail = await r.text().catch(() => '');
     // Crédits épuisés (ou clé refusée) : on met la voix en pause plutôt que de réessayer à chaque passage
