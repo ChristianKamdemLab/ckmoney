@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Article, User } from '../../types';
 import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chips, Field, inputClass, inputStyle, Icon, C, dateFr } from './ui';
-import { listArticles, saveArticle, importArticles, deleteArticle, savePress, ArticleInput, PressInput } from '../../services/articleService';
+import { listArticles, saveArticle, importArticles, deleteArticle, savePress, fetchAudio, ArticleInput, PressInput } from '../../services/articleService';
 import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils/articleText';
 
 // Articles : les textes de Christian (signés CKLabs, en entier) et sa revue de presse (fiches qui
@@ -56,6 +56,24 @@ const ReadingProgress: React.FC = () => {
   return <div className="fixed top-0 left-0 right-0 h-[3px] z-50" aria-hidden="true"><div className="h-full" style={{ width: `${p * 100}%`, background: C.ochre }} /></div>;
 };
 
+/** « L'essentiel » lu par la voix de Christian : chargé seulement au toucher. */
+const Listen: React.FC<{ id: string }> = ({ id }) => {
+  const [src, setSrc] = useState('');
+  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
+  useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
+  if (src) return <audio src={src} controls autoPlay className="w-full mt-6" />;
+  return (
+    <button
+      onClick={async () => { setState('loading'); try { setSrc(await fetchAudio(id)); setState('idle'); } catch { setState('error'); } }}
+      disabled={state === 'loading'}
+      className="mt-6 w-full h-[52px] rounded-[14px] flex items-center justify-center gap-2.5 text-[15px] font-semibold"
+      style={{ background: C.ink, color: '#fff' }}>
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>
+      {state === 'loading' ? 'Chargement…' : state === 'error' ? 'Réessayer' : "Écouter L'essentiel"}
+    </button>
+  );
+};
+
 const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () => void; onEdit: () => void }> = ({ article: a, isAuthor, onBack, onEdit }) => {
   useEffect(() => { window.scrollTo(0, 0); }, [a.id]);
   const host = hostOf(a.sourceUrl);
@@ -70,6 +88,7 @@ const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () =>
         <h1 className="serif text-[28px] leading-[1.18] font-semibold tracking-[-0.3px] mt-4">{frTypo(a.title)}</h1>
         <div className="text-[13px] mt-3" style={{ color: C.mute }}>{day(a)}{a.sourceAuthor ? ` · ${a.sourceAuthor}` : ''}</div>
         {a.excerpt && <p className="serif text-[18px] leading-[1.55] mt-6 pl-4" style={{ borderLeft: `3px solid ${C.ochre}`, color: C.text2 }}>{frTypo(a.excerpt)}</p>}
+        {a.audio && paras.length > 0 && <Listen id={a.id} />}
         {paras.length > 0 && (
           <div className="mt-7">
             <div className="text-[13px] font-bold uppercase tracking-wide mb-3" style={{ color: C.ochreText }}>L'essentiel</div>
