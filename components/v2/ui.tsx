@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { avecPremier } from '../../utils/dates';
 
 // Briques d'interface CKMoney v2 (charte CKLabs) : sobres, mobiles d'abord.
 // Encre #1C2551, ocre #C98A1E, fond #F7F6F2, filets #EFEBE3, gris #6B6F80.
@@ -258,7 +259,7 @@ export const euro2 = (n: number, currency = 'EUR') =>
 export const firstName = (s: string) => (s || '').trim().split(/\s+/)[0] || s;
 export const dateFr = (iso: string, opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' }) => {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('fr-FR', opts);
+  return avecPremier(new Date(y, m - 1, d).toLocaleDateString('fr-FR', opts));
 };
 export const daysFromNow = (iso: string) => {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
