@@ -21,7 +21,7 @@ export default async function handler(req: any, res: any) {
         const doc = (await listFolder()).find(isSettingsDoc);
         if (doc) { const c = await downloadFile(doc); aliases = parseAliases(c.text ?? new TextDecoder().decode(c.data!)); }
       } catch { /* sans prononciations */ }
-      out.audio = await generateAudios({ budgetMs: Math.max(0, 40_000 - (Date.now() - t0)), aliases });
+      out.audio = await generateAudios({ budgetMs: Math.max(0, 30_000 - (Date.now() - t0)), aliases });
     }
     return res.status(200).json(out);
   } catch (e: any) {
