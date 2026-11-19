@@ -73,6 +73,7 @@ export interface Loan {
   contractCheck?: 'ok' | 'mismatch'; // contrôle du texte signé par l'emprunteur, fait par le prêteur
   contractCheckedAt?: string;
   counterOf?: string;
+  knownVia?: string;                // prêt ou demande déjà échangés avec cet ami (offre adressée directement à son compte)
   penaltyRate?: number;         // clause pénale : % des sommes impayées à l'échéance, dû une fois
   lateFeesWaivedAt?: string;    // le prêteur a renoncé aux frais de retard (pénalité et intérêts de retard)
   delayRate?: number;           // taux de report convenu au contrat (% par an)           // contre-proposition à la demande n°…         // le prêteur a envoyé l'argent
