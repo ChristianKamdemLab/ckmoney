@@ -73,3 +73,8 @@ export const RADIO_2026_11_19: RadioSeed[] = [
 export const RADIO_2026_11_19_SOIR: RadioSeed[] = [
   { id: 'cesoir-logement-2027', url: 'https://open.spotify.com/episode/0WGw8y4fDxfvkwwNnuh4Ax', title: 'Logement : la bombe sociale de 2027 ?', show: 'C ce soir' },
 ];
+
+/** « Pourquoi je le recommande » du podcast C ce soir sur le logement, d'après Christian (19/11, 18 h 29),
+ *  vérifié (ANIL : titre de séjour valide et plafonds de revenus, pas de condition d'emploi ni de durée)
+ *  et validé par lui à 18 h 32. */
+export const LOGEMENT_POURQUOI = "Au moment où la campagne de 2027 se prépare, le logement s’annonce comme la prochaine bombe sociale, et C ce soir met les cartes sur la table, face à Frédéric Falcon, le monsieur logement du RN. On y voit tomber une idée qui a la vie dure : les logements sociaux seraient d’abord pour les étrangers, comme s’il suffisait de poser le pied en France pour décrocher un HLM. Dans les faits, il faut un titre de séjour en règle, des revenus sous les plafonds, et beaucoup de patience sur des listes d’attente qui se comptent en années.\n\nEt quand on parle d’« étrangers », suivez mon regard : ce ne sont ni les Italiens ni les Espagnols qui sont visés. Écoutez, et dites-moi ce que vous en pensez.";

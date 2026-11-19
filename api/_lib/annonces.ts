@@ -1,7 +1,7 @@
 import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
-import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
+import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, LOGEMENT_POURQUOI, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
 //  - notification : à tous les appareils inscrits (l'appli installée avec les notifications) ;
@@ -169,6 +169,10 @@ export const ANNOUNCEMENTS: Announcement[] = [
       body: 'C ce soir : « Logement : la bombe sociale de 2027 ? », à écouter dans l’appli.',
       url: '/?radio',
     },
+  },  {
+    id: '2026-11-19-radio-logement-pourquoi',
+    sendAt: '2026-11-19T17:35:00.000Z', // texte validé par Christian à 18 h 32 ; pas de notification
+    radioComments: [{ id: 'cesoir-logement-2027', comment: LOGEMENT_POURQUOI }],
   },
 ];
 
