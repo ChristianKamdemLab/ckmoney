@@ -26,7 +26,7 @@ vi.mock('../api/_lib/radioMeta.js', () => ({
       : { platform: 'spotify', kind: 'podcast', title: 'Titre Spotify', show: '', thumbnail: 'https://i.scdn.co/image/x' };
   },
 }));
-const { importRadio, RADIO_LANCEMENT } = await import('../api/_lib/radioSeed');
+const { importRadio, RADIO_LANCEMENT, RADIO_2026_11_19 } = await import('../api/_lib/radioSeed');
 const { sendDueAnnouncements, ANNOUNCEMENTS } = await import('../api/_lib/annonces');
 const NOW = Date.parse('2026-11-13T13:26:00Z');
 
@@ -87,5 +87,19 @@ describe('lancement de Radio CK', () => {
     await expect(sendDueAnnouncements(NOW, [A])).rejects.toThrow();
     expect(pushed).toEqual([]);
     expect(store.has('announcementsSent/2026-11-13-radio-ck')).toBe(false);
+  });
+
+  it('19/11 : trois épisodes de L’Heure du Monde avec leur raison, une seule notification, une fois', async () => {
+    const A = ANNOUNCEMENTS.find(x => x.id === '2026-11-19-radio-heure-du-monde')!;
+    expect(A.radio).toBe(RADIO_2026_11_19);
+    const at = Date.parse(A.sendAt) + 60_000;
+    const out: any = await sendDueAnnouncements(at, [A]);
+    expect(out['2026-11-19-radio-heure-du-monde']).toMatchObject({ radioAdded: 3, people: 2 });
+    const m = store.get('radio/seed-hdm-medias-extreme-droite'), g = store.get('radio/seed-hdm-gta-vi'), d = store.get('radio/seed-hdm-inside-deutsche-bank');
+    expect(m).toMatchObject({ show: "L'Heure du Monde", embedUrl: 'https://open.spotify.com/embed/episode/03R28baSoTskT1ZlLgMYw7' });
+    expect(g.title).toContain('GTA VI');
+    expect(d.comment).toContain('15,6 millions de documents');
+    expect(m.publishedAt > g.publishedAt && g.publishedAt > d.publishedAt).toBe(true);
+    expect(await sendDueAnnouncements(at + 60_000, [A])).toEqual({ '2026-11-19-radio-heure-du-monde': 'déjà envoyée' });
   });
 });
