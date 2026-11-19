@@ -6,6 +6,7 @@ import { formatMoney, parseISODate, scheduleForLoan, effectiveLateRate } from '.
 import { LEGAL_INTEREST_RATE } from '../config/legal';
 import { buildLoanContract } from '../utils/contract';
 import { lateTermsLabel } from '../utils/wording';
+import { avecPremier } from '../utils/dates';
 
 interface ContractPreviewProps {
   loan: Loan;
@@ -79,9 +80,9 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({ loan, onClose, autoPr
   const total = schedule.reduce((s, i) => s + i.amount, 0);
   const lateRate = effectiveLateRate(loan, LEGAL_INTEREST_RATE);
   const ref = `CKM-${loan.id.slice(0, 6).toUpperCase()}`;
-  const lenderSignedAt = new Date(loan.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const lenderSignedAt = avecPremier(new Date(loan.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }));
   const borrowerSignedAt = loan.borrowerSignedAt
-    ? new Date(loan.borrowerSignedAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+    ? avecPremier(new Date(loan.borrowerSignedAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }))
     : null;
   const mentionOk = loan.borrowerAmountWords ? amountWordsMatch(loan.borrowerAmountWords, loan.amount) : false;
   const hashOk = !!loan.borrowerSignedHash && loan.borrowerSignedHash === loan.contractHash;
