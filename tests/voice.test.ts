@@ -62,10 +62,10 @@ describe('Écouter L’essentiel', () => {
     store.set('articles/b', { kind: 'own', status: 'published', title: 'Texte', body: 'x' });
     store.set('articles/c', { kind: 'press', status: 'draft', title: 'Brouillon', source: 'X', summary: 'S.' });
     const done = await generateAudios({ budgetMs: 10_000, f: fakeFetch });
-    expect(done).toEqual({ T: 'audio', Texte: 'audio' });
+    expect(done).toEqual({ T: 'audio' });
     const said = speechText({ title: 'T', source: 'Reuters', summary: 'Synthèse.' });
     const body = calls.find(c => c.url.includes('/text-to-speech/v2'))!.body;
-    expect(calls.filter(c => c.url.includes('/text-to-speech/v2'))).toHaveLength(4);
+    expect(calls.filter(c => c.url.includes('/text-to-speech/v2'))).toHaveLength(2);
     expect(body).toMatchObject({ model_id: 'eleven_v4', language_code: 'fr', voice_settings: VOICE_SETTINGS });
     // v4 : pauses par la ponctuation, pas de balise
     expect(body.text).not.toContain('<break');
@@ -133,31 +133,15 @@ describe('Écouter L’essentiel', () => {
     expect(tts.find(c => c.body.model_id === 'eleven_multilingual_v2' && c.body.text.startsWith('La revue'))!.body.text).toContain('<break time="0.8s" />');
   });
 
-  it('texte CKLabs : lu en entier (présentation, intertitres, conclusion), au fil des passages s’il est long', async () => {
-    const body = ['## Un intertitre', 'Premier paragraphe.', '- une puce', ...Array.from({ length: 8 }, (_, i) => `Paragraphe ${i}. `.repeat(10))].join('\n');
-    store.set('articles/o', { kind: 'own', status: 'published', title: 'Mon texte', body, authorName: 'Christian Kamdem', publishedAt: '2026-11-12' });
-    const segs = ownSegments(store.get('articles/o'));
-    expect(segs[0]).toContain('Un texte de Christian, pour CKLabs.');
-    expect(segs[1]).toContain('Un intertitre.');
-    expect(segs[3]).toMatch(/^une puce/);
-    expect(segs[segs.length - 1]).toContain("C'était un texte de Christian, pour CKLabs.");
-    let slow = 0;
-    const f = (async (url: string, init?: any) => {
-      if (url.endsWith('/voices')) return new Response(JSON.stringify({ voices: [{ voice_id: 'v2', name: 'Christian voice' }] }));
-      calls.push({ url, body: JSON.parse(init.body) });
-      slow++;
-      return new Response(new Uint8Array(10).fill(slow));
-    }) as any;
-    // Premier passage trop court : une partie seulement, gardée pour la suite
-    const first = await generateAudios({ budgetMs: 0.0001, f });
-    expect(first['Mon texte']).toMatch(new RegExp(`^audio en cours \\(\\d+/${segs.length}\\)$`));
-    expect(store.get('articles/o').audioHash).toBeUndefined();
-    const before = calls.length;
-    expect(await generateAudios({ budgetMs: 10_000, f })).toEqual({ 'Mon texte': 'audio' });
-    expect(calls.length).toBe(segs.length);
-    expect(calls.every(c => c.url.includes('output_format=mp3_44100_32'))).toBe(true);
-    expect((await loadAudio('o'))!.length).toBe(10 * segs.length);
-    expect([...store.keys()].some(k => k.startsWith('articleAudio/o/parts/'))).toBe(false);
+  it('textes CKLabs : plus d’audio, et celui déjà fait est effacé', async () => {
+    store.set('articles/o', { kind: 'own', status: 'published', title: 'Mon texte', body: 'Un paragraphe.', audioHash: 'abc' });
+    store.set('articleAudio/o', { hash: 'abc', chunks: 1 });
+    store.set('articleAudio/o/chunks/0', { data: new Uint8Array(3) });
+    expect(await generateAudios({ budgetMs: 10_000, f: fakeFetch })).toEqual({ 'Mon texte': 'audio retiré' });
+    expect(store.get('articles/o').audioHash).toBeNull();
+    expect([...store.keys()].some(k => k.startsWith('articleAudio/o'))).toBe(false);
+    expect(calls.filter(c => c.url.includes('text-to-speech'))).toEqual([]);
+    expect(await generateAudios({ budgetMs: 10_000, f: fakeFetch })).toEqual({});
   });
 });
 
