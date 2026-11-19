@@ -50,7 +50,7 @@ export default async function handler(req: any, res: any) {
     if (caller.firebase?.sign_in_provider === 'anonymous') return res.status(403).json({ error: 'forbidden' });
     const id = String(raw.id || '');
     const art = id ? (await adminDb.collection('articles').doc(id).get()).data() : undefined;
-    if (!art || (art.status !== 'published' && art.authorUid !== caller.uid)) return res.status(404).json({ error: 'not_found' });
+    if (!art || art.kind !== 'press' || (art.status !== 'published' && art.authorUid !== caller.uid)) return res.status(404).json({ error: 'not_found' });
     const mp3 = await loadAudio(id);
     if (!mp3) return res.status(404).json({ error: 'no_audio' });
     res.setHeader('Content-Type', 'audio/mpeg');

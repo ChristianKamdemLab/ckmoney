@@ -181,7 +181,6 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
             <div className="text-[13px]" style={{ color: C.mute }}>{meta(article)}</div>
           </div>
         </div>
-        {article.audio && article.status === 'published' && <Listen id={article.id} label="Écouter le texte" />}
         <div className="pt-7"><Blocks blocks={blocks} /></div>
         <div className="flex justify-center pt-4" aria-hidden="true"><div className="w-10 h-[3px] rounded-full" style={{ background: C.ochre }} /></div>
       </article>

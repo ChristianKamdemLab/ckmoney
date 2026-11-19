@@ -92,8 +92,10 @@ export const ownSegments = (a: { title?: string; body?: string; authorName?: str
 };
 
 /** Les morceaux d'un article, presse ou CKLabs. */
+// Textes CKLabs : plus d'audio (Christian, 19/11 : « je n'ai pas aimé ma voix ») ; seule la revue de
+// presse est lue. ownSegments reste disponible si on y revient.
 export const segmentsOf = (a: any, aliases: [string, string][] = []) =>
-  a.kind === 'press' ? speechSegments(a, aliases).flatMap(splitLong) : ownSegments(a, aliases);
+  a.kind === 'press' ? speechSegments(a, aliases).flatMap(splitLong) : [];
 const formatOf = (a: any) => (a.kind === 'press' ? 'mp3_44100_64' : 'mp3_44100_32');
 
 export const speechText = (a: { title?: string; source?: string; summary?: string }, aliases: [string, string][] = []) =>
@@ -145,6 +147,13 @@ export const saveAudio = async (articleId: string, hash: string, mp3: Buffer) =>
   await ref.set({ hash, chunks: n, bytes: mp3.length, at: new Date().toISOString() });
 };
 
+export const removeAudio = async (articleId: string) => {
+  const ref = audioCol().doc(articleId);
+  const meta = (await ref.get()).data();
+  for (let i = 0; i < (meta?.chunks || 0); i++) await ref.collection('chunks').doc(String(i)).delete().catch(() => 0);
+  await ref.delete().catch(() => 0);
+};
+
 export const loadAudio = async (articleId: string): Promise<Buffer | null> => {
   const ref = audioCol().doc(articleId);
   const meta = (await ref.get()).data();
@@ -182,6 +191,14 @@ export const generateAudios = async (opts: { budgetMs: number; max?: number; f?:
   const paused = !!pause?.pausedAt;
   if (paused && now - Date.parse(pause!.lastTryAt || pause!.pausedAt) < PAUSE_RETRY_MS) return { voix: 'en pause' };
   const snap = await adminDb.collection('articles').where('status', '==', 'published').get();
+  // Audio retiré des textes CKLabs : on efface ce qui avait été fait
+  for (const d of snap.docs) {
+    const a = d.data() as any;
+    if (a.kind === 'press' || !a.audioHash) continue;
+    await adminDb.collection('articles').doc(d.id).set({ audioHash: null }, { merge: true });
+    await removeAudio(d.id);
+    done[String(a.title).slice(0, 60)] = 'audio retiré';
+  }
   const hashFor = (a: any) => hashOf(`${formatOf(a)}|${segmentsOf(a, opts.aliases).join('\n\n')}`);
   const todo = snap.docs
     .map(d => ({ id: d.id, ...(d.data() as any) }))
