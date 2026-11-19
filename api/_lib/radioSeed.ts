@@ -57,3 +57,14 @@ export const RADIO_LANCEMENT: RadioSeed[] = [
   { id: 'yt-TiQDz7-irPo', url: 'https://youtu.be/TiQDz7-irPo',
     comment: "Je sais qu’en lisant le sujet, certains vont lever les sourcils, mais suivez-moi. L’idée est simple : biologiquement, rien ne prouverait que l’homme ou la femme soit fait pour la monogamie, et la fidélité serait avant tout une conception de la société, qui d’ailleurs varie selon les régions du monde.\n\nPareil pour le mariage qui, à la base, servait surtout à réunir des familles, à conserver un héritage ou un rang social, voire à s’enrichir (l’amour ne serait arrivé que bien plus tard dans l’équation). Est-ce que cela veut dire qu’il faut tout jeter ? La question mérite au moins d’être posée, et je compte sur vos commentaires." },
 ];
+
+/** Trois épisodes de L'Heure du Monde envoyés par Christian le 19/11/2026 (le plus récent en tête).
+ *  « Pourquoi je le recommande » proposé dans sa voix et validé par lui à 14 h 40. */
+export const RADIO_2026_11_19: RadioSeed[] = [
+  { id: 'hdm-medias-extreme-droite', url: 'https://open.spotify.com/episode/03R28baSoTskT1ZlLgMYw7', title: 'Médias et extrême droite : histoire d’un glissement ?', show: "L'Heure du Monde",
+    comment: "Au moment où l’on se demande qui fixe encore les limites de ce qui peut se dire à l’antenne, cet épisode revient sur les dérapages de plusieurs chaînes après les mobilisations d’octobre 2025, jusqu’à la lettre de l’Arcom du 22 octobre leur rappelant leur devoir d’informer de façon exacte. Est-ce que les plateaux suivent l’opinion, ou est-ce qu’ils la fabriquent ? Écoutez, et dites-moi ce que vous en pensez." },
+  { id: 'hdm-gta-vi', url: 'https://open.spotify.com/episode/2ykPZzdnSIVt2pQAGBPIVT', title: 'Comment « GTA VI » est-il devenu le produit culturel le plus attendu de la décennie ?', show: "L'Heure du Monde",
+    comment: "Un jeu vidéo qui rapporte plus d’un milliard de dollars avant même sa sortie, ça mérite qu’on s’y arrête, même quand on n’a jamais tenu une manette. L’épisode explique comment une série née en Écosse il y a trente ans a fini par faire de l’ombre à Hollywood (et, pour ceux qui veulent les chiffres, la synthèse du Monde est aussi dans la revue de presse)." },
+  { id: 'hdm-inside-deutsche-bank', url: 'https://open.spotify.com/episode/6Eh82LUo8VJ6gCetCIS7EM', title: '« Inside Deutsche Bank » : plongée dans la banque aux mille scandales', show: "L'Heure du Monde",
+    comment: "15,6 millions de documents et environ 230 journalistes pour raconter comment une des plus grandes banques du monde contournerait ses propres engagements, entre soupçons de blanchiment et clients sous sanctions. Pour qui s’intéresse à l’argent et à ceux qui le gardent, c’est une enquête à écouter jusqu’au bout. La question que je me pose : qui contrôle vraiment les banques ?" },
+];

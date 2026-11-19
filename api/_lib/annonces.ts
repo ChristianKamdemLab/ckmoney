@@ -1,7 +1,7 @@
 import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
-import { importRadio, RadioSeed, RADIO_LANCEMENT, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
+import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
 //  - notification : à tous les appareils inscrits (l'appli installée avec les notifications) ;
@@ -149,6 +149,16 @@ export const ANNOUNCEMENTS: Announcement[] = [
     sendAt: '2026-11-13T15:25:00.000Z', // demandé par Christian à 16 h 22 : tous les comptes, lui compris
     emailTo: 'all',
     email: NEWS_2026_11_13_PRET,
+  },
+  {
+    id: '2026-11-19-radio-heure-du-monde',
+    sendAt: '2026-11-19T14:00:00.000Z', // 15 h à Paris : trois épisodes envoyés par Christian, une seule notification (validée à 14 h 40)
+    radio: RADIO_2026_11_19,
+    push: {
+      title: '3 nouveaux podcasts dans Radio CK',
+      body: 'Médias et extrême droite, GTA VI et l’enquête Inside Deutsche Bank, à écouter dans l’appli.',
+      url: '/?radio',
+    },
   },
 ];
 
