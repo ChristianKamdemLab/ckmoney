@@ -14,6 +14,9 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+import { watchForNewVersion } from './utils/freshVersion';
+watchForNewVersion();
+
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>

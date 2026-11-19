@@ -114,7 +114,8 @@ export const Field: React.FC<{ label: string; children: React.ReactNode; hint?: 
   </div>
 );
 
-export const inputClass = 'h-[52px] w-full rounded-[14px] bg-white px-4 text-base outline-none border-[1.5px] focus:border-[#1C2551]';
+// block, min-w-0 et appearance-none : sur iPhone, un champ date débordait à droite de l'écran
+export const inputClass = 'block min-w-0 max-w-full appearance-none h-[52px] w-full rounded-[14px] bg-white px-4 text-base outline-none border-[1.5px] focus:border-[#1C2551]';
 export const inputStyle: React.CSSProperties = { borderColor: C.border, color: C.ink };
 
 export const Note: React.FC<{ children: React.ReactNode; tone?: 'info' | 'ok' | 'warn' | 'danger'; icon?: IconName }> = ({ children, tone = 'info', icon }) => {

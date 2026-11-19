@@ -1,6 +1,6 @@
 // Service worker CKMoney : rend l'appli installable et ouvre l'écran d'accueil hors ligne.
 // Les données (Firebase) ne sont JAMAIS mises en cache : elles passent toujours par le réseau.
-const CACHE = 'ckmoney-v5';
+const CACHE = 'ckmoney-v6';
 // Pages publiques (jeux, événements) : jamais gardées comme page de secours de l'appli.
 const isPublicPage = (p) => ['/jambo', '/bac', '/wiseman', '/evenement'].includes(p) || p.startsWith('/e/');
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
