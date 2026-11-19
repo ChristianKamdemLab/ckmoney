@@ -44,19 +44,23 @@ const applyAliases = (t: string, aliases: [string, string][]) =>
   aliases.reduce((acc, [from, to]) => acc.replace(new RegExp(`(?<![\\p{L}])${esc(from)}(?![\\p{L}])`, 'gu'), to), t);
 
 /** Ce qui est lu, comme un court podcast : présentation, titre, puis « L'essentiel » avec des pauses. */
-export const speechText = (a: { title?: string; source?: string; summary?: string }, aliases: [string, string][] = []) => {
+/** Les morceaux lus, un par paragraphe : générés en parallèle puis mis bout à bout (une seule demande
+ *  pour toute la fiche dépassait les 60 s de la fonction avec Eleven v4, le 19/11). */
+export const speechSegments = (a: { title?: string; source?: string; summary?: string }, aliases: [string, string][] = []) => {
   const paras = String(a.summary || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
-  if (!paras.length) return '';
+  if (!paras.length) return [];
   const say = (t: string) => spellAcronyms(applyAliases(t, aliases));
   const source = String(a.source || 'la presse').trim();
-  const text = [
-    `La revue de presse de CKMoney.${pause(0.8)}`,
-    `D'après ${say(source)} :${pause(0.5)}${say(String(a.title || '').trim().replace(/[.!?…]+$/, ''))}.${pause(1.5)}`,
+  const segs = [
+    `La revue de presse de CKMoney.${pause(0.8)}D'après ${say(source)} :${pause(0.5)}${say(String(a.title || '').trim().replace(/[.!?…]+$/, ''))}.${pause(1.5)}`,
     ...paras.map(p => `${say(p)}${pause(1.2)}`),
-    `C'était l'essentiel, d'après ${say(source)}.`,
-  ].join('\n\n');
-  return text.slice(0, MAX_SPEECH);
+  ];
+  segs[segs.length - 1] += `C'était l'essentiel, d'après ${say(source)}.`;
+  let total = 0;
+  return segs.filter(x => (total += x.length) <= MAX_SPEECH);
 };
+export const speechText = (a: { title?: string; source?: string; summary?: string }, aliases: [string, string][] = []) =>
+  speechSegments(a, aliases).join('\n\n');
 export const hashOf = (s: string) => createHash('sha1').update(`${VOICE_VERSION}|${MODEL()}|${JSON.stringify(VOICE_SETTINGS)}|${s}`).digest('hex').slice(0, 16);
 
 type Fetch = typeof fetch;
@@ -75,10 +79,11 @@ const voiceId = async (f: Fetch) => {
   return v.voice_id;
 };
 
+const TTS_TIMEOUT_MS = 40_000;
 export const synthesize = async (text: string, f: Fetch = fetch, model = MODEL()): Promise<Buffer> => {
   const id = await voiceId(f);
   const r = await f(`${API}/text-to-speech/${encodeURIComponent(id)}?output_format=mp3_44100_64`, {
-    method: 'POST',
+    method: 'POST', signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
     headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
     body: JSON.stringify({ text: forModel(text, model), model_id: model, language_code: 'fr', voice_settings: VOICE_SETTINGS }),
   });
@@ -91,6 +96,15 @@ export const synthesize = async (text: string, f: Fetch = fetch, model = MODEL()
     throw new Error(`tts_${r.status}`);
   }
   return Buffer.from(await r.arrayBuffer());
+};
+
+/** Tous les morceaux, 3 à la fois, remis dans l'ordre (des MP3 mis bout à bout se lisent d'un trait). */
+export const synthesizeAll = async (segs: string[], f: Fetch = fetch): Promise<Buffer> => {
+  const out: Buffer[] = new Array(segs.length);
+  let next = 0;
+  const worker = async () => { while (next < segs.length) { const i = next++; out[i] = await synthesize(segs[i], f); } };
+  await Promise.all(Array.from({ length: Math.min(3, segs.length) }, worker));
+  return Buffer.concat(out);
 };
 
 const audioCol = () => adminDb.collection('articleAudio');
@@ -144,12 +158,11 @@ export const generateAudios = async (opts: { budgetMs: number; max?: number; f?:
     .filter(a => a.kind === 'press' && speechText(a, opts.aliases) && a.audioHash !== hashOf(speechText(a, opts.aliases)))
     .sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')));
   // En pause : un seul essai, pour voir si le compte a été rechargé
-  for (const a of todo.slice(0, paused ? 1 : (opts.max ?? 2))) {
+  for (const a of todo.slice(0, paused ? 1 : (opts.max ?? 1))) {
     if (Date.now() - t0 > opts.budgetMs) break;
     try {
-      const text = speechText(a, opts.aliases);
-      const hash = hashOf(text);
-      await saveAudio(a.id, hash, await synthesize(text, opts.f));
+      const hash = hashOf(speechText(a, opts.aliases));
+      await saveAudio(a.id, hash, await synthesizeAll(speechSegments(a, opts.aliases), opts.f));
       await adminDb.collection('articles').doc(a.id).set({ audioHash: hash }, { merge: true });
       done[String(a.title).slice(0, 60)] = 'audio';
       if (paused) {
