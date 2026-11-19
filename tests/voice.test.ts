@@ -24,7 +24,7 @@ vi.mock('../api/_lib/admin.js', () => ({
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, title: msg.title }); return 1; },
 }));
 
-const { speechText, hashOf, generateAudios, loadAudio, PAUSE_RETRY_MS } = await import('../api/_lib/voice');
+const { speechText, hashOf, generateAudios, loadAudio, parseAliases, PAUSE_RETRY_MS, VOICE_SETTINGS } = await import('../api/_lib/voice');
 
 const calls: { url: string; body?: any }[] = [];
 const fakeFetch = (async (url: string, init?: any) => {
@@ -40,9 +40,21 @@ beforeEach(() => {
 });
 
 describe('Écouter L’essentiel', () => {
-  it('lit le titre, le journal puis la synthèse', () => {
-    expect(speechText({ title: 'Un titre', source: 'Le Monde', summary: 'Un.\n\nDeux.' })).toBe("Un titre. D'après Le Monde.\n\nUn.\n\nDeux.");
+  it('se lit comme un court podcast : présentation, titre, pauses entre les paragraphes, conclusion', () => {
+    const t = speechText({ title: 'Un titre.', source: 'Le Monde', summary: 'Un.\n\nDeux.' });
+    expect(t).toBe([
+      'La revue de presse de CKMoney. <break time="0.8s" /> ',
+      `D'après Le Monde : <break time="0.5s" /> Un titre. <break time="1.5s" /> `,
+      'Un. <break time="1.2s" /> ', 'Deux. <break time="1.2s" /> ', "C'était l'essentiel, d'après Le Monde.",
+    ].join('\n\n'));
     expect(speechText({ title: 'Sans synthèse', source: 'X' })).toBe('');
+  });
+
+  it('épelle les sigles (sauf ceux qui se lisent comme des mots) et applique les prononciations de Christian', () => {
+    const aliases = parseAliases('\ufeffTshisekedi = Tchissékédi\r\nRDC = République démocratique du Congo\n# commentaire\nligne sans égal');
+    expect(aliases).toEqual([['Tshisekedi', 'Tchissékédi'], ['RDC', 'République démocratique du Congo']]);
+    const t = speechText({ title: 'T', source: 'S', summary: 'Le RDPC, la CEMAC, la RDC et Félix Tshisekedi (Tshisekedis non).' }, aliases);
+    expect(t).toContain('Le R. D. P. C., la CEMAC, la République démocratique du Congo et Félix Tchissékédi (Tshisekedis non).');
   });
 
   it('génère l’audio des fiches publiées sans audio, avec la voix « Christian », et le relit en entier', async () => {
@@ -51,8 +63,10 @@ describe('Écouter L’essentiel', () => {
     store.set('articles/c', { kind: 'press', status: 'draft', title: 'Brouillon', source: 'X', summary: 'S.' });
     const done = await generateAudios({ budgetMs: 10_000, f: fakeFetch });
     expect(done).toEqual({ T: 'audio' });
-    expect(calls.find(c => c.url.includes('/text-to-speech/v2'))?.body).toMatchObject({ text: "T. D'après Reuters.\n\nSynthèse.", model_id: 'eleven_multilingual_v2' });
-    expect(store.get('articles/a').audioHash).toBe(hashOf("T. D'après Reuters.\n\nSynthèse."));
+    const said = speechText({ title: 'T', source: 'Reuters', summary: 'Synthèse.' });
+    expect(calls.find(c => c.url.includes('/text-to-speech/v2'))?.body).toMatchObject({ text: said, model_id: 'eleven_multilingual_v2', language_code: 'fr', voice_settings: VOICE_SETTINGS });
+    expect(VOICE_SETTINGS.speed).toBeLessThan(1);
+    expect(store.get('articles/a').audioHash).toBe(hashOf(said));
     expect(store.get('articleAudio/a').chunks).toBe(3);
     expect((await loadAudio('a'))!.length).toBe(2_000_000);
     // Déjà fait : rien de plus ; synthèse modifiée : refait

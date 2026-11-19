@@ -1,6 +1,7 @@
 import { syncArticles } from './_lib/articleSync.js';
 import { listFolder, downloadFile } from './_lib/drive.js';
-import { generateAudios } from './_lib/voice.js';
+import { generateAudios, parseAliases } from './_lib/voice.js';
+import { isSettingsDoc } from './_lib/articleSync.js';
 
 // /api/articles-sync : l'agent Articles (voir api/_lib/articleSync.ts). Appelé toutes les heures par
 // GitHub Actions ; sans effet s'il n'y a rien de nouveau dans le dossier Drive.
@@ -13,7 +14,15 @@ export default async function handler(req: any, res: any) {
     const dry = String(req.query?.dry || '') === '1';
     const out: any = await syncArticles({ list: () => listFolder(), download: downloadFile }, new Date(), { dry });
     // Puis la voix : les fiches publiées sans audio, tant qu'il reste du temps (la fonction a 60 s)
-    if (!dry) out.audio = await generateAudios({ budgetMs: Math.max(0, 40_000 - (Date.now() - t0)) });
+    if (!dry) {
+      // Prononciations réglées par Christian dans le document « CKMoney · Prononciations » du dossier
+      let aliases: [string, string][] = [];
+      try {
+        const doc = (await listFolder()).find(isSettingsDoc);
+        if (doc) { const c = await downloadFile(doc); aliases = parseAliases(c.text ?? new TextDecoder().decode(c.data!)); }
+      } catch { /* sans prononciations */ }
+      out.audio = await generateAudios({ budgetMs: Math.max(0, 40_000 - (Date.now() - t0)), aliases });
+    }
     return res.status(200).json(out);
   } catch (e: any) {
     console.error('articles-sync', e?.message);

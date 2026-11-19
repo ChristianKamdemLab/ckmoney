@@ -13,13 +13,44 @@ export const MAX_SPEECH = 5000;        // caractères envoyés à ElevenLabs pou
 
 export const voiceEnabled = () => !!process.env.ELEVENLABS_API_KEY;
 
-/** Ce qui est lu : le titre, le journal, puis « L'essentiel ». */
-export const speechText = (a: { title?: string; source?: string; summary?: string }) => {
-  const summary = String(a.summary || '').split(/\n+/).map(s => s.trim()).filter(Boolean).join('\n\n');
-  if (!summary) return '';
-  return `${String(a.title || '').trim()}. D'après ${String(a.source || 'la presse').trim()}.\n\n${summary}`.slice(0, MAX_SPEECH);
+// Réglages de la voix (19/11, retour de Christian : trop rapide, sans pauses, pas assez « podcast »).
+// Changer un réglage ou VOICE_VERSION refait tous les audios.
+export const VOICE_VERSION = 2;
+export const VOICE_SETTINGS = { stability: 0.6, similarity_boost: 0.8, style: 0.1, use_speaker_boost: true, speed: 0.88 };
+const pause = (s: number) => ` <break time="${s.toFixed(1)}s" /> `;
+
+// Sigles lus comme des mots (les autres sont épelés : R. D. P. C.)
+const WORD_ACRONYMS = new Set(['OTAN', 'ONU', 'UNESCO', 'CEMAC', 'OPEP', 'FIFA', 'UNICEF', 'COVID', 'NASA', 'CAN', 'CAF', 'COP', 'BRICS', 'ASEAN', 'OHADA', 'UEMOA', 'CEDEAO', 'SADC', 'CIA', 'FBI', 'PDG']);
+const spellAcronyms = (t: string) => t.replace(/\b[A-Z]{2,6}\b/g, w => WORD_ACRONYMS.has(w) ? w : w.split('').join('. ') + '.');
+
+/** Prononciations : « Tshisekedi = Tchissékédi », une par ligne (document « CKMoney · Prononciations »). */
+export const parseAliases = (raw: string) => {
+  const out: [string, string][] = [];
+  for (const line of String(raw || '').replace(/^\ufeff/, '').split(/\r?\n/)) {
+    const m = line.match(/^\s*([^=#]{2,60}?)\s*=\s*(.{1,80}?)\s*$/);
+    if (m) out.push([m[1], m[2]]);
+  }
+  return out;
 };
-export const hashOf = (s: string) => createHash('sha1').update(s).digest('hex').slice(0, 16);
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const applyAliases = (t: string, aliases: [string, string][]) =>
+  aliases.reduce((acc, [from, to]) => acc.replace(new RegExp(`(?<![\\p{L}])${esc(from)}(?![\\p{L}])`, 'gu'), to), t);
+
+/** Ce qui est lu, comme un court podcast : présentation, titre, puis « L'essentiel » avec des pauses. */
+export const speechText = (a: { title?: string; source?: string; summary?: string }, aliases: [string, string][] = []) => {
+  const paras = String(a.summary || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+  if (!paras.length) return '';
+  const say = (t: string) => spellAcronyms(applyAliases(t, aliases));
+  const source = String(a.source || 'la presse').trim();
+  const text = [
+    `La revue de presse de CKMoney.${pause(0.8)}`,
+    `D'après ${say(source)} :${pause(0.5)}${say(String(a.title || '').trim().replace(/[.!?…]+$/, ''))}.${pause(1.5)}`,
+    ...paras.map(p => `${say(p)}${pause(1.2)}`),
+    `C'était l'essentiel, d'après ${say(source)}.`,
+  ].join('\n\n');
+  return text.slice(0, MAX_SPEECH);
+};
+export const hashOf = (s: string) => createHash('sha1').update(`${VOICE_VERSION}|${JSON.stringify(VOICE_SETTINGS)}|${s}`).digest('hex').slice(0, 16);
 
 type Fetch = typeof fetch;
 let cachedVoice = '';
@@ -40,7 +71,7 @@ export const synthesize = async (text: string, f: Fetch = fetch): Promise<Buffer
   const r = await f(`${API}/text-to-speech/${encodeURIComponent(id)}?output_format=mp3_44100_64`, {
     method: 'POST',
     headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-    body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2' }),
+    body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2', language_code: 'fr', voice_settings: VOICE_SETTINGS }),
   });
   if (!r.ok) {
     const detail = await r.text().catch(() => '');
@@ -88,7 +119,7 @@ const tellChristian = async (title: string, body: string) => {
 };
 
 /** Génère l'audio des fiches publiées qui n'en ont pas (ou dont la synthèse a changé), dans le temps donné. */
-export const generateAudios = async (opts: { budgetMs: number; max?: number; f?: Fetch; now?: number }) => {
+export const generateAudios = async (opts: { budgetMs: number; max?: number; f?: Fetch; now?: number; aliases?: [string, string][] }) => {
   const t0 = Date.now();
   const now = opts.now ?? Date.now();
   const done: Record<string, string> = {};
@@ -99,13 +130,13 @@ export const generateAudios = async (opts: { budgetMs: number; max?: number; f?:
   const snap = await adminDb.collection('articles').where('status', '==', 'published').get();
   const todo = snap.docs
     .map(d => ({ id: d.id, ...(d.data() as any) }))
-    .filter(a => a.kind === 'press' && speechText(a) && a.audioHash !== hashOf(speechText(a)))
+    .filter(a => a.kind === 'press' && speechText(a, opts.aliases) && a.audioHash !== hashOf(speechText(a, opts.aliases)))
     .sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')));
   // En pause : un seul essai, pour voir si le compte a été rechargé
   for (const a of todo.slice(0, paused ? 1 : (opts.max ?? 2))) {
     if (Date.now() - t0 > opts.budgetMs) break;
     try {
-      const text = speechText(a);
+      const text = speechText(a, opts.aliases);
       const hash = hashOf(text);
       await saveAudio(a.id, hash, await synthesize(text, opts.f));
       await adminDb.collection('articles').doc(a.id).set({ audioHash: hash }, { merge: true });
