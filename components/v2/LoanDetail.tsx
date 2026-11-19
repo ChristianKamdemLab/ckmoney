@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { formatIban, Loan, Payment, Profile, User } from '../../types';
 import { Screen, TopBar, Amount, Button, Card, Field, inputClass, inputStyle, Note, Sheet, Icon, IconName, C, euro2, dateFr, relDays, firstName, Avatar, Toast } from './ui';
 import { computeSituation, effectiveLateRate, toISODate } from '../../utils/schedule';
+import { installmentNote } from '../../utils/echeances';
 import { LEGAL_INTEREST_RATE, rateCapFor } from '../../config/legal';
 import {
   recordPaymentByLender, reviewPayment, markLoanPaid, declarePayment, requestDelay, respondToDelay, deleteOffer, inviteLinkFor,
@@ -322,7 +323,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
           {s.schedule.map((i, idx) => {
             const paid = i.outstanding <= 0.004;
             const dot = paid ? C.green : i.isOverdue ? C.red : idx === s.schedule.findIndex(x => x.outstanding > 0.004) ? C.ochre : '#D9D2C3';
-            const note = paid ? 'Payée' : i.isOverdue ? `En retard de ${i.daysLate} j` : relDays(i.dueDate);
+            const note = installmentNote(i, relDays(i.dueDate), n => euro2(n, loan.currency));
             return (
               <div key={i.index} className="flex items-center gap-3 px-4 py-3" style={{ borderTop: idx ? `1px solid ${C.line}` : undefined }}>
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: dot }} />
