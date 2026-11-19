@@ -1,7 +1,7 @@
 import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
-import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
+import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
 //  - notification : à tous les appareils inscrits (l'appli installée avec les notifications) ;
@@ -157,6 +157,16 @@ export const ANNOUNCEMENTS: Announcement[] = [
     push: {
       title: '3 nouveaux podcasts dans Radio CK',
       body: 'Médias et extrême droite, GTA VI et l’enquête Inside Deutsche Bank, à écouter dans l’appli.',
+      url: '/?radio',
+    },
+  },
+  {
+    id: '2026-11-19-radio-logement',
+    sendAt: '2026-11-19T17:25:00.000Z', // podcast envoyé par Christian à 18 h 21
+    radio: RADIO_2026_11_19_SOIR,
+    push: {
+      title: 'Nouveau podcast dans Radio CK',
+      body: 'C ce soir : « Logement : la bombe sociale de 2027 ? », à écouter dans l’appli.',
       url: '/?radio',
     },
   },
