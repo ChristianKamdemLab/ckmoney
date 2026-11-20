@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Screen, TopBar, Card, Note, Skeleton, Icon, Toast, C, dateFr } from './ui';
+import { Screen, TopBar, Card, Note, Skeleton, Icon, Toast, C, dateFr, NightHeader } from './ui';
 import { listInfo } from '../../services/infoService';
 import { InfoDay, InfoItem, InfoScope, SCOPE_LABEL } from '../../utils/infoDuJour';
 import { frTypo } from '../../utils/articleText';
@@ -63,7 +63,7 @@ const InfoScreen: React.FC<{ onBack: () => void; initialScope?: InfoScope }> = (
 
   return (
     <Screen>
-      <TopBar onBack={onBack} title="L'info du jour" />
+      <NightHeader onBack={onBack} title="L’info du jour" accent={C.coral} desc="Le sujet dont le monde parle, et celui du Cameroun et de l’Afrique." />
       <div className="px-5 flex flex-col gap-4 pb-[max(env(safe-area-inset-bottom),28px)]">
         {!days && <><Skeleton h={44} /><Skeleton h={420} /></>}
         {failed && <Note tone="warn">L’info du jour n’a pas pu être chargée. Vérifie ta connexion.</Note>}

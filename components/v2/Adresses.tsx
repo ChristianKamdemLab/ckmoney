@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Screen, TopBar, Button, Card, Note, Skeleton, Field, Toast, Icon, inputClass, inputStyle, C } from './ui';
+import { Screen, TopBar, Button, Card, Note, Skeleton, Field, Toast, Icon, inputClass, inputStyle, C, NightHeader } from './ui';
 import { listPlaces, savePlace, deletePlace } from '../../services/vendrediService';
 import { Place } from '../../utils/vendredi';
 import { mapsUrl } from '../../utils/events';
@@ -67,11 +67,7 @@ const AdressesScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   if (edit) return <Editor initial={edit === 'new' ? undefined : edit} onBack={() => setEdit(null)} onSaved={m => { setEdit(null); setToast(m); load(); }} />;
   return (
     <Screen>
-      <TopBar onBack={onBack} title="Mes adresses" />
-      <div className="px-6 pt-2 pb-4">
-        <h1 className="serif text-[30px] font-semibold leading-tight">Mes adresses</h1>
-        <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>Les lieux que Christian a testés et recommande, avec son avis et le budget à prévoir.</p>
-      </div>
+      <NightHeader onBack={onBack} title="Mes adresses" accent={C.teal} desc="Les lieux que Christian a testés et recommande, avec son avis et le budget à prévoir." />
       <div className="px-5 flex flex-col gap-3 pb-[max(env(safe-area-inset-bottom),28px)]">
         {data?.admin && <Button onClick={() => setEdit('new')}><Icon name="plus" size={20} /> Ajouter une adresse</Button>}
         {!data && <><Skeleton h={220} /><Skeleton h={220} /></>}

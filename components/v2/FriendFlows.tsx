@@ -496,6 +496,8 @@ export const BorrowerSpace: React.FC<{
           <h1 className="display text-[30px] leading-[1.05]">Bonjour<br />{firstName(p.profile?.fullName || p.user.name)}.</h1>
           {quiet ? (
             <div className="text-[14px] mt-3 font-semibold" style={{ color: C.nightMute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>
+          ) : !p.loading && !open.some(l => l.status === 'active' || l.status === 'delay_requested') ? (
+            <div className="text-[14px] mt-3 font-semibold" style={{ color: C.nightMute }}>Rien à rembourser pour l'instant.</div>
           ) : (
             <>
               <div className="mt-4 text-[13px] font-semibold" style={{ color: C.nightMute }}>Tu dois</div>
