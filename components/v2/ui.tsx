@@ -154,6 +154,12 @@ export const Sheet: React.FC<{ open: boolean; onClose: () => void; title: string
 };
 
 /** Message bref en bas de l'écran (remplace les alert() du navigateur). */
+/** Pastille « Nouveau » (depuis la dernière visite de la rubrique). */
+export const NewPill: React.FC<{ dark?: boolean }> = ({ dark }) => (
+  <span className="inline-flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wide px-2 py-[3px] rounded-full shrink-0"
+    style={{ background: dark ? C.ochre : C.ochreSoft, color: dark ? C.ink : C.ochreText }}>Nouveau</span>
+);
+
 export const Toast: React.FC<{ text: string | null; onDone: () => void }> = ({ text, onDone }) => {
   useEffect(() => { if (!text) return; const t = setTimeout(onDone, 2600); return () => clearTimeout(t); }, [text]);
   if (!text) return null;
