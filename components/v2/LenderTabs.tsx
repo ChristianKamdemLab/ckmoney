@@ -36,7 +36,7 @@ interface Props {
   onEvents: () => void;
   onRadio?: () => void;
   onMot?: () => void;
-  onInfo?: () => void;
+  onInfo?: (scope?: 'monde' | 'afrique') => void;
   requestLink: string;
 }
 
