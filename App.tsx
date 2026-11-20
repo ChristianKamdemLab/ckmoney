@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, ErrorInfo, ReactNode, Suspense, lazy } from 'react';
+import React, { useCallback, useEffect, useRef, useState, ErrorInfo, ReactNode, Suspense, lazy } from 'react';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { Loan, Profile, User, Invite, isProfileComplete } from './types';
@@ -152,6 +152,19 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'home' | 'loans' | 'activity' | 'profile'>('home');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
+  // Au retour sur l'accueil, on retrouve l'endroit où on était (pas le haut de la page)
+  const homeY = useRef(0);
+  const overlayOpen = useRef(false);
+  useEffect(() => {
+    const onScroll = () => { if (!overlayOpen.current) homeY.current = window.scrollY; };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => {
+    const was = overlayOpen.current;
+    overlayOpen.current = !!overlay;
+    if (was && !overlay) { const y = homeY.current; requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y))); }
+  }, [overlay]);
   const [toast, setToast] = useState<string | null>(null);
   const isLender = !!user && (isAdmin || profile?.lender === true || loans.some(l => l.lenderUid === user.id));
 
@@ -272,7 +285,7 @@ const App: React.FC = () => {
   }, [user?.id, requestLender, lenderCard]);
 
   const logout = async () => { await signOut(auth); setOverlay(null); setTab('home'); window.scrollTo(0, 0); };
-  const close = () => { setOverlay(null); window.scrollTo(0, 0); };
+  const close = () => { setOverlay(null); };
   const openLoan = (l: Loan) => { setOverlay(l.status === 'pending_borrower' && l.borrowerUid === user?.id ? { k: 'sign', id: l.id } : { k: 'loan', id: l.id }); window.scrollTo(0, 0); };
 
   // ---------- Avant connexion

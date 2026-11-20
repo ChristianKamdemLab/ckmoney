@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Screen, TopBar, Button, Card, Note, Skeleton, Field, Toast, Icon, inputClass, inputStyle, C, dateFr } from './ui';
+import { Screen, TopBar, Button, Card, Note, Skeleton, Field, Toast, Icon, inputClass, inputStyle, C, dateFr, NightHeader } from './ui';
 import { getFriday, voteFriday, saveFriday, decideFriday, listPlaces } from '../../services/vendrediService';
 import { Friday, FridayOption, Place, nextFriday, isOpen } from '../../utils/vendredi';
 import { mapsUrl } from '../../utils/events';
@@ -119,13 +119,8 @@ const VendrediScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const act = async (fn: () => Promise<void>) => { setBusy(true); try { await fn(); } catch { setToast('Un souci de connexion. Réessaie.'); } finally { setBusy(false); } };
   return (
     <Screen>
-      <TopBar onBack={onBack} title="Mon vendredi soir" />
-      <div className="px-6 pt-2 pb-4">
-        <h1 className="serif text-[30px] font-semibold leading-tight">{f ? `Vendredi ${dateFr(f.date, { day: 'numeric', month: 'long' })}` : 'Mon vendredi soir'}</h1>
-        <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>
-          {f?.decided ? 'Le lieu est choisi. À vendredi !' : f ? 'Christian hésite. Vote pour l’option où tu viendrais : les votes restent anonymes.' : 'Le vendredi, Christian propose deux ou trois options pour la soirée, et vous votez.'}
-        </p>
-      </div>
+      <NightHeader onBack={onBack} accent={C.mango} title={f ? `Vendredi ${dateFr(f.date, { day: 'numeric', month: 'long' })}` : 'Mon vendredi soir'}
+        desc={f?.decided ? 'Le lieu est choisi. À vendredi !' : f ? 'Christian hésite. Vote pour l’option où tu viendrais : les votes restent anonymes.' : 'Le vendredi, Christian propose deux ou trois options pour la soirée, et vous votez.'} />
       <div className="px-5 flex flex-col gap-3 pb-[max(env(safe-area-inset-bottom),28px)]">
         {!data && <><Skeleton h={200} /><Skeleton h={200} /></>}
         {failed && <Note tone="warn">Le vendredi n'a pas pu être chargé. Vérifie ta connexion.</Note>}

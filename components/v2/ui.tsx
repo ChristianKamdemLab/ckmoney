@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { registerBack } from '../../utils/backNav';
 
 // Briques d'interface CKMoney v2, charte « Ndop la nuit » (20/11/2026) : l'indigo du ndop, les aplats
 // du wax (mangue, corail, turquoise), titres en Unbounded, texte en Manrope ; coins peu arrondis.
@@ -29,23 +30,50 @@ export const Screen: React.FC<{ children: React.ReactNode; bottomPad?: boolean }
   </div>
 );
 
-export const TopBar: React.FC<{ onBack?: () => void; title?: string; right?: React.ReactNode; progress?: [number, number] }> = ({ onBack, title, right, progress }) => (
-  <div className="flex items-center gap-1 px-3 pt-[max(env(safe-area-inset-top),16px)] min-h-[60px]">
-    {onBack ? (
-      <button onClick={onBack} aria-label="Retour" className="w-11 h-11 flex items-center justify-center rounded-full active:bg-black/5">
-        <Icon name="back" />
-      </button>
-    ) : <div className="w-11" />}
-    {progress ? (
-      <div className="flex-1 flex gap-1.5 pr-14">
-        {Array.from({ length: progress[1] }, (_, i) => (
-          <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i < progress[0] ? C.ink : C.border }} />
-        ))}
+/** Inscrit la flèche ← de l'écran auprès du retour « natif » (Android, glissement depuis le bord). */
+export const useBack = (onBack?: () => void) => {
+  const ref = useRef(onBack);
+  ref.current = onBack;
+  const has = !!onBack;
+  useEffect(() => (has ? registerBack(() => ref.current?.()) : undefined), [has]);
+};
+
+export const TopBar: React.FC<{ onBack?: () => void; title?: string; right?: React.ReactNode; progress?: [number, number]; tone?: 'light' | 'night' }> = ({ onBack, title, right, progress, tone = 'light' }) => {
+  useBack(onBack);
+  const night = tone === 'night';
+  return (
+    <div className="flex items-center gap-1 px-3 pt-[max(env(safe-area-inset-top),16px)] min-h-[60px]" style={night ? { color: C.nightText } : undefined}>
+      {onBack ? (
+        <button onClick={onBack} aria-label="Retour" className={`w-11 h-11 flex items-center justify-center rounded-full ${night ? 'active:bg-white/10' : 'active:bg-black/5'}`}>
+          <Icon name="back" />
+        </button>
+      ) : <div className="w-11" />}
+      {progress ? (
+        <div className="flex-1 flex gap-1.5 pr-14">
+          {Array.from({ length: progress[1] }, (_, i) => (
+            <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i < progress[0] ? (night ? C.mango : C.ink) : (night ? 'rgba(255,255,255,.2)' : C.border) }} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1 text-center text-[15px] font-bold">{title}</div>
+      )}
+      {progress ? null : <div className="w-11 flex justify-end">{right}</div>}
+    </div>
+  );
+};
+
+/** En-tête « nuit » des rubriques (Sorties, Radio CK, vendredi…) : flèche, grand titre, une forme du wax. */
+export const NightHeader: React.FC<{ onBack?: () => void; title: string; desc?: React.ReactNode; right?: React.ReactNode; accent?: string; children?: React.ReactNode }> = ({ onBack, title, desc, right, accent = C.mango, children }) => (
+  <div className="relative overflow-hidden pb-6 mb-4" style={{ background: C.night, color: C.nightText }}>
+    <span aria-hidden="true" className="absolute rounded-full" style={{ width: 150, height: 150, background: accent, top: -70, right: -50 }} />
+    <div className="relative">
+      <TopBar onBack={onBack} tone="night" right={right} />
+      <div className="px-6 pt-3">
+        <h1 className="display text-[28px] leading-[1.08] pr-16">{title}</h1>
+        {desc && <p className="text-[14.5px] leading-relaxed mt-2 font-medium" style={{ color: C.nightMute }}>{desc}</p>}
       </div>
-    ) : (
-      <div className="flex-1 text-center text-[15px] font-semibold">{title}</div>
-    )}
-    {progress ? null : <div className="w-11 flex justify-end">{right}</div>}
+      {children && <div className="px-5 pt-4">{children}</div>}
+    </div>
   </div>
 );
 

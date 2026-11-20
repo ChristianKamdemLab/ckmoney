@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { seenAt, markSeen, isNewSince } from '../../utils/seen';
-import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill } from './ui';
+import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill, NightHeader } from './ui';
 import { listRadio, getRadio, previewRadio, saveRadio, deleteRadio, reactRadio, commentRadio, deleteRadioComment } from '../../services/radioService';
 import { RadioItem, RadioComment, RadioKind, REACTIONS, KIND_LABEL, PLATFORM_LABEL, MAX_COMMENT, embedHeight, parseMedia } from '../../utils/radio';
 
@@ -294,12 +294,9 @@ const RadioScreen: React.FC<{ onBack: () => void; initialId?: string }> = ({ onB
   const shown = (list || []).filter(i => filter === 'all' || i.kind === filter);
   return withToast(
     <Screen>
-      <TopBar onBack={onBack} title="Radio CK" />
-      <div className="px-6 pt-2 pb-4">
-        <h1 className="serif text-[30px] font-semibold leading-tight">Radio CK</h1>
-        <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>Les podcasts et vidéos que Christian a aimés. Écoute, puis dis ce que tu en penses.</p>
-      </div>
-      {author && <div className="px-5 pb-4"><Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Ajouter une reco</Button></div>}
+      <NightHeader onBack={onBack} title="Radio CK" accent={C.coral} desc="Les podcasts et vidéos que Christian a aimés. Écoute, puis dis ce que tu en penses.">
+        {author && <button onClick={() => go({ k: 'edit' })} className="w-full min-h-[52px] rounded-xl flex items-center justify-center gap-2 text-[15.5px] font-extrabold" style={{ background: C.coral, color: C.ink }}><Icon name="plus" size={20} /> Ajouter une reco</button>}
+      </NightHeader>
       {kinds.length > 1 && (
         <div className="px-5 pb-3">
           <Chips options={[{ id: 'all', label: 'Tout' }, ...kinds.map(k => ({ id: k, label: k === 'musique' ? 'Musique' : `${KIND_LABEL[k]}s` }))]} value={filter} onChange={v => setFilter(v as Filter)} />

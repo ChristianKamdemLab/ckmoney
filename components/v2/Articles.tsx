@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Article, User } from '../../types';
-import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill } from './ui';
+import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill, NightHeader } from './ui';
 import { listArticles, saveArticle, importArticles, deleteArticle, savePress, fetchAudio, ArticleInput, PressInput } from '../../services/articleService';
 import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils/articleText';
 import { seenAt, markSeen, isNewSince } from '../../utils/seen';
@@ -399,11 +399,7 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
   const hasPress = sources.length > 0;
   return withToast(
     <Screen>
-      <TopBar onBack={onBack} title="Articles" />
-      <div className="px-6 pt-2 pb-4">
-        <h1 className="serif text-[30px] font-semibold leading-tight">Articles</h1>
-        <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>Les textes de Christian, signés CKLabs, et sa revue de presse. Réservés aux proches inscrits sur l'appli.</p>
-      </div>
+      <NightHeader onBack={onBack} title="Articles" accent={C.mango} desc="Les textes de Christian, signés CKLabs, et sa revue de presse. Réservés aux proches inscrits sur l'appli." />
       {isAuthor && (
         <div className="px-5 pb-4 flex flex-col gap-2.5">
           <Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Écrire ou importer un article</Button>
