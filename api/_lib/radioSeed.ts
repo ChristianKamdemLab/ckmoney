@@ -74,6 +74,11 @@ export const RADIO_2026_11_19_SOIR: RadioSeed[] = [
   { id: 'cesoir-logement-2027', url: 'https://open.spotify.com/episode/0WGw8y4fDxfvkwwNnuh4Ax', title: 'Logement : la bombe sociale de 2027 ?', show: 'C ce soir' },
 ];
 
+/** Vidéo envoyée par Christian le 20/11 à 20 h 30 : documentaire ARTE sur l'IA. */
+export const RADIO_2026_11_20_ARTE: RadioSeed[] = [
+  { id: 'arte-ia-ultime-invention', url: 'https://www.youtube.com/watch?v=U13RJUCAcxI', title: 'Intelligence artificielle : l’ultime invention humaine ?', show: 'ARTE' },
+];
+
 /** « Pourquoi je le recommande » du podcast C ce soir sur le logement, d'après Christian (19/11, 18 h 29),
  *  vérifié (ANIL : titre de séjour valide et plafonds de revenus, pas de condition d'emploi ni de durée)
  *  et validé par lui à 18 h 32. */
