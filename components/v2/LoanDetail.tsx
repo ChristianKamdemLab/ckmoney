@@ -287,7 +287,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
             <QuoteTable date={loan.delayProposedDate} />
             {isLender && (lateRate > 0 || delayRateApplies) && (
               <label className="flex items-start gap-2.5 mt-3 text-sm leading-snug cursor-pointer">
-                <input type="checkbox" checked={keepLate} onChange={e => setKeepLate(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#1C2551]" />
+                <input type="checkbox" checked={keepLate} onChange={e => setKeepLate(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#0E1533]" />
                 <span>{delayRateApplies ? `Taux de report de ${delayRate.toLocaleString('fr-FR')} %, ` : 'Les intérêts de retard continuent de courir '}depuis l'échéance d'origine{unpaidFrom ? ` (${dateFr(unpaidFrom.lateFrom || unpaidFrom.dueDate, { day: 'numeric', month: 'long' })})` : ''} jusqu'au paiement.</span>
               </label>
             )}

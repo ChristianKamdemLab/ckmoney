@@ -3,6 +3,7 @@ import { Loan, Notification, Profile, User, ReceiveInfo, isIdentityComplete } fr
 import {
   Screen, TopBar, H1, Amount, Button, Card, KV, Avatar, Chips, Field, inputClass, inputStyle, Note, Footer, Sheet, Toast, Icon, Skeleton,
   C, euro, euro2, firstName, dateFr, relDays,
+  NightHero,
 } from './ui';
 import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
@@ -357,7 +358,7 @@ export const RequestFlow: React.FC<{
           )}
           <ReceiveFields value={receive} onChange={setReceive} defaultHolder={profile?.fullName || user.name} />
           <Field label={`Un mot pour ${lenderFirstName} (facultatif)`} htmlFor="note">
-            <textarea id="note" rows={2} maxLength={280} value={note} onChange={e => setNote(e.target.value)} className="w-full rounded-[14px] bg-white px-4 py-3 text-base outline-none border-[1.5px] focus:border-[#1C2551] resize-none" style={inputStyle} placeholder="Pour quoi, par exemple" />
+            <textarea id="note" rows={2} maxLength={280} value={note} onChange={e => setNote(e.target.value)} className="w-full rounded-[14px] bg-white px-4 py-3 text-base outline-none border-[1.5px] focus:border-[#0E1533] resize-none" style={inputStyle} placeholder="Pour quoi, par exemple" />
           </Field>
           <Note>
             Sans intérêt. Si tu dépasses la date : intérêts de retard au taux légal ({LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an)
@@ -486,21 +487,23 @@ export const BorrowerSpace: React.FC<{
 
   return (
     <Screen>
-      <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
-        {p.onBack ? <button onClick={p.onBack} aria-label="Retour" className="w-10 h-10 -ml-2 flex items-center justify-center"><Icon name="back" /></button> : <CKLogo size="sm" />}
-        <button onClick={() => setMenu(true)} aria-label="Mon compte"><Avatar name={p.profile?.fullName || p.user.name} size={36} /></button>
-      </div>
-      {quiet ? (
-        <div className="px-5 pt-7">
-          <h1 className="serif text-[30px] font-semibold leading-tight">Bonjour {firstName(p.profile?.fullName || p.user.name)}</h1>
-          <div className="text-[14px] mt-1" style={{ color: C.mute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>
+      <NightHero>
+        <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
+          {p.onBack ? <button onClick={p.onBack} aria-label="Retour" className="w-10 h-10 -ml-2 flex items-center justify-center"><Icon name="back" /></button> : <CKLogo size="sm" tone="light" />}
+          <button onClick={() => setMenu(true)} aria-label="Mon compte" className="rounded-full" style={{ boxShadow: `0 0 0 2px ${C.night}` }}><Avatar name={p.profile?.fullName || p.user.name} size={36} /></button>
         </div>
-      ) : (
-        <div className="px-5 pt-7">
-          <div className="text-sm" style={{ color: C.mute }}>Tu dois</div>
-          {p.loading ? <Skeleton h={58} className="w-48 mt-1" /> : <Amount>{euro2(owed)}</Amount>}
+        <div className="px-5 pt-14">
+          <h1 className="display text-[30px] leading-[1.05]">Bonjour<br />{firstName(p.profile?.fullName || p.user.name)}.</h1>
+          {quiet ? (
+            <div className="text-[14px] mt-3 font-semibold" style={{ color: C.nightMute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>
+          ) : (
+            <>
+              <div className="mt-4 text-[13px] font-semibold" style={{ color: C.nightMute }}>Tu dois</div>
+              {p.loading ? <Skeleton h={44} className="w-40 mt-1 opacity-20" /> : <div className="display text-[36px] leading-none mt-1 tabular-nums">{euro2(owed)}</div>}
+            </>
+          )}
         </div>
-      )}
+      </NightHero>
       {quiet && today}
 
       {nextDue && (

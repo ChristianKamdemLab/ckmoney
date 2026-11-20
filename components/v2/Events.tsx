@@ -153,7 +153,7 @@ const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: 
   );
   const textarea = (id: string, k: keyof Form, rows: number, placeholder?: string) => (
     <textarea id={id} value={f[k] as string} onChange={set(k)} rows={rows} placeholder={placeholder}
-      className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
+      className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533]" style={inputStyle} />
   );
   const dates = f.allDay ? (
     <>
