@@ -5,6 +5,7 @@ import { listEvents } from '../../services/eventService';
 import { AppEvent, isLive, sortUpcoming, summary, untilText, KIND_LABEL } from '../../utils/events';
 import { listRadio } from '../../services/radioService';
 import { RadioItem, KIND_LABEL as RADIO_KIND } from '../../utils/radio';
+import { dayNumber, puzzleFor, isOver, isWon, stats, MAX_TRIES } from '../../games/mot';
 
 // « À découvrir » : le prochain événement, Radio CK, les articles et les jeux, sur l'accueil du prêteur
 // comme sur l'espace des proches.
@@ -57,6 +58,28 @@ const RadioTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   );
 };
 
+/** Case « Le mot du jour » : où on en est aujourd'hui, et la série. */
+const MotTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const n = dayNumber(), p = puzzleFor(n);
+  let h: Record<string, string[]> = {};
+  try { h = JSON.parse(localStorage.getItem('ck_mot') || '{}').h || {}; } catch { /* stockage indisponible */ }
+  const g = h[n] || [], done = isOver(g, p.word), streak = stats(h, n).streak;
+  const line = done ? (isWon(g, p.word) ? `Trouvé en ${g.length}/${MAX_TRIES}` : 'Raté aujourd’hui') : g.length ? `${g.length}/${MAX_TRIES} essais · à finir` : `${p.word.length} lettres${p.local ? ' · mot du 237' : ''} · à toi de jouer`;
+  return (
+    <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.card, color: C.ink }}>
+      <span className="w-[54px] h-[54px] rounded-xl grid grid-cols-2 gap-[3px] p-[7px] shrink-0" style={{ background: C.ink }} aria-hidden="true">
+        {[C.green, C.ochre, '#8A8E9C', C.green].map((bg, i) => <span key={i} className="rounded-[4px]" style={{ background: bg }} />)}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-semibold" style={{ color: C.ochreText }}>Le mot du jour · n° {n}</div>
+        <div className="serif text-[17px] font-semibold leading-snug mt-0.5">{done ? 'Reviens demain pour le prochain' : 'Un mot, six essais'}</div>
+        <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.mute }}>{line}{streak > 0 ? ` · 🔥 ${streak} jour${streak > 1 ? 's' : ''}` : ''}</div>
+      </div>
+      <span style={{ color: C.mute }}><Icon name="chevron" size={18} /></span>
+    </button>
+  );
+};
+
 const MiniCard: React.FC<{ r: number; red?: boolean; rot: number; x: number }> = ({ r, red, rot, x }) => (
   <div className="absolute w-[30px] h-[42px] rounded-[5px] bg-white serif font-bold text-[14px] pl-1 pt-0.5 shadow"
     style={{ transform: `rotate(${rot}deg)`, right: x, top: 12, color: red ? C.red : C.ink }}>{r}</div>
@@ -70,11 +93,12 @@ const Tile: React.FC<{ onClick: () => void; title: string; sub?: string; bg: str
   </button>
 );
 
-const Discover: React.FC<{ onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio }) => (
+const Discover: React.FC<{ onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio, onMot }) => (
   <>
     <div className="px-5 pt-7 pb-3 text-[17px] font-bold">À découvrir</div>
     <div className="px-5 grid grid-cols-2 gap-2.5">
       <EventsTile onClick={onEvents} />
+      {onMot && <MotTile onClick={onMot} />}
       {onRadio && <RadioTile onClick={onRadio} />}
       <Tile onClick={onArticles} title="Articles" sub="Lire entre les lignes" bg={C.ochreSoft} fg={C.ink} subColor={C.ochreText}>
         <div className="absolute top-4 left-4 serif text-[34px] leading-none font-semibold" style={{ color: C.ochre }} aria-hidden="true">«</div>

@@ -28,6 +28,7 @@ const ArticlesScreen = lazy(() => import('./components/v2/Articles'));
 const Jambo = lazy(() => import('./components/v2/Jambo'));
 const Bac = lazy(() => import('./components/v2/Bac'));
 const Wiseman = lazy(() => import('./components/v2/Wiseman'));
+const Mot = lazy(() => import('./components/v2/Mot'));
 const EventsScreen = lazy(() => import('./components/v2/Events'));
 const RadioScreen = lazy(() => import('./components/v2/Radio'));
 
@@ -60,18 +61,19 @@ const initialLinks = readLinks();
 try {
   const sp = new URLSearchParams(window.location.search);
   const ev = sp.get('evenement'), prep = sp.get('preparer'), list = sp.has('sorties'), art = sp.get('article'), presse = sp.get('presse');
-  const radio = sp.has('radio') ? sp.get('radio') || true : null;
-  if (ev || prep || list || art || presse || radio) {
-    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list, art, presse, radio }));
+  const radio = sp.has('radio') ? sp.get('radio') || true : null, mot = sp.has('mot');
+  if (ev || prep || list || art || presse || radio || mot) {
+    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list, art, presse, radio, mot }));
     window.history.replaceState({}, '', '/');
   }
 } catch { /* ignore */ }
-const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean; article?: string; presse?: Partial<PressInput>; radio?: string | true } | null => {
+const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean; article?: string; presse?: Partial<PressInput>; radio?: string | true; mot?: boolean } | null => {
   try {
     const raw = sessionStorage.getItem('ck_ev');
     if (!raw) return null;
     sessionStorage.removeItem('ck_ev');
-    const { id, prep, list, art, presse, radio } = JSON.parse(raw);
+    const { id, prep, list, art, presse, radio, mot } = JSON.parse(raw);
+    if (mot) return { mot: true };
     if (radio) return { radio: radio === true ? true : String(radio).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || true };
     if (art) return { article: String(art).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) };
     if (presse) return { presse: decodePrefill(String(presse)) as Partial<PressInput> | undefined };
@@ -119,7 +121,8 @@ type Overlay =
   | { k: 'bac'; back?: Overlay }
   | { k: 'wiseman'; back?: Overlay }
   | { k: 'events'; back?: Overlay; id?: string; prefill?: Partial<EventInput> }
-  | { k: 'radio'; back?: Overlay; id?: string };
+  | { k: 'radio'; back?: Overlay; id?: string }
+  | { k: 'mot'; back?: Overlay };
 
 const Splash = () => (
   <Screen><div className="flex-1 flex items-center justify-center"><div className="animate-pulse"><CKLogo size="lg" /></div></div></Screen>
@@ -208,6 +211,7 @@ const App: React.FC = () => {
     else if (link?.list) setOverlay({ k: 'events' });
     else if (link?.article) setOverlay({ k: 'articles', id: link.article });
     else if (link?.presse) setOverlay({ k: 'articles', prefill: link.presse });
+    else if (link?.mot) setOverlay({ k: 'mot' });
     else if (link?.radio) setOverlay({ k: 'radio', id: link.radio === true ? undefined : link.radio });
   }, [user?.id]);
 
@@ -324,6 +328,7 @@ const App: React.FC = () => {
         case 'jambo': return <Suspense fallback={<Splash />}><Jambo playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'wiseman': return <Suspense fallback={<Splash />}><Wiseman playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
+        case 'mot': return <Suspense fallback={<Splash />}><Mot onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'radio': return <Suspense fallback={<Splash />}><RadioScreen initialId={overlay.id} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'events': return <Suspense fallback={<Splash />}><EventsScreen isAdmin={isAdmin} me={profile?.fullName || user.name} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'contract': {
@@ -372,7 +377,7 @@ const App: React.FC = () => {
             onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
             onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onBack={isLender ? close : undefined}
             onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} onRadio={() => setOverlay({ k: 'radio', back: { k: 'borrower' } })} />;
+            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} onRadio={() => setOverlay({ k: 'radio', back: { k: 'borrower' } })} onMot={() => setOverlay({ k: 'mot', back: { k: 'borrower' } })} />;
       }
     })();
     return <ErrorBoundary>{content}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
@@ -384,7 +389,7 @@ const App: React.FC = () => {
       <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
         onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })}
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })}
         onBecomeLender={() => setOverlay({ k: 'lend' })} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
@@ -399,7 +404,7 @@ const App: React.FC = () => {
         onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
         onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}
         onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined} onBorrowerArea={() => setOverlay({ k: 'borrower' })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} />
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} />
       <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo(0, 0); }} onCreate={() => setOverlay({ k: 'new' })} badge={toHandle} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
