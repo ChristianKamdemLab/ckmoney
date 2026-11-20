@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Chips, Field, inputClass, inputStyle, Icon, C, dateFr } from './ui';
+import { seenAt, markSeen, isNewSince } from '../../utils/seen';
+import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill } from './ui';
 import { listRadio, getRadio, previewRadio, saveRadio, deleteRadio, reactRadio, commentRadio, deleteRadioComment } from '../../services/radioService';
 import { RadioItem, RadioComment, RadioKind, REACTIONS, KIND_LABEL, PLATFORM_LABEL, MAX_COMMENT, embedHeight, parseMedia } from '../../utils/radio';
 
@@ -278,6 +279,8 @@ const RadioScreen: React.FC<{ onBack: () => void; initialId?: string }> = ({ onB
   const [filter, setFilter] = useState<Filter>('all');
   const [view, setView] = useState<{ k: 'list' } | { k: 'read'; id: string } | { k: 'edit'; item?: RadioItem }>(initialId ? { k: 'read', id: initialId } : { k: 'list' });
   const [toast, setToast] = useState<string | null>(null);
+  const [since] = useState(() => seenAt('radio'));
+  useEffect(() => { markSeen('radio'); }, []);
   const load = (fresh = false) => listRadio(fresh).then(r => { setList(r.items); setAuthor(r.author); setFailed(false); }).catch(() => { setFailed(true); setList([]); });
   useEffect(() => { load(); }, []);
   const go = (v: typeof view) => { setView(v); window.scrollTo(0, 0); };
@@ -311,7 +314,7 @@ const RadioScreen: React.FC<{ onBack: () => void; initialId?: string }> = ({ onB
               <button key={i.id} onClick={() => go({ k: 'read', id: i.id })} className="w-full text-left flex items-center gap-3.5 px-4 py-3.5" style={{ borderTop: n ? `1px solid ${C.line}` : undefined }}>
                 <Thumb item={i} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.ochreText }}>{KIND_LABEL[i.kind]} · {ago(i.publishedAt)}</div>
+                  <div className="flex items-center justify-between gap-2"><div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.ochreText }}>{KIND_LABEL[i.kind]} · {ago(i.publishedAt)}</div>{isNewSince(i.publishedAt, since) && <NewPill />}</div>
                   <div className="serif text-[16.5px] font-semibold leading-snug mt-0.5 line-clamp-2">{i.title}</div>
                   {i.show && <div className="text-[13px] mt-0.5 truncate" style={{ color: C.mute }}>{i.show}</div>}
                   <div className="mt-1"><Reactions item={i} compact /></div>

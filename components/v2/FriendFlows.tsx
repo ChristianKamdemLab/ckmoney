@@ -6,7 +6,7 @@ import {
 } from './ui';
 import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
-import Discover from './Discover';
+import Discover, { Today } from './Discover';
 import { InstallCard, InstallButton } from './Install';
 import ReceiveFields, { receiveValid } from './ReceiveFields';
 import CityInput from '../CityInput';
@@ -480,16 +480,28 @@ export const BorrowerSpace: React.FC<{
   const lateFees = nextDue ? lateFeesDetail(nextDue.s.penalty, nextDue.s.lateInterest, n => euro2(n, nextDue.l.currency)) : '';
   const nextLink = nextDue ? payUrl(cards[nextDue.l.lenderUid || '']?.paymentLink || nextDue.l.lenderPaymentLink, nextAmount, nextDue.l.currency) : null;
 
+  // Rien en cours : pas de gros « 0,00 € », on met en avant ce qui change chaque jour
+  const quiet = !p.loading && open.length === 0;
+  const today = p.onEvents ? <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} /> : null;
+
   return (
     <Screen>
       <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
         {p.onBack ? <button onClick={p.onBack} aria-label="Retour" className="w-10 h-10 -ml-2 flex items-center justify-center"><Icon name="back" /></button> : <CKLogo size="sm" />}
         <button onClick={() => setMenu(true)} aria-label="Mon compte"><Avatar name={p.profile?.fullName || p.user.name} size={36} /></button>
       </div>
-      <div className="px-5 pt-7">
-        <div className="text-sm" style={{ color: C.mute }}>Tu dois</div>
-        {p.loading ? <Skeleton h={58} className="w-48 mt-1" /> : <Amount>{euro2(owed)}</Amount>}
-      </div>
+      {quiet ? (
+        <div className="px-5 pt-7">
+          <h1 className="serif text-[30px] font-semibold leading-tight">Bonjour {firstName(p.profile?.fullName || p.user.name)}</h1>
+          <div className="text-[14px] mt-1" style={{ color: C.mute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>
+        </div>
+      ) : (
+        <div className="px-5 pt-7">
+          <div className="text-sm" style={{ color: C.mute }}>Tu dois</div>
+          {p.loading ? <Skeleton h={58} className="w-48 mt-1" /> : <Amount>{euro2(owed)}</Amount>}
+        </div>
+      )}
+      {quiet && today}
 
       {nextDue && (
         <div className="px-5 pt-5">
@@ -526,12 +538,14 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      <div className="px-5 pt-7 pb-3 text-[17px] font-bold">En cours</div>
-      <div className="px-5">
-        {p.loading ? <div className="flex flex-col gap-2"><Skeleton /><Skeleton /></div>
-          : open.length ? <Card>{open.map(row)}</Card>
-          : <div className="text-sm" style={{ color: C.mute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>}
-      </div>
+      {!quiet && (
+        <>
+          <div className="px-5 pt-7 pb-3 text-[17px] font-bold">En cours</div>
+          <div className="px-5">
+            {p.loading ? <div className="flex flex-col gap-2"><Skeleton /><Skeleton /></div> : <Card>{open.map(row)}</Card>}
+          </div>
+        </>
+      )}
 
       {!p.loading && targets.length > 0 && (
         <div className="px-5 pt-4 flex flex-col gap-3">
@@ -552,6 +566,8 @@ export const BorrowerSpace: React.FC<{
           })}
         </div>
       )}
+
+      {!quiet && today}
 
       {mine.some(l => l.contractText) && (
         <>
@@ -588,7 +604,7 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} />}
+      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} />}
 
       {closed.length > 0 && (
         <>

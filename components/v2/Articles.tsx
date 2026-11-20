@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Article, User } from '../../types';
-import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chips, Field, inputClass, inputStyle, Icon, C, dateFr } from './ui';
+import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill } from './ui';
 import { listArticles, saveArticle, importArticles, deleteArticle, savePress, fetchAudio, ArticleInput, PressInput } from '../../services/articleService';
 import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils/articleText';
+import { seenAt, markSeen, isNewSince } from '../../utils/seen';
 
 // Articles : les textes de Christian (signés CKLabs, en entier) et sa revue de presse (fiches qui
 // renvoient vers le journal : source, titre, accroche, lien ; jamais le texte du journal).
@@ -10,7 +11,7 @@ import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils
 
 const day = (a: Pick<Article, 'publishedAt' | 'updatedAt'>) => dateFr(a.publishedAt || a.updatedAt, { day: 'numeric', month: 'long', year: 'numeric' });
 const isPress = (a: Pick<Article, 'kind'>) => a.kind === 'press';
-const meta = (a: Article) => isPress(a) ? `${a.source} · ${day(a)}` : `${a.readMinutes} min de lecture · ${day(a)}`;
+const meta = (a: Article) => isPress(a) ? `${a.source} · ${day(a)}${a.audio ? ' · 🎧 à écouter' : ''}` : `${a.readMinutes} min de lecture · ${day(a)}`;
 /** « d'Africa Intelligence », « de Jeune Afrique » */
 const deMedia = (s = '') => (/^[aeiouyhàâéèêîïôûœ]/i.test(s) ? `d’${s}` : `de ${s}`);
 const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, ''); } catch { return ''; } };
@@ -352,6 +353,10 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
     prefill && isAuthor ? { k: 'press', prefill } : initialId ? { k: 'read', id: initialId } : { k: 'list' });
   const [filter, setFilter] = useState<Filter>('all');
   const [toast, setToast] = useState<string | null>(null);
+  // « Nouveau » : ce qui est paru depuis la dernière visite (retenue à l'ouverture)
+  const [since] = useState(() => seenAt('articles'));
+  useEffect(() => { markSeen('articles'); }, []);
+  const fresh = (a: Article) => isNewSince(a.publishedAt, since);
 
   const load = () => listArticles(user.id, isAuthor).then(l => { setList(l); setFailed(false); }).catch(() => { setFailed(true); setList([]); });
   useEffect(() => { load(); }, [user.id, isAuthor]);
@@ -407,7 +412,7 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
       )}
       {list && hasPress && (
         <div className="px-5 pb-3 flex flex-col gap-2">
-          <Chips options={[{ id: 'all', label: 'Tout' }, { id: 'own', label: 'Textes de Christian' }, { id: 'press', label: 'Revue de presse' }]}
+          <Chips options={[{ id: 'all', label: 'Tout' }, { id: 'own', label: 'Christian' }, { id: 'press', label: 'Presse' }]}
             value={filter.startsWith('src:') ? 'press' : filter} onChange={v => setFilter(v as Filter)} />
           {(filter === 'press' || filter.startsWith('src:')) && sources.length > 1 && (
             <Chips options={[{ id: 'press', label: 'Tous les médias' }, ...sources.map(s => ({ id: `src:${s}`, label: s }))]} value={filter} onChange={v => setFilter(v as Filter)} />
@@ -429,7 +434,7 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
         )}
         {first && (
           <button onClick={() => go({ k: 'read', id: first.id })} className="text-left rounded-2xl p-5 pt-5" style={{ background: C.ink, color: '#fff' }}>
-            <div className="flex items-center justify-between gap-2"><Kind a={first} dark /><span className="text-[11.5px] font-semibold" style={{ color: 'rgba(255,255,255,.55)' }}>Le plus récent</span></div>
+            <div className="flex items-center justify-between gap-2"><Kind a={first} dark />{fresh(first) ? <NewPill dark /> : <span className="text-[11.5px] font-semibold" style={{ color: 'rgba(255,255,255,.55)' }}>Le plus récent</span>}</div>
             <div className="serif text-[24px] font-semibold leading-[1.18] mt-2">{frTypo(first.title)}</div>
             {first.excerpt && <p className="text-[14px] leading-relaxed mt-3 line-clamp-3" style={{ color: 'rgba(255,255,255,.78)' }}>{frTypo(first.excerpt)}</p>}
             <div className="text-[12px] mt-4" style={{ color: 'rgba(255,255,255,.6)' }}>{meta(first)}</div>
@@ -439,7 +444,7 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
           <Card>
             {rest.map((a, i) => (
               <button key={a.id} onClick={() => go({ k: 'read', id: a.id })} className="w-full text-left px-4 py-4" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
-                <Kind a={a} />
+                <div className="flex items-center justify-between gap-2"><Kind a={a} />{fresh(a) && <NewPill />}</div>
                 <div className="serif text-[18px] font-semibold leading-snug mt-1">{frTypo(a.title)}</div>
                 {a.excerpt && <p className="text-[14px] leading-snug mt-1.5 line-clamp-2" style={{ color: C.text2 }}>{frTypo(a.excerpt)}</p>}
                 <div className="text-[12px] mt-2" style={{ color: C.mute }}>{meta(a)}</div>
