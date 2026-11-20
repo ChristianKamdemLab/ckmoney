@@ -18,7 +18,7 @@ export const voiceEnabled = () => !!process.env.ELEVENLABS_API_KEY;
 
 // Réglages de la voix (19/11, retour de Christian : trop rapide, sans pauses, pas assez « podcast »).
 // Changer un réglage ou VOICE_VERSION refait tous les audios.
-export const VOICE_VERSION = 3;
+export const VOICE_VERSION = 4; // 4 : nouveau clone de la voix de Christian (20/11)
 // Modèle ElevenLabs : Eleven v4 (19/11, choix de Christian), sinon ELEVENLABS_MODEL. Si v4 refuse la
 // demande, on retombe sur Multilingual v2. v4 ne lit pas les balises <break> : les pauses y passent par
 // la ponctuation.
