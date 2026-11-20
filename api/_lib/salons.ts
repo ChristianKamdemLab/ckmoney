@@ -15,6 +15,8 @@ export interface SeedEvent {
   price: string;
   url: string;
   description: string;
+  organizer?: string;
+  times?: { startsAt: string; endsAt: string }; // horaires précis (ISO) : sinon toute la journée
 }
 
 export const importEvents = async (list: SeedEvent[], now = Date.now()) => {
@@ -27,8 +29,9 @@ export const importEvents = async (list: SeedEvent[], now = Date.now()) => {
   let added = 0, already = 0, past = 0, invalid = 0;
   for (const s of list) {
     const e = cleanEvent({
-      kind: 'event', audience: 'all', allDay: true, title: s.title, startsAt: dayStart(s.start), endsAt: dayEnd(s.end),
-      venue: s.venue, address: s.address, price: s.price, url: s.url, description: s.description,
+      kind: 'event', audience: 'all', allDay: !s.times, title: s.title,
+      startsAt: s.times?.startsAt || dayStart(s.start), endsAt: s.times?.endsAt || dayEnd(s.end),
+      venue: s.venue, address: s.address, price: s.price, url: s.url, description: s.description, organizer: s.organizer,
     });
     if (!e) { invalid++; continue; }
     if (!isUpcoming(e, now)) { past++; continue; }

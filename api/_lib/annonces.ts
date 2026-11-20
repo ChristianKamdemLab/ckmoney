@@ -170,6 +170,16 @@ export const ANNOUNCEMENTS: Announcement[] = [
       url: '/?radio',
     },
   },  {
+    id: '2026-11-20-immorenovv',
+    sendAt: '2026-11-20T18:45:00.000Z', // invitation envoyée par Christian à 19 h 35 : il y participe le 21/11 ; pas de notification
+    events: [{
+      id: 'immorenovv-2026', title: 'Les Rencontres ImmoRenovv (2e édition)', start: '2026-11-21', end: '2026-11-21',
+      times: { startsAt: '2026-11-21T10:30:00.000Z', endsAt: '2026-11-21T17:30:00.000Z' }, // 11 h 30 – 18 h 30, heure de Paris
+      venue: 'Four Seasons Hotel George V', address: '31 avenue George V, 75008 Paris', price: 'Sur invitation', url: '', organizer: 'ImmoRenovv',
+      description: "Rencontre consacrée à l'investissement immobilier : investir, rénover, valoriser. 50 invités seulement, sur invitation personnelle.\nAu programme : 11 h 30 accueil et déjeuner ; 13 h conférences, retours d'expérience et échanges autour des projets immobiliers ; 17 h cocktail de clôture.\nChristian y participe.",
+    }],
+  },
+  {
     id: '2026-11-19-radio-logement-pourquoi',
     sendAt: '2026-11-19T17:35:00.000Z', // texte validé par Christian à 18 h 32 ; pas de notification
     radioComments: [{ id: 'cesoir-logement-2027', comment: LOGEMENT_POURQUOI }],
