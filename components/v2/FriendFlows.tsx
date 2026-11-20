@@ -606,6 +606,7 @@ export const BorrowerSpace: React.FC<{
 
       {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} />}
 
+      <InstallCard slot="bottom" />
       {closed.length > 0 && (
         <>
           <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Terminés</div>
