@@ -4,6 +4,8 @@ import { auth } from '../../services/firebase';
 import { listArticles } from '../../services/articleService';
 import { seenAt, isNewSince } from '../../utils/seen';
 import { listInfo } from '../../services/infoService';
+import { getFriday } from '../../services/vendrediService';
+import { Friday } from '../../utils/vendredi';
 import { InfoDay, InfoScope } from '../../utils/infoDuJour';
 import { DateBlock, LiveDot } from './EventView';
 import { listEvents } from '../../services/eventService';
@@ -107,6 +109,27 @@ const InfoTile: React.FC<{ onClick: (scope?: InfoScope) => void }> = ({ onClick 
   );
 };
 
+/** Case « Mon vendredi soir » : visible du lundi au samedi quand Christian a proposé ses options. */
+const FridayTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const [f, setF] = useState<Friday | null>(null);
+  useEffect(() => { let on = true; getFriday().then(d => on && setF(d.friday)).catch(() => undefined); return () => { on = false; }; }, []);
+  if (!f) return null;
+  const chosen = f.options.find(o => o.id === f.decided);
+  return (
+    <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.ochreSoft, color: C.ink }}>
+      <span className="w-[54px] h-[54px] rounded-xl flex flex-col items-center justify-center shrink-0 leading-none" style={{ background: C.ochre, color: C.ink }}>
+        <span className="text-[10px] font-bold uppercase">Ven.</span><span className="serif text-[22px] font-bold mt-0.5">{Number(f.date.slice(8))}</span>
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-semibold" style={{ color: C.ochreText }}>Mon vendredi soir{f.myVote && !chosen ? ' · tu as voté' : ''}</div>
+        <div className="serif text-[17px] font-semibold leading-snug mt-0.5 line-clamp-2">{chosen ? `Ce sera ${chosen.name}` : `J'hésite entre ${f.options.length} options`}</div>
+        <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.ochreText }}>{chosen ? chosen.address || 'À vendredi !' : f.options.map(o => o.name).join(' · ')}</div>
+      </div>
+      <span style={{ color: C.ochreText }}><Icon name="chevron" size={18} /></span>
+    </button>
+  );
+};
+
 const MiniCard: React.FC<{ r: number; red?: boolean; rot: number; x: number }> = ({ r, red, rot, x }) => (
   <div className="absolute w-[30px] h-[42px] rounded-[5px] bg-white serif font-bold text-[14px] pl-1 pt-0.5 shadow"
     style={{ transform: `rotate(${rot}deg)`, right: x, top: 12, color: red ? C.red : C.ink }}>{r}</div>
@@ -135,13 +158,14 @@ const useNewArticles = () => {
   return n;
 };
 
-type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: InfoScope) => void };
+type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: InfoScope) => void; onVendredi?: () => void; onAdresses?: () => void };
 
 /** « Aujourd'hui » : ce qui change chaque jour (le mot, la sortie du moment, la dernière reco). */
-export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onInfo'>> = ({ onEvents, onRadio, onMot, onInfo }) => (
+export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onInfo' | 'onVendredi'>> = ({ onEvents, onRadio, onMot, onInfo, onVendredi }) => (
   <>
     <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Aujourd’hui</div>
     <div className="px-5 grid grid-cols-2 gap-2.5">
+      {onVendredi && <FridayTile onClick={onVendredi} />}
       {onInfo && <InfoTile onClick={onInfo} />}
       {onMot && <MotTile onClick={onMot} />}
       <EventsTile onClick={onEvents} />
@@ -151,17 +175,22 @@ export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onI
 );
 
 /** Articles et jeux. Avec « today », le bloc « Aujourd'hui » est affiché juste avant. */
-const Discover: React.FC<Props & { today?: boolean }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio, onMot, onInfo, today = true }) => {
+const Discover: React.FC<Props & { today?: boolean }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio, onMot, onInfo, onVendredi, onAdresses, today = true }) => {
   const fresh = useNewArticles();
   return (
     <>
-      {today && <Today onEvents={onEvents} onRadio={onRadio} onMot={onMot} onInfo={onInfo} />}
+      {today && <Today onEvents={onEvents} onRadio={onRadio} onMot={onMot} onInfo={onInfo} onVendredi={onVendredi} />}
       <div className="px-5 pt-7 pb-3 text-[17px] font-bold">À découvrir</div>
       <div className="px-5 grid grid-cols-2 gap-2.5">
         <Tile onClick={onArticles} title="Articles" sub="Lire entre les lignes" bg={C.ochreSoft} fg={C.ink} subColor={C.ochreText}
           badge={fresh > 0 ? <span className="text-[11px] font-bold px-2 py-[3px] rounded-full" style={{ background: C.ochre, color: C.ink }}>{fresh} nouveau{fresh > 1 ? 'x' : ''}</span> : undefined}>
           <div className="absolute top-4 left-4 serif text-[34px] leading-none font-semibold" style={{ color: C.ochre }} aria-hidden="true">«</div>
         </Tile>
+        {onAdresses && (
+          <Tile onClick={onAdresses} title="Mes adresses" sub="Les lieux que je recommande" bg={C.card} fg={C.ink} subColor={C.mute}>
+            <div className="absolute top-3.5 left-4 w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: C.ochreSoft, color: C.ochreText }} aria-hidden="true"><Icon name="pin" size={20} /></div>
+          </Tile>
+        )}
         <Tile onClick={onJambo} title="Jambo" sub="Fap Fap, seul ou entre amis" bg="#16204A" fg="#fff" subColor="rgba(255,255,255,.7)">
           <MiniCard r={3} red rot={-12} x={46} />
           <MiniCard r={10} rot={8} x={18} />

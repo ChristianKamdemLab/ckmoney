@@ -429,7 +429,7 @@ export const BorrowerSpace: React.FC<{
   onOpenLoan: (l: Loan) => void; onRequest: (lenderUid: string, lenderFirstName: string) => void;
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
   onOpenContract: (l: Loan) => void;
-  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: 'monde' | 'afrique') => void;
+  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: 'monde' | 'afrique') => void; onVendredi?: () => void; onAdresses?: () => void;
   onBecomeLender?: () => void;   // « Prêter à mes proches » (absent si déjà prêteur)
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);
@@ -482,7 +482,7 @@ export const BorrowerSpace: React.FC<{
 
   // Rien en cours : pas de gros « 0,00 € », on met en avant ce qui change chaque jour
   const quiet = !p.loading && open.length === 0;
-  const today = p.onEvents ? <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} /> : null;
+  const today = p.onEvents ? <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} /> : null;
 
   return (
     <Screen>
@@ -604,7 +604,7 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} />}
+      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} />}
 
       <InstallCard slot="bottom" />
       {closed.length > 0 && (
