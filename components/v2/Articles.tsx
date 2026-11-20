@@ -140,10 +140,10 @@ const PressEditor: React.FC<{ initial?: Article; prefill?: Partial<PressInput>; 
         <Field label="Titre de l'article" htmlFor="pt"><input id="pt" value={p.title} onChange={set('title')} className={inputClass} style={inputStyle} /></Field>
         <Field label="Date de l'article" htmlFor="pd"><input id="pd" type="date" value={dateValue} onChange={e => setP({ ...p, publishedAt: e.target.value ? new Date(`${e.target.value}T09:00:00`).toISOString() : undefined })} className={inputClass} style={inputStyle} /></Field>
         <Field label="Accroche" htmlFor="pe" hint={`Une phrase pour donner envie, ${200 - p.excerpt.length} caractères restants.`}>
-          <textarea id="pe" value={p.excerpt} maxLength={200} onChange={set('excerpt')} rows={3} className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
+          <textarea id="pe" value={p.excerpt} maxLength={200} onChange={set('excerpt')} rows={3} className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533]" style={inputStyle} />
         </Field>
         <Field label="L'essentiel" htmlFor="pm" hint={`Le récap avec tes mots, plus fourni quand l'article est long : les faits, les acteurs, les enjeux. ${4000 - (p.summary || '').length} caractères restants.`}>
-          <textarea id="pm" value={p.summary} maxLength={4000} onChange={set('summary')} rows={12} className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
+          <textarea id="pm" value={p.summary} maxLength={4000} onChange={set('summary')} rows={12} className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533]" style={inputStyle} />
         </Field>
         <Field label="Lien vers l'article" htmlFor="pu"><input id="pu" type="url" inputMode="url" value={p.sourceUrl} onChange={set('sourceUrl')} placeholder="https://" className={inputClass} style={inputStyle} /></Field>
         {error && <Note tone="danger">{error}</Note>}
@@ -299,7 +299,7 @@ const Editor: React.FC<{ initial?: Article; onBack: () => void; onSaved: (id?: s
             </Field>
             <Field label="Texte" htmlFor="ab" hint={<>Une ligne = un paragraphe. Commence une ligne par <b>##</b> pour un intertitre, par <b>-</b> pour une puce.</>}>
               <textarea id="ab" value={d.body} onChange={e => setD({ ...d, body: e.target.value })} rows={16}
-                className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551] min-h-[45dvh]" style={inputStyle} />
+                className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533] min-h-[45dvh]" style={inputStyle} />
             </Field>
           </>
         ) : (

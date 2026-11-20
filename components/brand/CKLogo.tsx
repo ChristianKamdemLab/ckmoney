@@ -1,16 +1,15 @@
 import React from 'react';
 
 /** Signature CKLabs : carré ocre « CK » + nom du produit (CK en encre, suffixe en ocre). */
-const CKLogo: React.FC<{ size?: 'sm' | 'md' | 'lg'; product?: string; subtitle?: string }> = ({ size = 'md', product = 'Money', subtitle }) => {
-  const box = size === 'lg' ? 'w-14 h-14 text-xl rounded-2xl' : size === 'sm' ? 'w-8 h-8 text-xs rounded-lg' : 'w-11 h-11 text-base rounded-xl';
-  const text = size === 'lg' ? 'text-3xl' : size === 'sm' ? 'text-lg' : 'text-2xl';
+const CKLogo: React.FC<{ size?: 'sm' | 'md' | 'lg'; product?: string; subtitle?: string; tone?: 'dark' | 'light' }> = ({ size = 'md', product = 'Money', subtitle, tone = 'dark' }) => {
+  const text = size === 'lg' ? 'text-[30px]' : size === 'sm' ? 'text-[17px]' : 'text-[22px]';
+  const ink = tone === 'light' ? '#F7F3EA' : '#0E1533';
   return (
-    <div className="flex items-center gap-3">
-      <div className={`${box} bg-ochre text-white font-black flex items-center justify-center tracking-tight shrink-0`} style={{ background: '#C98A1E' }}>CK</div>
-      <div className="leading-none">
-        <div className={`${text} font-black tracking-tight`} style={{ color: '#1C2551' }}>CK<span style={{ color: '#C98A1E' }}>{product}</span></div>
-        {subtitle && <div className="text-[9px] font-bold uppercase tracking-[0.25em] mt-1" style={{ color: '#6B6F80' }}>{subtitle}</div>}
+    <div className="leading-none">
+      <div className={`${text} display font-extrabold`} style={{ color: ink, fontFamily: "Unbounded, Manrope, sans-serif", fontWeight: 800, letterSpacing: '0.01em' }}>
+        CK<span style={{ color: '#FFC23D' }}>·</span>{product.toUpperCase()}
       </div>
+      {subtitle && <div className="text-[9px] font-bold uppercase tracking-[0.25em] mt-1.5" style={{ color: tone === 'light' ? '#A9B1D6' : '#5B6285' }}>{subtitle}</div>}
     </div>
   );
 };

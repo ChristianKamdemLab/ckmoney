@@ -168,7 +168,7 @@ const Reader: React.FC<{ id: string; isAuthor: boolean; onBack: () => void; onEd
         <div className="mt-3 flex flex-col gap-2">
           <textarea value={text} onChange={e => setText(e.target.value)} rows={2} maxLength={MAX_COMMENT} aria-label="Ton commentaire"
             placeholder={comments.length ? 'Ajoute ton avis…' : 'Sois le premier à donner ton avis…'}
-            className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551] resize-none" style={inputStyle} />
+            className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533] resize-none" style={inputStyle} />
           {text.trim() && <Button busy={busy === 'send'} onClick={send}>Envoyer</Button>}
           {error && <Note tone="danger">{error}</Note>}
         </div>
@@ -250,7 +250,7 @@ const Editor: React.FC<{ initial?: RadioItem; onBack: () => void; onSaved: (id?:
             <Field label="Émission ou chaîne" htmlFor="rs"><input id="rs" value={f.show} onChange={set('show')} className={inputClass} style={inputStyle} /></Field>
             <Field label="Pourquoi tu le recommandes" htmlFor="rc" hint="Ce qui t'a marqué, ce qu'il faut écouter en premier…">
               <textarea id="rc" value={f.comment} onChange={set('comment')} rows={5} maxLength={1500}
-                className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
+                className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533]" style={inputStyle} />
             </Field>
             {!initial?.notified && <Toggle on={notify} onChange={setNotify} label="Prévenir par notification" sub="Tous ceux qui ont activé les notifications" />}
           </>

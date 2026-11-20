@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { C, Icon, NewPill } from './ui';
+import { C, Icon, NewPill, ndopShadow } from './ui';
 import { auth } from '../../services/firebase';
 import { listArticles } from '../../services/articleService';
 import { seenAt, isNewSince } from '../../utils/seen';
@@ -32,13 +32,13 @@ const EventsTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const live = !!next && isLive(next);
   const label = !next ? 'Sorties' : live ? 'En ce moment' : next.kind === 'event' ? 'Prochain événement' : `${KIND_LABEL[next.kind]} à venir`;
   return (
-    <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.card, color: C.ink }}>
+    <button onClick={onClick} className="col-span-2 text-left rounded-[10px] p-3.5 flex items-center gap-3.5" style={{ background: C.card, color: C.ink }}>
       {next && !live ? <DateBlock iso={next.startsAt} /> : (
         <span className="w-[54px] h-[54px] rounded-xl flex items-center justify-center shrink-0" style={{ background: C.ink, color: C.ochre }}><Icon name={live ? 'pin' : 'calendar'} size={24} /></span>
       )}
       <div className="flex-1 min-w-0">
         <div className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: live ? C.green : C.ochreText }}>{live && <LiveDot color={C.green} />}{label}</div>
-        <div className="serif text-[17px] font-semibold leading-snug mt-0.5 line-clamp-2">{next ? next.title : 'Événements, spots et chills'}</div>
+        <div className="text-[16.5px] font-extrabold leading-snug mt-0.5 line-clamp-2">{next ? next.title : 'Événements, spots et chills'}</div>
         {next && <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.mute }}>{live ? [next.venue, untilText(next)].filter(Boolean).join(' · ') : summary(next)}</div>}
       </div>
       <span style={{ color: C.mute }}><Icon name="chevron" size={18} /></span>
@@ -51,16 +51,16 @@ const RadioTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const [last, setLast] = useState<RadioItem | null | undefined>(undefined);
   useEffect(() => { let on = true; listRadio().then(r => on && setLast(r.items[0] || null)).catch(() => on && setLast(null)); return () => { on = false; }; }, []);
   return (
-    <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.ink, color: '#fff' }}>
+    <button onClick={onClick} className="col-span-2 text-left rounded-[10px] p-3.5 flex items-center gap-3.5" style={{ background: C.coral, color: C.ink }}>
       {last?.thumbnail
         ? <img src={last.thumbnail} alt="" referrerPolicy="no-referrer" className="w-[54px] h-[54px] rounded-xl object-cover shrink-0" />
-        : <span className="w-[54px] h-[54px] rounded-xl flex items-center justify-center shrink-0 serif text-[15px] font-bold" style={{ background: C.ochre, color: C.ink }}>CK</span>}
+        : <span className="w-[54px] h-[54px] rounded-lg flex items-center justify-center shrink-0 display text-[14px]" style={{ background: C.ink, color: C.coral }}>CK</span>}
       <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-semibold flex items-center gap-2" style={{ color: C.ochre }}>{last && isNewSince(last.publishedAt, seenAt('radio')) && <NewPill dark />}{last ? `Radio CK · ${RADIO_KIND[last.kind] === 'Vidéo' ? 'nouvelle vidéo' : RADIO_KIND[last.kind] === 'Musique' ? 'nouveau son' : 'nouveau podcast'}` : 'Radio CK'}</div>
-        <div className="serif text-[17px] font-semibold leading-snug mt-0.5 line-clamp-2">{last ? last.title : 'Podcasts et vidéos à ne pas rater'}</div>
-        {last && (last.show || last.commentCount > 0) && <div className="text-[12.5px] mt-0.5 truncate" style={{ color: 'rgba(255,255,255,.65)' }}>{[last.show, last.commentCount ? `${last.commentCount} avis` : ''].filter(Boolean).join(' · ')}</div>}
+        <div className="text-[11.5px] font-extrabold uppercase tracking-wide flex items-center gap-2" style={{ color: C.ink }}>{last && isNewSince(last.publishedAt, seenAt('radio')) && <NewPill />}{last ? `Radio CK · ${RADIO_KIND[last.kind] === 'Vidéo' ? 'nouvelle vidéo' : RADIO_KIND[last.kind] === 'Musique' ? 'nouveau son' : 'nouveau podcast'}` : 'Radio CK'}</div>
+        <div className="text-[16.5px] font-extrabold leading-snug mt-0.5 line-clamp-2">{last ? last.title : 'Podcasts et vidéos à ne pas rater'}</div>
+        {last && (last.show || last.commentCount > 0) && <div className="text-[12.5px] mt-0.5 truncate font-semibold" style={{ color: 'rgba(14,21,51,.75)' }}>{[last.show, last.commentCount ? `${last.commentCount} avis` : ''].filter(Boolean).join(' · ')}</div>}
       </div>
-      <span style={{ color: 'rgba(255,255,255,.6)' }}><Icon name="chevron" size={18} /></span>
+      <span style={{ color: C.ink }}><Icon name="chevron" size={18} /></span>
     </button>
   );
 };
@@ -73,16 +73,16 @@ const MotTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const g = h[n] || [], done = isOver(g, p.word), streak = stats(h, n).streak;
   const line = done ? (isWon(g, p.word) ? `Trouvé en ${g.length}/${MAX_TRIES}` : 'Raté aujourd’hui') : g.length ? `${g.length}/${MAX_TRIES} essais · à finir` : `${p.word.length} lettres${p.local ? ' · mot du 237' : ''} · à toi de jouer`;
   return (
-    <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.card, color: C.ink }}>
-      <span className="w-[54px] h-[54px] rounded-xl grid grid-cols-2 gap-[3px] p-[7px] shrink-0" style={{ background: C.ink }} aria-hidden="true">
-        {[C.green, C.ochre, '#8A8E9C', C.green].map((bg, i) => <span key={i} className="rounded-[4px]" style={{ background: bg }} />)}
+    <button onClick={onClick} className="col-span-2 text-left rounded-[10px] p-3.5 flex items-center gap-3.5" style={{ background: C.teal, color: C.ink }}>
+      <span className="w-[54px] h-[54px] rounded-lg grid grid-cols-2 gap-[3px] p-[7px] shrink-0" style={{ background: C.ink }} aria-hidden="true">
+        {[C.teal, C.mango, '#F7F3EA', C.teal].map((bg, i) => <span key={i} className="rounded-[4px]" style={{ background: bg }} />)}
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-semibold" style={{ color: C.ochreText }}>Le mot du jour · n° {n}</div>
-        <div className="serif text-[17px] font-semibold leading-snug mt-0.5">{done ? 'Reviens demain pour le prochain' : 'Un mot, six essais'}</div>
-        <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.mute }}>{line}{streak > 0 ? ` · 🔥 ${streak} jour${streak > 1 ? 's' : ''}` : ''}</div>
+        <div className="text-[11.5px] font-extrabold uppercase tracking-wide">Le mot du jour · n° {n}</div>
+        <div className="text-[16.5px] font-extrabold leading-snug mt-0.5">{done ? 'Reviens demain pour le prochain' : 'Un mot, six essais'}</div>
+        <div className="text-[12.5px] mt-0.5 truncate font-semibold" style={{ color: 'rgba(14,21,51,.78)' }}>{line}{streak > 0 ? ` · série de ${streak} jour${streak > 1 ? 's' : ''}` : ''}</div>
       </div>
-      <span style={{ color: C.mute }}><Icon name="chevron" size={18} /></span>
+      <span style={{ color: C.ink }}><Icon name="chevron" size={18} /></span>
     </button>
   );
 };
@@ -94,15 +94,15 @@ const InfoTile: React.FC<{ onClick: (scope?: InfoScope) => void }> = ({ onClick 
   if (!day) return null;
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Douala' }).format(new Date());
   return (
-    <div className="col-span-2 rounded-2xl overflow-hidden" style={{ background: C.ink, color: '#fff' }}>
+    <div className="col-span-2 rounded-[10px] overflow-hidden" style={{ background: C.ink, color: '#fff' }}>
       <button onClick={() => onClick()} className="w-full text-left px-4 pt-3.5 flex items-center justify-between">
-        <span className="text-[12px] font-semibold" style={{ color: C.ochre }}>{day.date === today ? "L'info du jour" : "L'info d'hier"}</span>
+        <span className="text-[11.5px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>{day.date === today ? "L'info du jour" : "L'info d'hier"}</span>
         <span style={{ color: 'rgba(255,255,255,.55)' }}><Icon name="chevron" size={16} /></span>
       </button>
       {day.items.map((it, i) => (
         <button key={it.scope} onClick={() => onClick(it.scope)} className="w-full text-left px-4 py-3" style={{ borderTop: i ? '1px solid rgba(255,255,255,.12)' : undefined }}>
           <div className="text-[10.5px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,.55)' }}>{it.scope === 'monde' ? 'Monde' : 'Cameroun et Afrique'}</div>
-          <div className="serif text-[16.5px] font-semibold leading-snug mt-0.5 line-clamp-2">{it.title}</div>
+          <div className="text-[16px] font-extrabold leading-snug mt-0.5 line-clamp-2">{it.title}</div>
         </button>
       ))}
     </div>
@@ -116,16 +116,16 @@ const FridayTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   if (!f) return null;
   const chosen = f.options.find(o => o.id === f.decided);
   return (
-    <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.ochreSoft, color: C.ink }}>
-      <span className="w-[54px] h-[54px] rounded-xl flex flex-col items-center justify-center shrink-0 leading-none" style={{ background: C.ochre, color: C.ink }}>
-        <span className="text-[10px] font-bold uppercase">Ven.</span><span className="serif text-[22px] font-bold mt-0.5">{Number(f.date.slice(8))}</span>
+    <button onClick={onClick} className="col-span-2 text-left rounded-[10px] p-3.5 flex items-center gap-3.5 mb-1" style={{ background: C.mango, color: C.ink, boxShadow: ndopShadow() }}>
+      <span className="w-[54px] h-[54px] rounded-lg flex flex-col items-center justify-center shrink-0 leading-none" style={{ background: C.ink, color: C.mango }}>
+        <span className="text-[10px] font-bold uppercase">Ven.</span><span className="display text-[20px] mt-1">{Number(f.date.slice(8))}</span>
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-semibold" style={{ color: C.ochreText }}>Mon vendredi soir{f.myVote && !chosen ? ' · tu as voté' : ''}</div>
-        <div className="serif text-[17px] font-semibold leading-snug mt-0.5 line-clamp-2">{chosen ? `Ce sera ${chosen.name}` : `J'hésite entre ${f.options.length} options`}</div>
-        <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.ochreText }}>{chosen ? chosen.address || 'À vendredi !' : f.options.map(o => o.name).join(' · ')}</div>
+        <div className="text-[11.5px] font-extrabold uppercase tracking-wide">Mon vendredi soir{f.myVote && !chosen ? ' · tu as voté' : ''}</div>
+        <div className="text-[16.5px] font-extrabold leading-snug mt-0.5 line-clamp-2">{chosen ? `Ce sera ${chosen.name}` : `J'hésite entre ${f.options.length} options`}</div>
+        <div className="text-[12.5px] mt-0.5 truncate font-semibold" style={{ color: 'rgba(14,21,51,.75)' }}>{chosen ? chosen.address || 'À vendredi !' : f.options.map(o => o.name).join(' · ')}</div>
       </div>
-      <span style={{ color: C.ochreText }}><Icon name="chevron" size={18} /></span>
+      <span style={{ color: C.ink }}><Icon name="chevron" size={18} /></span>
     </button>
   );
 };
@@ -136,10 +136,10 @@ const MiniCard: React.FC<{ r: number; red?: boolean; rot: number; x: number }> =
 );
 
 const Tile: React.FC<{ onClick: () => void; title: string; sub?: string; bg: string; fg: string; subColor: string; children?: React.ReactNode; badge?: React.ReactNode }> = ({ onClick, title, sub, bg, fg, subColor, children, badge }) => (
-  <button onClick={onClick} className="relative text-left rounded-2xl p-4 pt-14 min-h-[128px] overflow-hidden" style={{ background: bg, color: fg }}>
+  <button onClick={onClick} className="relative text-left rounded-[10px] p-4 pt-14 min-h-[128px] overflow-hidden" style={{ background: bg, color: fg }}>
     {children}
     {badge && <span className="absolute top-3.5 right-3.5">{badge}</span>}
-    <div className="serif text-[19px] font-semibold leading-tight">{title}</div>
+    <div className="display text-[16px] leading-tight">{title}</div>
     {sub && <div className="text-[12.5px] mt-0.5" style={{ color: subColor }}>{sub}</div>}
   </button>
 );
@@ -163,7 +163,7 @@ type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; o
 /** « Aujourd'hui » : ce qui change chaque jour (le mot, la sortie du moment, la dernière reco). */
 export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onInfo' | 'onVendredi'>> = ({ onEvents, onRadio, onMot, onInfo, onVendredi }) => (
   <>
-    <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Aujourd’hui</div>
+    <div className="px-5 pt-7 pb-3 display text-[12px] uppercase tracking-[0.16em]" style={{ color: C.mute }}>Aujourd’hui</div>
     <div className="px-5 grid grid-cols-2 gap-2.5">
       {onVendredi && <FridayTile onClick={onVendredi} />}
       {onInfo && <InfoTile onClick={onInfo} />}
@@ -180,7 +180,7 @@ const Discover: React.FC<Props & { today?: boolean }> = ({ onArticles, onJambo, 
   return (
     <>
       {today && <Today onEvents={onEvents} onRadio={onRadio} onMot={onMot} onInfo={onInfo} onVendredi={onVendredi} />}
-      <div className="px-5 pt-7 pb-3 text-[17px] font-bold">À découvrir</div>
+      <div className="px-5 pt-7 pb-3 display text-[12px] uppercase tracking-[0.16em]" style={{ color: C.mute }}>À découvrir</div>
       <div className="px-5 grid grid-cols-2 gap-2.5">
         <Tile onClick={onArticles} title="Articles" sub="Lire entre les lignes" bg={C.ochreSoft} fg={C.ink} subColor={C.ochreText}
           badge={fresh > 0 ? <span className="text-[11px] font-bold px-2 py-[3px] rounded-full" style={{ background: C.ochre, color: C.ink }}>{fresh} nouveau{fresh > 1 ? 'x' : ''}</span> : undefined}>

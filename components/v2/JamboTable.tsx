@@ -7,7 +7,7 @@ import {
 // Table du Jambo, commune au jeu contre l'ordinateur et au jeu en ligne.
 // Tout est exprimé du point de vue du joueur : l'indice 0, c'est « toi ».
 
-export const FELT = '#16204A';
+export const FELT = '#0E1533';
 
 const SuitIcon: React.FC<{ s: Suit; size?: number; color?: string }> = ({ s, size = 16, color }) => {
   const d: Record<Suit, string> = {
@@ -132,7 +132,7 @@ export const TableView: React.FC<TableProps> = ({ m, banner, locked, secondsLeft
   const badge = <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center" style={{ background: C.ochre, color: C.ink }} title="Commandant">C</span>;
 
   return (
-    <div className="min-h-[100dvh] w-full flex justify-center text-white" style={{ background: `radial-gradient(120% 80% at 50% 40%, #233067 0%, ${FELT} 60%, #0F1735 100%)` }}>
+    <div className="min-h-[100dvh] w-full flex justify-center text-white" style={{ background: `radial-gradient(120% 80% at 50% 40%, #1B2654 0%, ${FELT} 60%, #080D20 100%)` }}>
       <div className="w-full max-w-[480px] flex flex-col min-h-[100dvh]">
         <div className="flex items-center gap-1 px-3 pt-[max(env(safe-area-inset-top),16px)] min-h-[56px]">
           <button onClick={() => setQuit(true)} aria-label="Quitter" className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/10"><Icon name="close" /></button>
