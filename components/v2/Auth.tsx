@@ -73,6 +73,16 @@ const Auth: React.FC<{ context?: string; onBack?: () => void }> = ({ context, on
         <p className="text-[13px] mt-3 leading-snug max-w-[280px]" style={{ color: C.mute }}>
           {context ? 'Tes informations ne sont visibles que par toi et la personne avec qui tu fais le prêt.' : 'Demander, prêter, rembourser entre proches\u00a0: avec un vrai contrat et sans avoir à relancer.'}
         </p>
+        {!context && (
+          <div className="mt-7 max-w-[320px]">
+            <div className="text-[12px] font-semibold" style={{ color: C.ochreText }}>Et pour les proches inscrits</div>
+            <div className="flex flex-wrap justify-center gap-1.5 mt-2.5">
+              {['Le mot du jour', 'Articles et revue de presse', 'Radio CK', 'Sorties', 'Jeux entre amis'].map(t => (
+                <span key={t} className="text-[12.5px] font-semibold px-3 py-1.5 rounded-full" style={{ background: C.card, color: C.ink }}>{t}</span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div className="px-5 pb-[max(env(safe-area-inset-bottom),24px)] flex flex-col gap-2.5">
         {error && <Note tone="danger">{error}</Note>}
