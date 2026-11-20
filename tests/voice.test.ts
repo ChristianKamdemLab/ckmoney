@@ -116,11 +116,11 @@ describe('Écouter L’essentiel', () => {
     expect(Object.values(await generateAudios({ budgetMs: 10_000, f, now: t + 2 * PAUSE_RETRY_MS + 3 }))).toEqual(['audio', 'audio']);
   });
 
-  it('v4 refusé : Multilingual v2 avec les balises de pause ; la voix « Christian voice » est choisie', async () => {
+  it('v4 refusé : Multilingual v2 avec les balises de pause ; la voix « Christian Kamdem voice » est choisie', async () => {
     const f = (async (url: string, init?: any) => {
       const body = init?.body ? JSON.parse(init.body) : undefined;
       calls.push({ url, body });
-      if (url.endsWith('/voices')) return new Response(JSON.stringify({ voices: [{ voice_id: 'x', name: 'Christian ancien' }, { voice_id: 'v9', name: 'Christian voice' }] }));
+      if (url.endsWith('/voices')) return new Response(JSON.stringify({ voices: [{ voice_id: 'x', name: 'Christian ancien' }, { voice_id: 'v9', name: 'Christian Kamdem voice' }] }));
       if (body.model_id === 'eleven_v4') return new Response('{"detail":"unsupported"}', { status: 400 });
       return new Response(new Uint8Array(5));
     }) as any;
@@ -142,6 +142,20 @@ describe('Écouter L’essentiel', () => {
     expect([...store.keys()].some(k => k.startsWith('articleAudio/o'))).toBe(false);
     expect(calls.filter(c => c.url.includes('text-to-speech'))).toEqual([]);
     expect(await generateAudios({ budgetMs: 10_000, f: fakeFetch })).toEqual({});
+  });
+
+  it('voix « Christian Kamdem voice » ; une pause pour voix introuvable est levée quand les réglages changent', async () => {
+    process.env.ELEVENLABS_API_KEY = 'cle-kamdem';
+    store.set('settings/voice', { pausedAt: '2026-11-20T15:40:00Z', lastTryAt: '2026-11-20T15:40:00Z', reason: 'voice_not_found', version: 4 });
+    const f = (async (url: string, init?: any) => {
+      calls.push({ url });
+      if (url.endsWith('/voices')) return new Response(JSON.stringify({ voices: [{ voice_id: 'k1', name: 'Christian Kamdem voice' }, { voice_id: 'z', name: 'Rachel' }] }));
+      return new Response(new Uint8Array(5));
+    }) as any;
+    store.set('articles/a', { kind: 'press', status: 'published', title: 'T', source: 'R', summary: 'S.' });
+    expect(await generateAudios({ budgetMs: 10_000, f, now: Date.parse('2026-11-20T15:50:00Z') })).toEqual({ T: 'audio' });
+    expect(calls.some(c => c.url.includes('/text-to-speech/k1'))).toBe(true);
+    expect(store.get('settings/voice').pausedAt).toBeNull();
   });
 });
 

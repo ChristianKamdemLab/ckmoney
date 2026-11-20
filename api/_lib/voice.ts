@@ -18,7 +18,7 @@ export const voiceEnabled = () => !!process.env.ELEVENLABS_API_KEY;
 
 // Réglages de la voix (19/11, retour de Christian : trop rapide, sans pauses, pas assez « podcast »).
 // Changer un réglage ou VOICE_VERSION refait tous les audios.
-export const VOICE_VERSION = 4; // 4 : nouveau clone de la voix de Christian (20/11)
+export const VOICE_VERSION = 5; // 5 : nouveau clone « Christian Kamdem voice » (20/11)
 // Modèle ElevenLabs : Eleven v4 (19/11, choix de Christian), sinon ELEVENLABS_MODEL. Si v4 refuse la
 // demande, on retombe sur Multilingual v2. v4 ne lit pas les balises <break> : les pauses y passent par
 // la ponctuation.
@@ -109,10 +109,12 @@ const voiceId = async (f: Fetch) => {
   const r = await f(`${API}/voices`, { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY! } });
   if (!r.ok) throw new Error(`voices_${r.status}`);
   const voices: { voice_id: string; name: string }[] = (await r.json())?.voices || [];
-  const wanted = (process.env.ELEVENLABS_VOICE_NAME || 'christian voice').toLowerCase();
+  // Le clone de Christian : « Christian Kamdem voice » depuis le 20/11 (avant : « Christian voice »)
+  const wanted = (process.env.ELEVENLABS_VOICE_NAME || 'christian kamdem voice').toLowerCase();
   const key = `${process.env.ELEVENLABS_API_KEY}|${wanted}`;
   if (cachedVoice.has(key)) return cachedVoice.get(key)!;
-  const v = voices.find(x => x.name.toLowerCase() === wanted) || voices.find(x => x.name.toLowerCase().includes(wanted));
+  const v = voices.find(x => x.name.toLowerCase() === wanted) || voices.find(x => x.name.toLowerCase().includes(wanted))
+    || voices.find(x => /christian/i.test(x.name));
   if (!v) throw new Error('voice_not_found');
   cachedVoice.set(key, v.voice_id);
   return v.voice_id;
@@ -188,8 +190,11 @@ export const generateAudios = async (opts: { budgetMs: number; max?: number; f?:
   const done: Record<string, string> = {};
   if (!voiceEnabled()) return done;
   const pause = (await pauseRef().get()).data();
-  const paused = !!pause?.pausedAt;
+  // Une pause pour clé ou voix refusée ne compte plus quand les réglages de la voix ont changé
+  const stale = !!pause?.pausedAt && pause.reason !== 'quota' && pause.version !== VOICE_VERSION;
+  const paused = !!pause?.pausedAt && !stale;
   if (paused && now - Date.parse(pause!.lastTryAt || pause!.pausedAt) < PAUSE_RETRY_MS) return { voix: 'en pause' };
+  if (stale) await pauseRef().set({ pausedAt: null, lastTryAt: null, reason: null, resumedAt: new Date(now).toISOString() });
   const snap = await adminDb.collection('articles').where('status', '==', 'published').get();
   // Audio retiré des textes CKLabs : on efface ce qui avait été fait
   for (const d of snap.docs) {
@@ -246,7 +251,7 @@ export const generateAudios = async (opts: { budgetMs: number; max?: number; f?:
       done[label] = `audio : ${msg.slice(0, 60)}`;
       if (msg === 'quota' || /^(tts|voices)_(401|403)|voice_not_found/.test(msg)) {
         const iso = new Date(now).toISOString();
-        await pauseRef().set({ pausedAt: pause?.pausedAt || iso, lastTryAt: iso, reason: msg });
+        await pauseRef().set({ pausedAt: (!stale && pause?.pausedAt) || iso, lastTryAt: iso, reason: msg, version: VOICE_VERSION });
         if (!paused) await tellChristian('Audio en pause', msg === 'quota'
           ? "Plus de crédits ElevenLabs : les nouveaux articles n'auront pas de version audio. Tout reprendra seul dès que ton compte sera rechargé."
           : "ElevenLabs refuse la clé de l'appli (ou ne trouve pas ta voix). Les nouveaux articles n'auront pas d'audio tant que ce n'est pas réglé.");
