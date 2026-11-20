@@ -125,7 +125,7 @@ type Overlay =
   | { k: 'events'; back?: Overlay; id?: string; prefill?: Partial<EventInput> }
   | { k: 'radio'; back?: Overlay; id?: string }
   | { k: 'mot'; back?: Overlay }
-  | { k: 'info'; back?: Overlay };
+  | { k: 'info'; back?: Overlay; scope?: 'monde' | 'afrique' };
 
 const Splash = () => (
   <Screen><div className="flex-1 flex items-center justify-center"><div className="animate-pulse"><CKLogo size="lg" /></div></div></Screen>
@@ -332,7 +332,7 @@ const App: React.FC = () => {
         case 'jambo': return <Suspense fallback={<Splash />}><Jambo playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'wiseman': return <Suspense fallback={<Splash />}><Wiseman playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
-        case 'info': return <Suspense fallback={<Splash />}><InfoScreen onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
+        case 'info': return <Suspense fallback={<Splash />}><InfoScreen initialScope={overlay.scope} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'mot': return <Suspense fallback={<Splash />}><Mot onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'radio': return <Suspense fallback={<Splash />}><RadioScreen initialId={overlay.id} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'events': return <Suspense fallback={<Splash />}><EventsScreen isAdmin={isAdmin} me={profile?.fullName || user.name} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
@@ -382,7 +382,7 @@ const App: React.FC = () => {
             onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
             onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onBack={isLender ? close : undefined}
             onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} onRadio={() => setOverlay({ k: 'radio', back: { k: 'borrower' } })} onMot={() => setOverlay({ k: 'mot', back: { k: 'borrower' } })} onInfo={() => setOverlay({ k: 'info', back: { k: 'borrower' } })} />;
+            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} onRadio={() => setOverlay({ k: 'radio', back: { k: 'borrower' } })} onMot={() => setOverlay({ k: 'mot', back: { k: 'borrower' } })} onInfo={scope => setOverlay({ k: 'info', scope, back: { k: 'borrower' } })} />;
       }
     })();
     return <ErrorBoundary>{content}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
@@ -394,7 +394,7 @@ const App: React.FC = () => {
       <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
         onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={() => setOverlay({ k: 'info' })}
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={scope => setOverlay({ k: 'info', scope })}
         onBecomeLender={() => setOverlay({ k: 'lend' })} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
@@ -409,7 +409,7 @@ const App: React.FC = () => {
         onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
         onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}
         onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined} onBorrowerArea={() => setOverlay({ k: 'borrower' })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={() => setOverlay({ k: 'info' })} />
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={scope => setOverlay({ k: 'info', scope })} />
       <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo(0, 0); }} onCreate={() => setOverlay({ k: 'new' })} badge={toHandle} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>

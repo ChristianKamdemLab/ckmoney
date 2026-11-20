@@ -4,7 +4,7 @@ import { auth } from '../../services/firebase';
 import { listArticles } from '../../services/articleService';
 import { seenAt, isNewSince } from '../../utils/seen';
 import { listInfo } from '../../services/infoService';
-import { InfoDay } from '../../utils/infoDuJour';
+import { InfoDay, InfoScope } from '../../utils/infoDuJour';
 import { DateBlock, LiveDot } from './EventView';
 import { listEvents } from '../../services/eventService';
 import { AppEvent, isLive, sortUpcoming, summary, untilText, KIND_LABEL } from '../../utils/events';
@@ -85,23 +85,25 @@ const MotTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   );
 };
 
-/** Case « L'info du jour » : les titres du jour (monde, puis Afrique). */
-const InfoTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+/** Case « L'info du jour » : les deux titres, comme une une de journal ; chacun ouvre son info. */
+const InfoTile: React.FC<{ onClick: (scope?: InfoScope) => void }> = ({ onClick }) => {
   const [day, setDay] = useState<InfoDay | null | undefined>(undefined);
   useEffect(() => { let on = true; listInfo().then(d => on && setDay(d[0] || null)).catch(() => on && setDay(null)); return () => { on = false; }; }, []);
   if (!day) return null;
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Douala' }).format(new Date());
-  const [a, b] = day.items;
   return (
-    <button onClick={onClick} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.card, color: C.ink }}>
-      <span className="w-[54px] h-[54px] rounded-xl flex items-center justify-center shrink-0" style={{ background: C.ochreSoft, color: C.ochreText }}><Icon name="activity" size={24} /></span>
-      <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-semibold flex items-center gap-2" style={{ color: C.ochreText }}>{day.date === today ? "L'info du jour" : "L'info d'hier"}</div>
-        <div className="serif text-[17px] font-semibold leading-snug mt-0.5 line-clamp-2">{a.title}</div>
-        {b && <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.mute }}>{b.scope === 'afrique' ? 'Afrique' : 'Monde'} · {b.title}</div>}
-      </div>
-      <span style={{ color: C.mute }}><Icon name="chevron" size={18} /></span>
-    </button>
+    <div className="col-span-2 rounded-2xl overflow-hidden" style={{ background: C.ink, color: '#fff' }}>
+      <button onClick={() => onClick()} className="w-full text-left px-4 pt-3.5 flex items-center justify-between">
+        <span className="text-[12px] font-semibold" style={{ color: C.ochre }}>{day.date === today ? "L'info du jour" : "L'info d'hier"}</span>
+        <span style={{ color: 'rgba(255,255,255,.55)' }}><Icon name="chevron" size={16} /></span>
+      </button>
+      {day.items.map((it, i) => (
+        <button key={it.scope} onClick={() => onClick(it.scope)} className="w-full text-left px-4 py-3" style={{ borderTop: i ? '1px solid rgba(255,255,255,.12)' : undefined }}>
+          <div className="text-[10.5px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,.55)' }}>{it.scope === 'monde' ? 'Monde' : 'Cameroun et Afrique'}</div>
+          <div className="serif text-[16.5px] font-semibold leading-snug mt-0.5 line-clamp-2">{it.title}</div>
+        </button>
+      ))}
+    </div>
   );
 };
 
@@ -133,7 +135,7 @@ const useNewArticles = () => {
   return n;
 };
 
-type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: () => void };
+type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: InfoScope) => void };
 
 /** « Aujourd'hui » : ce qui change chaque jour (le mot, la sortie du moment, la dernière reco). */
 export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onInfo'>> = ({ onEvents, onRadio, onMot, onInfo }) => (
