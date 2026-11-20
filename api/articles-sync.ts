@@ -2,6 +2,7 @@ import { syncArticles } from './_lib/articleSync.js';
 import { listFolder, downloadFile } from './_lib/drive.js';
 import { generateAudios, parseAliases } from './_lib/voice.js';
 import { isSettingsDoc } from './_lib/articleSync.js';
+import { syncInfo } from './_lib/infoSync.js';
 
 // /api/articles-sync : l'agent Articles (voir api/_lib/articleSync.ts). Appelé toutes les heures par
 // GitHub Actions ; sans effet s'il n'y a rien de nouveau dans le dossier Drive.
@@ -12,7 +13,11 @@ export default async function handler(req: any, res: any) {
   try {
     const t0 = Date.now();
     const dry = String(req.query?.dry || '') === '1';
-    const out: any = await syncArticles({ list: () => listFolder(), download: downloadFile }, new Date(), { dry });
+    const files = await listFolder();
+    // « L'info du jour » d'abord : rapide, et attendue le matin
+    const info = dry ? {} : await syncInfo(files, downloadFile).catch(e => ({ erreur: String(e?.message || e).slice(0, 80) }));
+    const out: any = await syncArticles({ list: async () => files, download: downloadFile }, new Date(), { dry });
+    out.info = info;
     // Puis la voix : les fiches publiées sans audio, tant qu'il reste du temps (la fonction a 60 s)
     if (!dry) {
       // Prononciations réglées par Christian dans le document « CKMoney · Prononciations » du dossier

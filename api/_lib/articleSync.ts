@@ -1,4 +1,5 @@
 import { adminAuth, adminDb, authorEmail, pushToUser } from './admin.js';
+import { infoDate } from '../../utils/infoDuJour.js';
 import { DriveFile } from './drive.js';
 import { classify, readDocx, readPdf, readText, isIssueName, findDate, norm, MEDIA, Ingested, Hints } from './articleIngest.js';
 import { PdfTooLong } from '../../utils/pdfLines.js';
@@ -145,7 +146,7 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
     const cur = essentiels.get(keyOf(d.name));
     if (!cur || d.modifiedTime > cur.modifiedTime) essentiels.set(keyOf(d.name), d);
   }
-  for (const f of files.filter(x => !isEssentielDoc(x) && !isSettingsDoc(x))) {
+  for (const f of files.filter(x => !isEssentielDoc(x) && !isSettingsDoc(x) && !infoDate(x.name))) {
     if (handled >= MAX_PER_RUN || Date.now() - t0 > (opts.budgetMs ?? TIME_BUDGET_MS)) break;
     const state = (await imports.doc(f.id).get()).data();
     const ess = essentiels.get(keyOf(f.name));
