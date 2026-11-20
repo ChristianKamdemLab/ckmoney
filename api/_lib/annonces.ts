@@ -1,4 +1,5 @@
 import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
+import type { Place } from '../../utils/vendredi.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
 import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, LOGEMENT_POURQUOI, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
@@ -28,6 +29,7 @@ export interface Announcement {
   events?: SeedEvent[]; // sorties à publier (voir salons.ts)
   radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
+  places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
 }
 
 /** L'e-mail des nouveautés de la semaine (sert aussi d'aperçu avant envoi). */
@@ -180,6 +182,15 @@ export const ANNOUNCEMENTS: Announcement[] = [
     }],
   },
   {
+    id: '2026-11-20-adresse-chez-gala',
+    sendAt: '2026-11-20T19:05:00.000Z', // avis envoyé par Christian à 19 h 37 (soirée du 19/11) ; pas de notification
+    places: [{
+      id: 'chez-gala-smoking-room', name: 'Chez Gala · Smoking Room', address: '27 rue du Colisée, 75008 Paris',
+      url: 'https://www.chezgala.com/smoking-room', budget: 'Chicha à 70 €', hours: 'Bar et smoking room tous les jours, 19 h 30 – 2 h',
+      review: "L'espace fumeur est bien climatisé, les cocktails sont excellents et le DJ passe de la bonne musique. Seul bémol : la chicha à 70 €. Mais pour écouter de la musique et être chillax, je recommande.",
+    }],
+  },
+  {
     id: '2026-11-19-radio-logement-pourquoi',
     sendAt: '2026-11-19T17:35:00.000Z', // texte validé par Christian à 18 h 32 ; pas de notification
     radioComments: [{ id: 'cesoir-logement-2027', comment: LOGEMENT_POURQUOI }],
@@ -252,12 +263,23 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
-    if (a.events || a.radio || a.radioComments) {
+    if (a.events || a.radio || a.radioComments || a.places) {
       // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie (avant toute notification)
       try {
         if (a.events) Object.assign(result, await importEvents(a.events, now));
         if (a.radio) { const r = await importRadio(a.radio, now); Object.assign(result, { radioAdded: r.added, radioAlready: r.already, radioInvalid: r.invalid }); }
         if (a.radioComments) Object.assign(result, await fillRadioComments(a.radioComments));
+        if (a.places) {
+          let placesAdded = 0;
+          for (const p of a.places) {
+            const ref = adminDb.collection('places').doc(p.id);
+            if ((await ref.get()).exists) continue;
+            const { id: _id, ...rest } = p;
+            await ref.set({ ...rest, createdAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString() });
+            placesAdded++;
+          }
+          result.placesAdded = placesAdded;
+        }
       } catch (err) { await ref.delete(); throw err; }
     }
     if (a.push) {
@@ -275,7 +297,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
       result.emails = emails;
     }
     await ref.set({ sentAt: new Date().toISOString(), ...result }, { merge: true });
-    out[a.id] = a.push && !a.email && !a.events && !a.radio && !a.radioComments ? result.people : result;
+    out[a.id] = a.push && !a.email && !a.events && !a.radio && !a.radioComments && !a.places ? result.people : result;
   }
   return out;
 };
