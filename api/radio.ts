@@ -1,5 +1,6 @@
 import { adminAuth, adminDb, isAdmin, pushToUser } from './_lib/admin.js';
 import { fetchMeta } from './_lib/radioMeta.js';
+import { syncMatches, listMatches, savePick } from './_lib/pronos.js';
 import { cleanReco, cleanComment, isReaction, RadioItem, RadioComment } from '../utils/radio.js';
 
 // /api/radio — Radio CK : les podcasts et vidéos que Christian recommande. Comptes CKMoney seulement
@@ -10,6 +11,9 @@ import { cleanReco, cleanComment, isReaction, RadioItem, RadioComment } from '..
 //  comment {id, text}            commenter (30 par jour au plus) ; Christian est prévenu
 //  uncomment {id, commentId}     retirer son commentaire (Christian peut retirer n'importe lequel)
 //  preview {url} · save {item, notify} · delete {id}      Christian seulement
+// Pronos foot (même porte, pour rester à 12 fonctions) :
+//  pronos.list                   les matchs de J-3 à J+7, les tendances et mon prono
+//  pronos.pick {matchId, pick: '1'|'N'|'2'|null, home?, away?}   donner, changer ou retirer son prono
 
 const col = () => adminDb.collection('radio');
 const cleanId = (v: unknown) => String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
@@ -44,6 +48,15 @@ export default async function handler(req: any, res: any) {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     const now = new Date().toISOString();
+
+    if (body.action === 'pronos.list') {
+      const sync = await syncMatches().catch(() => ({ synced: false, reason: 'erreur' }));
+      return res.status(200).json({ matches: await listMatches(who.uid), sync: sync.reason || 'ok' });
+    }
+    if (body.action === 'pronos.pick') {
+      const r: any = await savePick(who.uid, body.matchId, body);
+      return res.status(r.error ? 400 : 200).json(r);
+    }
 
     if (body.action === 'list') {
       const snap = await col().orderBy('publishedAt', 'desc').limit(100).get();

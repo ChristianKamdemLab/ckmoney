@@ -70,12 +70,23 @@ const Tile: React.FC<{ onClick: () => void; title: string; sub?: string; bg: str
   </button>
 );
 
-const Discover: React.FC<{ onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio }) => (
+const Discover: React.FC<{ onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onPronos?: () => void }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio, onPronos }) => (
   <>
     <div className="px-5 pt-7 pb-3 text-[17px] font-bold">À découvrir</div>
     <div className="px-5 grid grid-cols-2 gap-2.5">
       <EventsTile onClick={onEvents} />
       {onRadio && <RadioTile onClick={onRadio} />}
+      {onPronos && (
+        <button onClick={onPronos} className="col-span-2 text-left rounded-2xl p-3.5 flex items-center gap-3.5" style={{ background: C.greenSoft, color: C.ink }}>
+          <span className="w-[54px] h-[54px] rounded-xl flex items-center justify-center shrink-0 gap-0.5 text-[12px] font-bold" style={{ background: C.green, color: '#fff' }} aria-hidden="true">1&nbsp;N&nbsp;2</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[12px] font-semibold" style={{ color: C.green }}>Pronos foot</div>
+            <div className="serif text-[17px] font-semibold leading-snug mt-0.5">Qui gagne ce week-end ?</div>
+            <div className="text-[12.5px] mt-0.5 truncate" style={{ color: C.mute }}>Ligue 1, Premier League, Liga, Serie A, Bundesliga, Ligue des champions</div>
+          </div>
+          <span style={{ color: C.mute }}><Icon name="chevron" size={18} /></span>
+        </button>
+      )}
       <Tile onClick={onArticles} title="Articles" sub="Lire entre les lignes" bg={C.ochreSoft} fg={C.ink} subColor={C.ochreText}>
         <div className="absolute top-4 left-4 serif text-[34px] leading-none font-semibold" style={{ color: C.ochre }} aria-hidden="true">«</div>
       </Tile>
