@@ -2,6 +2,7 @@ import { adminDb, pushToUser, verifiedEmail, lenderMailAllowed } from '../_lib/a
 import { sendReminderMail } from '../_lib/mail.js';
 import { runMonthly } from '../_lib/monthly.js';
 import { sendDueAnnouncements } from '../_lib/annonces.js';
+import { sendDailyMot } from '../_lib/motPush.js';
 import { computeSituation, daysBetween } from '../../utils/schedule.js';
 import { LEGAL_INTEREST_RATE } from '../../config/legal.js';
 
@@ -88,5 +89,7 @@ export default async function handler(req: any, res: any) {
   const monthly = today.endsWith('-01') ? await runMonthly(today).catch(e => { console.error('monthly', e?.message); return 0; }) : 0;
   // En secours de GitHub Actions : une annonce due et pas encore partie
   const annonces = await sendDueAnnouncements().catch(e => { console.error('annonces', e?.message); return {}; });
-  return res.status(200).json({ today, loans: snap.size, sent, monthly, annonces });
+  // « Le mot du jour est là » (9 h, heure de Paris en hiver)
+  const mot = await sendDailyMot().catch(e => { console.error('mot', e?.message); return null; });
+  return res.status(200).json({ today, loans: snap.size, sent, monthly, annonces, mot });
 }

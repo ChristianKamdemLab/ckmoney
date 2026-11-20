@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Screen, TopBar, Toast, Icon, C } from './ui';
 import { FELT } from './JamboTable';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../services/firebase';
 import { MAX_TRIES, Mark, dayNumber, untilNext, puzzleFor, evaluate, keyMarks, isWon, isOver, norm, shareText, stats, History, EXTRA_WORDS } from '../../games/mot';
 
 // « Le mot du jour » : un mot par jour, le même pour tous, 6 essais. Pas de compte de points entre
@@ -78,6 +80,22 @@ const Mot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const won = isWon(guesses, puzzle.word);
 
   useEffect(() => { loadDict(len); }, [len]);
+  // Rappel du matin : proposé seulement si les notifications sont activées sur ce compte
+  const [remind, setRemind] = useState<boolean | null>(null);
+  useEffect(() => {
+    const u = auth.currentUser;
+    if (!u) return;
+    getDoc(doc(db, 'pushTokens', u.uid)).then(s => setRemind((s.data()?.tokens || []).length ? !s.data()?.motOff : null)).catch(() => undefined);
+  }, []);
+  const toggleRemind = () => {
+    const u = auth.currentUser;
+    if (!u || remind === null) return;
+    const next = !remind;
+    setRemind(next);
+    setDoc(doc(db, 'pushTokens', u.uid), { motOff: !next }, { merge: true })
+      .then(() => setToast(next ? 'Rappel activé : chaque matin à 9 h' : 'Rappel coupé'))
+      .catch(() => { setRemind(!next); setToast('Un souci de connexion. Réessaie.'); });
+  };
   useEffect(() => {
     const k = setInterval(() => { setNow(Date.now()); const d = dayNumber(); if (d !== today) { setToday(d); setCur(''); } }, 20_000);
     return () => clearInterval(k);
@@ -174,6 +192,14 @@ const Mot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
           </div>
           <div className="text-center text-[13.5px]" style={{ color: C.mute }}>Prochain mot dans <b style={{ color: C.ink }}>{hms(untilNext(now))}</b></div>
+          {remind !== null && (
+            <button onClick={toggleRemind} className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left" style={{ background: C.card }}>
+              <span className="flex items-center gap-2.5 text-[14px] font-semibold"><Icon name="bell" size={18} /> Rappel chaque matin à 9 h</span>
+              <span className="w-11 h-6 rounded-full p-0.5 shrink-0 transition-colors" style={{ background: remind ? C.green : C.border }}>
+                <span className="block w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: remind ? 'translateX(20px)' : 'none' }} />
+              </span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="mt-auto pb-[max(env(safe-area-inset-bottom),12px)]">

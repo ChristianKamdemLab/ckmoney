@@ -1,4 +1,4 @@
-import { FR_WORDS, LOCAL_WORDS, LocalWord } from './motWords';
+import { FR_WORDS, LOCAL_WORDS, LocalWord } from './motWords.js';
 
 // « Le mot du jour » : un mot par jour, le même pour tous, à trouver en 6 essais.
 // Le jour change à minuit, heure du Cameroun (UTC+1, sans heure d'été).
