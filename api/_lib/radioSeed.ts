@@ -86,7 +86,7 @@ export const RADIO_2026_11_21_MEDIAS: RadioSeed[] = [
   {
     id: 'heure-du-monde-medias-extreme-droite', url: 'https://open.spotify.com/episode/03R28baSoTskT1ZlLgMYw7',
     title: 'Médias et extrême droite : histoire d’un glissement ?', show: 'L’Heure du Monde',
-    comment: "Un mois après les mobilisations du 17 octobre, L’Heure du Monde revient sur ce que les plateaux de télévision en ont fait. Le lendemain, Éric Zemmour enchaînait LCI, BFMTV et CNews avec des propos (dont un appel à la « remigration ») que l’Arcom a fini par signaler à la justice début novembre ; dès le 22 octobre, le régulateur avait écrit aux chaînes pour leur rappeler leur devoir d’information rigoureuse, après plusieurs erreurs à l’antenne.\n\nEn vingt minutes, l’épisode pose la question du titre : glissement de l’audiovisuel vers les thèmes de l’extrême droite, ou emballement d’un moment ? Écoutez, et dites-moi ce que vous en pensez.",
+    comment: "Au moment où la présidentielle se prépare, L’Heure du Monde pose une question qui ne date pas d’hier : nos chaînes d’info auraient-elles glissé, sans trop s’en rendre compte, vers les thèmes de l’extrême droite ? Le point de départ, ce sont les mobilisations du 17 octobre et surtout le lendemain, où Éric Zemmour a fait le tour des plateaux (LCI, BFMTV puis CNews) avec des propos, dont un appel à la « remigration », que l’Arcom a fini par signaler à la justice début novembre.\n\nEntre-temps, le gendarme de l’audiovisuel avait déjà dû écrire aux chaînes le 22 octobre pour leur rappeler leur devoir d’information rigoureuse, après plusieurs erreurs à l’antenne. Alors, glissement de fond ou simple emballement d’un moment ? Vingt minutes pour vous faire votre idée, et dites-moi ce que vous en pensez.",
   },
 ];
 
