@@ -49,13 +49,20 @@ export const PlaceCard: React.FC<{ p: Place; onEdit?: () => void }> = ({ p, onEd
     <div className="mt-4 flex flex-col gap-2 text-[13.5px]" style={{ color: C.text2 }}>
       {p.budget && <div className="flex gap-2"><span className="shrink-0" style={{ color: C.ochreText }}><Icon name="ticket" size={17} /></span>{p.budget}</div>}
       {p.hours && <div className="flex gap-2"><span className="shrink-0" style={{ color: C.ochreText }}><Icon name="clock" size={17} /></span>{p.hours}</div>}
-      {p.address && <a href={mapsUrl({ venue: p.name, address: p.address })} target="_blank" rel="noopener noreferrer" className="flex gap-2 underline-offset-2 hover:underline"><span className="shrink-0" style={{ color: C.ochreText }}><Icon name="pin" size={17} /></span>{p.address}</a>}
+      {p.address && <a href={mapsUrl({ venue: p.name.split(' · ')[0], address: p.address })} target="_blank" rel="noopener noreferrer" className="flex gap-2 underline-offset-2 hover:underline"><span className="shrink-0" style={{ color: C.ochreText }}><Icon name="pin" size={17} /></span>{p.address}</a>}
     </div>
-    {p.url && (
-      <a href={p.url} target="_blank" rel="noopener noreferrer" className="mt-4 h-11 rounded-xl flex items-center justify-center gap-2 text-[14px] font-bold" style={{ background: C.soft, color: C.ink }}>
-        Voir le lieu <Icon name="arrow" size={16} />
+    {/* « Voir le lieu » : la fiche Google Maps (photos, avis, horaires), même sans site ; le site en plus s'il existe */}
+    <div className={`mt-4 grid gap-2 ${p.url ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <a href={mapsUrl({ venue: p.name.split(' · ')[0], address: p.address })} target="_blank" rel="noopener noreferrer"
+        className="h-12 rounded-xl flex items-center justify-center gap-2 text-[14.5px] font-extrabold" style={{ background: C.ink, color: '#fff' }}>
+        <Icon name="pin" size={17} /> Voir le lieu
       </a>
-    )}
+      {p.url && (
+        <a href={p.url} target="_blank" rel="noopener noreferrer" className="h-12 rounded-xl flex items-center justify-center gap-2 text-[14.5px] font-bold" style={{ background: C.soft, color: C.ink }}>
+          Le site <Icon name="arrow" size={16} />
+        </a>
+      )}
+    </div>
   </Card>
 );
 
