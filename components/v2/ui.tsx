@@ -160,6 +160,15 @@ export const Field: React.FC<{ label: string; children: React.ReactNode; hint?: 
 export const inputClass = 'block min-w-0 max-w-full appearance-none h-[52px] w-full rounded-[14px] bg-white px-4 text-base outline-none border-[1.5px] focus:border-[#0E1533]';
 export const inputStyle: React.CSSProperties = { borderColor: C.border, color: C.ink };
 
+const IOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent);
+/** Champ date : sur iPhone, un champ vide n'affiche rien du tout ; on y met « jj/mm/aaaa ». */
+export const DateInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { value: string }> = ({ value, className, style, ...rest }) => (
+  <div className="relative">
+    <input type="date" value={value} className={className ?? inputClass} style={style ?? inputStyle} {...rest} />
+    {IOS && !value && <span aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-base pointer-events-none" style={{ color: '#9AA0B4' }}>jj/mm/aaaa</span>}
+  </div>
+);
+
 export const Note: React.FC<{ children: React.ReactNode; tone?: 'info' | 'ok' | 'warn' | 'danger'; icon?: IconName }> = ({ children, tone = 'info', icon }) => {
   const t = { info: [C.soft, C.text2, C.ink], ok: [C.greenSoft, '#145A3E', C.green], warn: [C.ochreSoft, C.ochreText, C.ochreText], danger: [C.redSoft, '#8C1D18', C.red] }[tone];
   return (
