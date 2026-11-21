@@ -79,6 +79,17 @@ export const RADIO_2026_11_20_ARTE: RadioSeed[] = [
   { id: 'arte-ia-ultime-invention', url: 'https://www.youtube.com/watch?v=U13RJUCAcxI', title: 'Intelligence artificielle : l’ultime invention humaine ?', show: 'ARTE' },
 ];
 
+/** Podcast envoyé par Christian le 21/11 à 2 h 11, avec permission d'écrire le commentaire : faits
+ *  vérifiés (Arcom : lettre aux chaînes du 22/10, signalement au parquet annoncé le 3/11 ; propos tenus
+ *  le 18/10 sur LCI, BFMTV et CNews). Commentaire factuel, sans opinion prêtée à Christian. */
+export const RADIO_2026_11_21_MEDIAS: RadioSeed[] = [
+  {
+    id: 'heure-du-monde-medias-extreme-droite', url: 'https://open.spotify.com/episode/03R28baSoTskT1ZlLgMYw7',
+    title: 'Médias et extrême droite : histoire d’un glissement ?', show: 'L’Heure du Monde',
+    comment: "Un mois après les mobilisations du 17 octobre, L’Heure du Monde revient sur ce que les plateaux de télévision en ont fait. Le lendemain, Éric Zemmour enchaînait LCI, BFMTV et CNews avec des propos (dont un appel à la « remigration ») que l’Arcom a fini par signaler à la justice début novembre ; dès le 22 octobre, le régulateur avait écrit aux chaînes pour leur rappeler leur devoir d’information rigoureuse, après plusieurs erreurs à l’antenne.\n\nEn vingt minutes, l’épisode pose la question du titre : glissement de l’audiovisuel vers les thèmes de l’extrême droite, ou emballement d’un moment ? Écoutez, et dites-moi ce que vous en pensez.",
+  },
+];
+
 /** « Pourquoi je le recommande » du podcast C ce soir sur le logement, d'après Christian (19/11, 18 h 29),
  *  vérifié (ANIL : titre de séjour valide et plafonds de revenus, pas de condition d'emploi ni de durée)
  *  et validé par lui à 18 h 32. */
