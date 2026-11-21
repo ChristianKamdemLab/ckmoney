@@ -212,6 +212,15 @@ export const ANNOUNCEMENTS: Announcement[] = [
     }],
   },
   {
+    id: '2026-11-21-adresse-jips',
+    sendAt: '2026-11-21T10:30:00.000Z', // avis envoyé par Christian à 11 h 18 ; adresse et horaires vérifiés (Schlouk Map) ; sans notification
+    places: [{
+      id: 'le-jips-tchapalodrome', name: "Le Jip's · « Le Tchapalodrome »", address: '41 rue Saint-Denis, 75001 Paris', url: '',
+      budget: 'Pinte d’Heineken autour de 9 €', hours: 'Du lundi au samedi 9 h 30 – 2 h, le dimanche 13 h – minuit',
+      review: "Le Jip's, c'est mon « Tchapalodrome » (oui, je lui ai donné ce surnom) : un bar en plein cœur de Paris, comme diraient certains, où je retrouve un peu l'atmosphère chaleureuse que j'ai quand je suis au Cameroun.\n\nL'ambiance y est assez cosmopolite, avec des clients venus de plusieurs pays d'Afrique subsaharienne, et très souvent les 3 C de l'Afrique francophone : Côte d'Ivoire, Cameroun et Congo RDC, sans oublier une clientèle gabonaise bien présente. Mais on y croise bien évidemment aussi une clientèle européenne, et c'est d'ailleurs là que j'ai eu mon premier contact ukrainien.\n\nCôté assiette, leur spécialité ce sont les tapas : les wings et les bananes plantains font fureur quand on décide de prendre sa pinte. Moi, j'ai mes habitudes : une pinte d'Heineken avec du sirop de citron, un mélange qui glisse facilement dans la gorge et réveille les papilles.\n\nJ'y vais souvent le vendredi soir pour retrouver ce moment chaleureux, d'autant qu'il y a souvent des musiciens qui viennent jouer.",
+    }],
+  },
+  {
     id: '2026-11-21-films-notif',
     sendAt: '2026-11-21T10:15:00.000Z', // demandé par Christian à 11 h 06 : la nouveauté en notification
     push: {

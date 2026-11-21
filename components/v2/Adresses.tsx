@@ -42,7 +42,9 @@ export const PlaceCard: React.FC<{ p: Place; onEdit?: () => void }> = ({ p, onEd
       <h2 className="serif text-[21px] font-semibold leading-tight">{p.name}</h2>
       {onEdit && <button onClick={onEdit} className="text-[13px] font-semibold shrink-0" style={{ color: C.ochreText }}>Modifier</button>}
     </div>
-    <p className="serif text-[16.5px] leading-[1.6] mt-3" style={{ color: '#22263A' }}>« {frTypo(p.review)} »</p>
+    <div className="mt-3 flex flex-col gap-2.5">
+      {p.review.split(/\n+/).map((t, i) => <p key={i} className="text-[16px] leading-[1.6]" style={{ color: '#1B2140' }}>{frTypo(t)}</p>)}
+    </div>
     <div className="text-[12.5px] mt-1.5" style={{ color: C.mute }}>L'avis de Christian</div>
     <div className="mt-4 flex flex-col gap-2 text-[13.5px]" style={{ color: C.text2 }}>
       {p.budget && <div className="flex gap-2"><span className="shrink-0" style={{ color: C.ochreText }}><Icon name="ticket" size={17} /></span>{p.budget}</div>}
