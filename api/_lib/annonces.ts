@@ -2,7 +2,7 @@ import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
 import type { Place } from '../../utils/vendredi.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
-import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, RADIO_2026_11_20_ARTE, LOGEMENT_POURQUOI, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
+import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, RADIO_2026_11_20_ARTE, RADIO_2026_11_21_MEDIAS, LOGEMENT_POURQUOI, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
 //  - notification : à tous les appareils inscrits (l'appli installée avec les notifications) ;
@@ -189,6 +189,16 @@ export const ANNOUNCEMENTS: Announcement[] = [
       url: 'https://www.chezgala.com/smoking-room', budget: 'Chicha à 70 €', hours: 'Bar et smoking room tous les jours, 19 h 30 – 2 h',
       review: "L'espace fumeur est bien climatisé, les cocktails sont excellents et le DJ passe de la bonne musique. Seul bémol : la chicha à 70 €. Mais pour écouter de la musique et être chillax, je recommande.",
     }],
+  },
+  {
+    id: '2026-11-21-radio-medias',
+    sendAt: '2026-11-21T08:30:00.000Z', // envoyé par Christian à 2 h 11 ; publié et notifié à 9 h 30 (pas de notification la nuit)
+    radio: RADIO_2026_11_21_MEDIAS,
+    push: {
+      title: 'Nouveau podcast dans Radio CK',
+      body: 'L’Heure du Monde : « Médias et extrême droite, histoire d’un glissement ? »',
+      url: '/?radio',
+    },
   },
   {
     id: '2026-11-20-radio-arte-ia',
