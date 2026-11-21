@@ -7,7 +7,7 @@ import {
 } from './ui';
 import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
-import Discover, { Today } from './Discover';
+import Discover, { Today, InviteCard } from './Discover';
 import { InstallCard, InstallButton } from './Install';
 import ReceiveFields, { receiveValid } from './ReceiveFields';
 import CityInput from '../CityInput';
@@ -610,6 +610,7 @@ export const BorrowerSpace: React.FC<{
       )}
 
       {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />}
+      <InviteCard />
 
       <InstallCard slot="bottom" />
       {closed.length > 0 && (
