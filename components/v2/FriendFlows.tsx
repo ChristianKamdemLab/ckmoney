@@ -100,7 +100,19 @@ const IdentityStep: React.FC<{
         </Field>
         {err && <Note tone="danger">{err}</Note>}
       </div>
-      <Footer><Button disabled={!ok} busy={busy} onClick={save}>Continuer</Button></Footer>
+      <Footer>
+        <Button disabled={!ok} busy={busy} onClick={save}>Continuer</Button>
+        {!ok && (() => {
+          // Dire ce qui manque, plutôt qu'un bouton gris sans explication
+          const miss = [
+            !b.fullName.trim().includes(' ') && 'ton prénom et ton nom',
+            !b.birthDate && 'ta date de naissance',
+            b.birthPlace.trim().length < 2 && 'ton lieu de naissance',
+            b.address.trim().length < 5 && 'ton adresse',
+          ].filter(Boolean) as string[];
+          return miss.length ? <div className="text-[13px] text-center mt-2.5" style={{ color: C.mute }}>Il manque {miss.join(', ').replace(/, ([^,]*)$/, ' et $1')}.</div> : null;
+        })()}
+      </Footer>
     </Screen>
   );
 };
