@@ -49,7 +49,7 @@ const Player: React.FC<{ f: Film }> = ({ f }) => {
 };
 
 const Detail: React.FC<{ f: Film; admin: boolean; onBack: () => void; onEdit: () => void }> = ({ f, admin, onBack, onEdit }) => {
-  const [show, setShow] = useState(!f.spoilers);
+  const [show, setShow] = useState(false);
   useEffect(() => { window.scrollTo(0, 0); }, []);
   return (
     <Screen>
@@ -65,18 +65,30 @@ const Detail: React.FC<{ f: Film; admin: boolean; onBack: () => void; onEdit: ()
         </div>
         {f.teaser && <p className="text-[16px] leading-relaxed mt-3 font-semibold" style={{ color: C.text2 }}>{frTypo(f.teaser)}</p>}
         <div className="display text-[12px] uppercase tracking-[0.16em] mt-7 mb-2.5" style={{ color: C.mute }}>Mon avis</div>
-        {show ? (
-          <div className="flex flex-col gap-3">
-            {f.review.split(/\n+/).map((p, i) => <p key={i} className="text-[16.5px] leading-[1.65]" style={{ color: '#1B2140' }}>{frTypo(p)}</p>)}
-            <div className="text-[13px] font-semibold mt-1" style={{ color: C.mute }}>Christian · {ratingLabel(f.rating)}</div>
-          </div>
-        ) : (
-          <Card className="p-4" style={{ boxShadow: `inset 0 0 0 1.5px ${C.border}` }}>
-            <div className="text-[15px] font-extrabold">Attention, spoilers</div>
-            <p className="text-[14px] leading-relaxed mt-1" style={{ color: C.text2 }}>Mon avis dévoile une bonne partie de l’intrigue. Regarde d’abord, ou lis quand même.</p>
-            <button onClick={() => setShow(true)} className="mt-3 w-full h-12 rounded-xl text-[15px] font-extrabold" style={{ background: C.ink, color: '#fff' }}>Lire quand même</button>
-          </Card>
-        )}
+        {(() => {
+          // Ancien format : tout l'avis dévoile l'intrigue ; nouveau : avis visible, puis la partie spoilers
+          const visible = f.spoilers && !f.spoilerText ? '' : f.review;
+          const hidden = f.spoilers && !f.spoilerText ? f.review : f.spoilerText;
+          const paras = (t: string) => t.split(/\n+/).map((p, i) => <p key={i} className="text-[16.5px] leading-[1.65]" style={{ color: '#1B2140' }}>{frTypo(p)}</p>);
+          return (
+            <div className="flex flex-col gap-3">
+              {visible && paras(visible)}
+              {hidden && (show ? (
+                <>
+                  <div className="text-[12px] font-extrabold uppercase tracking-wide mt-2" style={{ color: C.red }}>Spoilers</div>
+                  {paras(hidden)}
+                </>
+              ) : (
+                <Card className="p-4 mt-1" style={{ boxShadow: `inset 0 0 0 1.5px ${C.border}` }}>
+                  <div className="text-[15px] font-extrabold">Attention, spoilers</div>
+                  <p className="text-[14px] leading-relaxed mt-1" style={{ color: C.text2 }}>La suite de mon avis dévoile l’intrigue. Regarde d’abord, ou lis quand même.</p>
+                  <button onClick={() => setShow(true)} className="mt-3 w-full h-12 rounded-xl text-[15px] font-extrabold" style={{ background: C.ink, color: '#fff' }}>Lire quand même</button>
+                </Card>
+              ))}
+              <div className="text-[13px] font-semibold mt-1" style={{ color: C.mute }}>Christian · {ratingLabel(f.rating)}</div>
+            </div>
+          );
+        })()}
       </div>
     </Screen>
   );
@@ -85,7 +97,7 @@ const Detail: React.FC<{ f: Film; admin: boolean; onBack: () => void; onEdit: ()
 const areaClass = `${inputClass} h-auto py-3 min-h-[150px]`;
 
 const Editor: React.FC<{ initial?: Film; onBack: () => void; onSaved: (msg: string) => void }> = ({ initial, onBack, onSaved }) => {
-  const [f, setF] = useState<Partial<Film>>(initial || { kind: 'serie', title: '', season: '', by: '', where: '', rating: 8, teaser: '', review: '', spoilers: false, trailer: '', poster: '' });
+  const [f, setF] = useState<Partial<Film>>(initial || { kind: 'serie', title: '', season: '', by: '', where: '', rating: 8, teaser: '', review: '', spoilerText: '', spoilers: false, trailer: '', poster: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const set = (k: keyof Film) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
@@ -119,11 +131,10 @@ const Editor: React.FC<{ initial?: Film; onBack: () => void; onSaved: (msg: stri
         </Field>
         {yt && <div className="rounded-[10px] overflow-hidden" style={{ aspectRatio: '16 / 9' }}><Still id={yt} alt="Aperçu de la bande-annonce" /></div>}
         <Field label="En une phrase (sans spoiler)" htmlFor="fz"><input id="fz" value={f.teaser} onChange={set('teaser')} className={inputClass} style={inputStyle} maxLength={200} /></Field>
-        <Field label="Ton avis" htmlFor="fv"><textarea id="fv" value={f.review} onChange={set('review')} className={areaClass} style={inputStyle} maxLength={4000} /></Field>
-        <label className="flex items-center gap-3 min-h-[44px] text-[15px] font-semibold">
-          <input type="checkbox" checked={!!f.spoilers} onChange={e => setF({ ...f, spoilers: e.target.checked })} className="w-5 h-5" style={{ accentColor: C.ink }} />
-          Mon avis contient des spoilers
-        </label>
+        <Field label="Ton avis (sans spoiler)" htmlFor="fv"><textarea id="fv" value={f.review} onChange={set('review')} className={areaClass} style={inputStyle} maxLength={4000} /></Field>
+        <Field label="La suite, avec spoilers (facultatif)" htmlFor="fx" hint="Masquée derrière « Lire quand même ». Laisse vide s’il n’y a rien à cacher.">
+          <textarea id="fx" value={f.spoilerText} onChange={set('spoilerText')} className={areaClass} style={inputStyle} maxLength={3000} />
+        </Field>
         {err && <Note tone="danger">{err}</Note>}
         <Button onClick={save} busy={busy} disabled={!f.title?.trim() || !f.review?.trim()}>Enregistrer</Button>
         {initial && <Button variant="danger" onClick={async () => { setBusy(true); try { await deleteFilm(initial.id); onSaved('Retiré'); } finally { setBusy(false); } }}>Retirer</Button>}
