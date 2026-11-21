@@ -33,6 +33,7 @@ export interface Announcement {
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
   places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
   films?: (Omit<Film, 'updatedAt'>)[];   // « Films et séries » à ajouter (idem ; le premier est le plus récent)
+  filmsReplace?: boolean;                // remplace le texte des fiches existantes (avec l'accord de Christian)
 }
 
 /** L'e-mail des nouveautés de la semaine (sert aussi d'aperçu avant envoi). */
@@ -194,6 +195,12 @@ export const ANNOUNCEMENTS: Announcement[] = [
     }],
   },
   {
+    id: '2026-11-21-films-avis-structures',
+    sendAt: '2026-11-21T09:35:00.000Z', // avis restructurés, accord de Christian à 10 h 24 ; sans notification
+    films: FILMS_2026_11_21,
+    filmsReplace: true,
+  },
+  {
     id: '2026-11-21-films-series',
     sendAt: '2026-11-21T09:15:00.000Z', // avis envoyés par Christian à 10 h 02 ; nouvelle rubrique, sans notification
     films: FILMS_2026_11_21,
@@ -313,9 +320,15 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
           for (let i = 0; i < a.films.length; i++) {
             const { id, ...rest } = a.films[i];
             const ref = adminDb.collection('films').doc(id);
-            if ((await ref.get()).exists) continue;
-            const at = new Date(now - i * 1000).toISOString();
-            await ref.set({ ...rest, createdAt: at, updatedAt: at });
+            const prev = (await ref.get()).data();
+            if (prev && !a.filmsReplace) continue;
+            if (prev) {
+              const { title, teaser, review, spoilerText, spoilers } = rest;
+              await ref.set({ title, teaser, review, spoilerText, spoilers }, { merge: true });
+            } else {
+              const at = new Date(now - i * 1000).toISOString();
+              await ref.set({ ...rest, createdAt: at, updatedAt: at });
+            }
             filmsAdded++;
           }
           result.filmsAdded = filmsAdded;

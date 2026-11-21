@@ -10,8 +10,9 @@ export interface Film {
   where: string;     // « Paramount+ », « HBO Max », « Au cinéma »
   rating: number;    // 0 à 10
   teaser: string;    // une phrase, sans spoiler
-  review: string;    // l'avis de Christian
-  spoilers: boolean; // l'avis dévoile l'intrigue : masqué derrière un bouton
+  review: string;    // l'avis de Christian, sans spoiler (toujours visible)
+  spoilerText: string; // la suite, qui dévoile l'intrigue : masquée derrière « Lire quand même »
+  spoilers: boolean; // ancien format : tout l'avis dévoile l'intrigue
   trailer: string;   // identifiant YouTube de la bande-annonce officielle (son image sert d'affiche)
   poster: string;    // affiche verticale (lien https d'une image), facultative
   updatedAt?: string;
@@ -36,7 +37,7 @@ export const cleanFilm = (raw: any): Omit<Film, 'id' | 'updatedAt'> | null => {
   if (!title || !review || !(rating >= 0 && rating <= 10)) return null;
   return {
     kind: raw?.kind === 'film' ? 'film' : 'serie', title, season: s(raw?.season, 40), by: s(raw?.by, 80), where: s(raw?.where, 60),
-    rating, teaser: s(raw?.teaser, 200), review, spoilers: !!raw?.spoilers,
+    rating, teaser: s(raw?.teaser, 200), review, spoilerText: text(raw?.spoilerText, 3000), spoilers: false,
     trailer: youtubeId(raw?.trailer), poster: /^https:\/\/\S+$/i.test(s(raw?.poster, 500)) ? s(raw?.poster, 500) : '',
   };
 };
