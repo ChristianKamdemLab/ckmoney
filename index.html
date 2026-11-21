@@ -81,7 +81,13 @@
                 page-break-inside: avoid;
             }
         }
-    </style>
+    
+        /* iPhone : les champs date affichaient la valeur collée en haut et centrée ; on l'aligne
+           comme les autres champs (à gauche, centrée verticalement) */
+        input[type="date"] { -webkit-appearance: none; appearance: none; line-height: 49px; text-align: left; }
+        input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; line-height: 49px; min-height: 49px; }
+        input[type="date"]::-webkit-datetime-edit { padding: 0; line-height: 49px; }
+</style>
 </head>
 <body>
     <div id="root"></div>

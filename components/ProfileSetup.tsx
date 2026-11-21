@@ -6,7 +6,7 @@ import CKLogo from './brand/CKLogo';
 import { saveProfile } from '../services/profileService';
 import { USURY_BRACKETS } from '../config/legal';
 import { cityOf } from '../utils/contract';
-import { Screen, TopBar, H1, Field, Chips, Card, Note, Footer, Button, inputClass, inputStyle, C } from './v2/ui';
+import { Screen, TopBar, H1, Field, Chips, Card, Note, Footer, Button, inputClass, inputStyle, C, DateInput } from './v2/ui';
 
 interface ProfileSetupProps {
   user: User;
@@ -59,7 +59,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
           <input id="pf-name" autoComplete="name" value={p.fullName} onChange={e => setP({ ...p, fullName: e.target.value })} className={inputClass} style={inputStyle} />
         </Field>
         <Field label="Date de naissance" htmlFor="pf-birth">
-          <input id="pf-birth" type="date" value={p.birthDate} onChange={e => setP({ ...p, birthDate: e.target.value })} className={inputClass} style={inputStyle} />
+          <DateInput id="pf-birth" value={p.birthDate || ''} onChange={e => setP({ ...p, birthDate: e.target.value })} />
         </Field>
         <CityInput label="Ville de naissance" value={p.birthPlace} onChange={v => setP({ ...p, birthPlace: v })} required />
         <Field label="Adresse complète" htmlFor="pf-addr">

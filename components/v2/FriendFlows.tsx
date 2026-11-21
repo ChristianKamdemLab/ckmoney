@@ -3,7 +3,7 @@ import { Loan, Notification, Profile, User, ReceiveInfo, isIdentityComplete } fr
 import {
   Screen, TopBar, H1, Amount, Button, Card, KV, Avatar, Chips, Field, inputClass, inputStyle, Note, Footer, Sheet, Toast, Icon, Skeleton,
   C, euro, euro2, firstName, dateFr, relDays,
-  NightHero,
+  NightHero, DateInput,
 } from './ui';
 import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
@@ -92,7 +92,7 @@ const IdentityStep: React.FC<{
           <input id="fn" autoComplete="name" value={b.fullName} onChange={e => setB({ ...b, fullName: e.target.value })} className={inputClass} style={inputStyle} placeholder="Ton prénom et ton nom" />
         </Field>
         <Field label="Date de naissance" htmlFor="bd">
-          <input id="bd" type="date" value={b.birthDate} max={toISODate(new Date())} onChange={e => setB({ ...b, birthDate: e.target.value })} className={inputClass} style={inputStyle} />
+          <DateInput id="bd" value={b.birthDate} max={toISODate(new Date())} onChange={e => setB({ ...b, birthDate: e.target.value })} />
         </Field>
         <CityInput label="Lieu de naissance" value={b.birthPlace} onChange={v => setB({ ...b, birthPlace: v })} required />
         <Field label="Adresse" htmlFor="ad">
