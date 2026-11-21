@@ -81,6 +81,23 @@ export const NEWS_2026_11_13_PRET: NewsEmail = {
   ],
 };
 
+export const NEWS_2026_11_21_FILMS: NewsEmail = {
+  subject: 'Nouveau sur CKMoney : Films et séries',
+  intro: "Une nouvelle rubrique est arrivée dans CKMoney : les films et séries que Christian a regardés, avec la bande-annonce, sa note sur 10 et son avis.",
+  sections: [
+    {
+      title: 'Films et séries',
+      text: "Pour commencer : MobLand saison 2 (8/10), WAR saison 1 (7/10) et Hope, le film du Coréen Na Hong-jin (9/10). La bande-annonce se regarde directement dans l'appli, et quand un avis dévoile l'intrigue, la partie concernée reste masquée tant que tu ne l'as pas demandée.",
+      link: { label: 'Voir Films et séries', url: `${APP}/?films` },
+    },
+    {
+      title: 'Et aussi cette semaine',
+      text: "Un nouveau look pour l'appli, L'info du jour chaque matin (le sujet dont le monde parle, et celui du Cameroun et de l'Afrique), Le mot du jour (un mot à trouver en six essais), Mes adresses (les lieux que Christian recommande) et Mon vendredi soir, où tu votes pour le lieu de la soirée.",
+      link: { label: 'Ouvrir CKMoney', url: `${APP}/` },
+    },
+  ],
+};
+
 export const ANNOUNCEMENTS: Announcement[] = [
   {
     id: '2026-11-13-nouveautes',
@@ -193,6 +210,21 @@ export const ANNOUNCEMENTS: Announcement[] = [
       url: 'https://www.chezgala.com/smoking-room', budget: 'Chicha à 70 €', hours: 'Bar et smoking room tous les jours, 19 h 30 – 2 h',
       review: "L'espace fumeur est bien climatisé, les cocktails sont excellents et le DJ passe de la bonne musique. Seul bémol : la chicha à 70 €. Mais pour écouter de la musique et être chillax, je recommande.",
     }],
+  },
+  {
+    id: '2026-11-21-films-notif',
+    sendAt: '2026-11-21T10:15:00.000Z', // demandé par Christian à 11 h 06 : la nouveauté en notification
+    push: {
+      title: 'Nouveau : Films et séries',
+      body: 'Les films et séries que Christian a regardés : bande-annonce, note et avis. MobLand, WAR et Hope pour commencer.',
+      url: '/?films',
+    },
+  },
+  {
+    id: '2026-11-21-email-films',
+    sendAt: '2026-11-21T10:15:00.000Z', // et par e-mail, à tous les comptes (Christian compris)
+    emailTo: 'all',
+    email: NEWS_2026_11_21_FILMS,
   },
   {
     id: '2026-11-21-films-avis-structures',
