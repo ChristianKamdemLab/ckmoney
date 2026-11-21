@@ -43,6 +43,10 @@ const CITIES_DB = [
   { city: "Londres", country: "Royaume-Uni" }
 ];
 
+const fold = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+/** Ville connue tapée en entier (accents et majuscules ignorés) : « Ville, Pays ». */
+const exactCity = (t: string) => CITIES_DB.find(c => fold(c.city) === fold(t));
+
 const CityInput: React.FC<CityInputProps> = ({ label, value, onChange, required }) => {
   const [query, setQuery] = useState(value ? value.split(',')[0].trim() : '');
   const [suggestions, setSuggestions] = useState<typeof CITIES_DB>([]);
@@ -75,13 +79,12 @@ const CityInput: React.FC<CityInputProps> = ({ label, value, onChange, required 
         return;
     }
 
-    const filtered = CITIES_DB.filter(c => 
-        c.city.toLowerCase().includes(text.toLowerCase())
-    ).slice(0, 5);
-    
+    const filtered = CITIES_DB.filter(c => fold(c.city).includes(fold(text))).slice(0, 5);
     setSuggestions(filtered);
     setIsOpen(true);
-    onChange(text); 
+    // Pas besoin de choisir dans la liste : une ville tapée en entier est reconnue, une autre est gardée telle quelle
+    const known = exactCity(text);
+    onChange(known ? `${known.city}, ${known.country}` : text);
   };
 
   const handleSelect = (item: typeof CITIES_DB[0]) => {

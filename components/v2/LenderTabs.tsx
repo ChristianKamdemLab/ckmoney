@@ -4,7 +4,7 @@ import { NightHero, Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet,
 import CKLogo from '../brand/CKLogo';
 import FiscalPanel from '../FiscalPanel';
 import PushCard from './PushCard';
-import Discover, { Today } from './Discover';
+import Discover, { Today, InviteCard } from './Discover';
 import { InstallCard, InstallButton } from './Install';
 import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
@@ -142,7 +142,7 @@ const LenderTabs: React.FC<Props> = (p) => {
             <Icon name="plus" /> Prêter à un proche
           </button>
           <button onClick={() => setShareOpen(true)} className="w-full mt-2.5 h-12 rounded-xl flex items-center justify-center gap-2 text-[15px] font-bold" style={{ background: 'transparent', color: C.nightText, border: `1.5px solid rgba(247,243,234,.35)` }}>
-            <Icon name="chat" size={20} /> Partager mon lien de demande
+            <Icon name="chat" size={20} /> Partager mon lien de demande de prêt
           </button>
         </div>
       </NightHero>
@@ -170,6 +170,7 @@ const LenderTabs: React.FC<Props> = (p) => {
         <div className="px-5 pt-4"><Button variant="secondary" onClick={p.onBorrowerSpace}>Voir ce que je dois</Button></div>
       )}
       <Discover today={!quiet} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />
+      <InviteCard />
       <InstallCard slot="bottom" />
       {shareSheet}
     </Screen>

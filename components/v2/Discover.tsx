@@ -174,6 +174,38 @@ export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onI
   </>
 );
 
+const INVITE_TEXT = "Rejoins-moi sur CKMoney : l'info du jour, le mot du jour, les films et séries, les sorties, Radio CK et des jeux entre amis. C'est gratuit.";
+const INVITE_URL = 'https://ck-money.vercel.app';
+
+/** « Inviter un ami » : partage l'appli elle-même (pas un lien de demande de prêt). */
+export const InviteCard: React.FC = () => {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const data = { title: 'CKMoney', text: INVITE_TEXT, url: INVITE_URL };
+    if (typeof navigator.share === 'function') {
+      try { await navigator.share(data); return; } catch (e: any) { if (e?.name === 'AbortError') return; }
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${INVITE_TEXT}\n${INVITE_URL}`)}`, '_blank', 'noopener');
+  };
+  const copy = () => { navigator.clipboard?.writeText(`${INVITE_TEXT}\n${INVITE_URL}`).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => undefined); };
+  return (
+    <div className="px-5 pt-7">
+      <div className="rounded-[10px] p-4" style={{ background: C.teal, color: C.ink }}>
+        <div className="display text-[17px] leading-tight">Fais découvrir CKMoney</div>
+        <p className="text-[14px] leading-snug mt-1.5 font-semibold" style={{ color: 'rgba(14,21,51,.8)' }}>Invite un ami à rejoindre l’appli : l’info du jour, le mot du jour, les films, les sorties… Rien à voir avec un prêt.</p>
+        <div className="grid grid-cols-[1fr_auto] gap-2 mt-3.5">
+          <button onClick={share} className="h-12 rounded-xl flex items-center justify-center gap-2 text-[15px] font-extrabold" style={{ background: C.ink, color: '#fff' }}>
+            <Icon name="chat" size={19} /> Inviter un ami
+          </button>
+          <button onClick={copy} aria-label="Copier le lien de l’appli" className="h-12 px-4 rounded-xl flex items-center justify-center gap-1.5 text-[14px] font-bold" style={{ background: 'rgba(14,21,51,.12)', color: C.ink }}>
+            <Icon name="copy" size={18} /> {copied ? 'Copié' : 'Lien'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /** Articles et jeux. Avec « today », le bloc « Aujourd'hui » est affiché juste avant. */
 const Discover: React.FC<Props & { today?: boolean }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio, onMot, onInfo, onVendredi, onAdresses, onFilms, today = true }) => {
   const fresh = useNewArticles();
