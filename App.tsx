@@ -32,6 +32,7 @@ const Mot = lazy(() => import('./components/v2/Mot'));
 const InfoScreen = lazy(() => import('./components/v2/Info'));
 const VendrediScreen = lazy(() => import('./components/v2/Vendredi'));
 const AdressesScreen = lazy(() => import('./components/v2/Adresses'));
+const FilmsScreen = lazy(() => import('./components/v2/Films'));
 const EventsScreen = lazy(() => import('./components/v2/Events'));
 const RadioScreen = lazy(() => import('./components/v2/Radio'));
 
@@ -64,18 +65,19 @@ const initialLinks = readLinks();
 try {
   const sp = new URLSearchParams(window.location.search);
   const ev = sp.get('evenement'), prep = sp.get('preparer'), list = sp.has('sorties'), art = sp.get('article'), presse = sp.get('presse');
-  const radio = sp.has('radio') ? sp.get('radio') || true : null, mot = sp.has('mot'), info = sp.has('info'), vendredi = sp.has('vendredi'), adresses = sp.has('adresses');
-  if (ev || prep || list || art || presse || radio || mot || info || vendredi || adresses) {
-    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list, art, presse, radio, mot, info, vendredi, adresses }));
+  const radio = sp.has('radio') ? sp.get('radio') || true : null, mot = sp.has('mot'), info = sp.has('info'), vendredi = sp.has('vendredi'), adresses = sp.has('adresses'), films = sp.has('films');
+  if (ev || prep || list || art || presse || radio || mot || info || vendredi || adresses || films) {
+    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list, art, presse, radio, mot, info, vendredi, adresses, films }));
     window.history.replaceState({}, '', '/');
   }
 } catch { /* ignore */ }
-const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean; article?: string; presse?: Partial<PressInput>; radio?: string | true; mot?: boolean; info?: boolean; vendredi?: boolean; adresses?: boolean } | null => {
+const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean; article?: string; presse?: Partial<PressInput>; radio?: string | true; mot?: boolean; info?: boolean; vendredi?: boolean; adresses?: boolean; films?: boolean } | null => {
   try {
     const raw = sessionStorage.getItem('ck_ev');
     if (!raw) return null;
     sessionStorage.removeItem('ck_ev');
-    const { id, prep, list, art, presse, radio, mot, info, vendredi, adresses } = JSON.parse(raw);
+    const { id, prep, list, art, presse, radio, mot, info, vendredi, adresses, films } = JSON.parse(raw);
+    if (films) return { films: true };
     if (vendredi) return { vendredi: true };
     if (adresses) return { adresses: true };
     if (mot) return { mot: true };
@@ -131,7 +133,8 @@ type Overlay =
   | { k: 'mot'; back?: Overlay }
   | { k: 'info'; back?: Overlay; scope?: 'monde' | 'afrique' }
   | { k: 'vendredi'; back?: Overlay }
-  | { k: 'adresses'; back?: Overlay };
+  | { k: 'adresses'; back?: Overlay }
+  | { k: 'films'; back?: Overlay };
 
 const Splash = () => (
   <Screen><div className="flex-1 flex items-center justify-center"><div className="animate-pulse"><CKLogo size="lg" /></div></div></Screen>
@@ -237,6 +240,7 @@ const App: React.FC = () => {
     else if (link?.info) setOverlay({ k: 'info' });
     else if (link?.vendredi) setOverlay({ k: 'vendredi' });
     else if (link?.adresses) setOverlay({ k: 'adresses' });
+    else if (link?.films) setOverlay({ k: 'films' });
     else if (link?.radio) setOverlay({ k: 'radio', id: link.radio === true ? undefined : link.radio });
   }, [user?.id]);
 
@@ -354,6 +358,7 @@ const App: React.FC = () => {
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'wiseman': return <Suspense fallback={<Splash />}><Wiseman playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'vendredi': return <Suspense fallback={<Splash />}><VendrediScreen onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
+        case 'films': return <Suspense fallback={<Splash />}><FilmsScreen onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'adresses': return <Suspense fallback={<Splash />}><AdressesScreen onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'info': return <Suspense fallback={<Splash />}><InfoScreen initialScope={overlay.scope} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'mot': return <Suspense fallback={<Splash />}><Mot onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
@@ -405,7 +410,7 @@ const App: React.FC = () => {
             onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
             onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onBack={isLender ? close : undefined}
             onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} onRadio={() => setOverlay({ k: 'radio', back: { k: 'borrower' } })} onMot={() => setOverlay({ k: 'mot', back: { k: 'borrower' } })} onInfo={scope => setOverlay({ k: 'info', scope, back: { k: 'borrower' } })} onVendredi={() => setOverlay({ k: 'vendredi', back: { k: 'borrower' } })} onAdresses={() => setOverlay({ k: 'adresses', back: { k: 'borrower' } })} />;
+            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} onRadio={() => setOverlay({ k: 'radio', back: { k: 'borrower' } })} onMot={() => setOverlay({ k: 'mot', back: { k: 'borrower' } })} onInfo={scope => setOverlay({ k: 'info', scope, back: { k: 'borrower' } })} onVendredi={() => setOverlay({ k: 'vendredi', back: { k: 'borrower' } })} onAdresses={() => setOverlay({ k: 'adresses', back: { k: 'borrower' } })} onFilms={() => setOverlay({ k: 'films', back: { k: 'borrower' } })} />;
       }
     })();
     return <ErrorBoundary>{content}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
@@ -417,7 +422,7 @@ const App: React.FC = () => {
       <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
         onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
         onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={scope => setOverlay({ k: 'info', scope })} onVendredi={() => setOverlay({ k: 'vendredi' })} onAdresses={() => setOverlay({ k: 'adresses' })}
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={scope => setOverlay({ k: 'info', scope })} onVendredi={() => setOverlay({ k: 'vendredi' })} onAdresses={() => setOverlay({ k: 'adresses' })} onFilms={() => setOverlay({ k: 'films' })}
         onBecomeLender={() => setOverlay({ k: 'lend' })} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
@@ -432,7 +437,7 @@ const App: React.FC = () => {
         onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
         onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}
         onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined} onBorrowerArea={() => setOverlay({ k: 'borrower' })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={scope => setOverlay({ k: 'info', scope })} onVendredi={() => setOverlay({ k: 'vendredi' })} onAdresses={() => setOverlay({ k: 'adresses' })} />
+        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={scope => setOverlay({ k: 'info', scope })} onVendredi={() => setOverlay({ k: 'vendredi' })} onAdresses={() => setOverlay({ k: 'adresses' })} onFilms={() => setOverlay({ k: 'films' })} />
       <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo(0, 0); }} onCreate={() => setOverlay({ k: 'new' })} badge={toHandle} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
