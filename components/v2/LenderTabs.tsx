@@ -36,7 +36,7 @@ interface Props {
   onEvents: () => void;
   onRadio?: () => void;
   onMot?: () => void;
-  onInfo?: (scope?: 'monde' | 'afrique') => void; onVendredi?: () => void; onAdresses?: () => void;
+  onInfo?: (scope?: 'monde' | 'afrique') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
   requestLink: string;
 }
 
@@ -169,7 +169,7 @@ const LenderTabs: React.FC<Props> = (p) => {
       {p.onBorrowerSpace && (
         <div className="px-5 pt-4"><Button variant="secondary" onClick={p.onBorrowerSpace}>Voir ce que je dois</Button></div>
       )}
-      <Discover today={!quiet} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} />
+      <Discover today={!quiet} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />
       <InstallCard slot="bottom" />
       {shareSheet}
     </Screen>

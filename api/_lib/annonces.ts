@@ -1,4 +1,6 @@
 import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
+import type { Film } from '../../utils/films.js';
+import { FILMS_2026_11_21 } from './filmsSeed.js';
 import type { Place } from '../../utils/vendredi.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
@@ -30,6 +32,7 @@ export interface Announcement {
   radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
   places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
+  films?: (Omit<Film, 'updatedAt'>)[];   // « Films et séries » à ajouter (idem ; le premier est le plus récent)
 }
 
 /** L'e-mail des nouveautés de la semaine (sert aussi d'aperçu avant envoi). */
@@ -191,6 +194,11 @@ export const ANNOUNCEMENTS: Announcement[] = [
     }],
   },
   {
+    id: '2026-11-21-films-series',
+    sendAt: '2026-11-21T09:15:00.000Z', // avis envoyés par Christian à 10 h 02 ; nouvelle rubrique, sans notification
+    films: FILMS_2026_11_21,
+  },
+  {
     id: '2026-11-21-radio-medias',
     sendAt: '2026-11-21T08:30:00.000Z', // envoyé par Christian à 2 h 11 ; publié et notifié à 9 h 30 (pas de notification la nuit)
     radio: RADIO_2026_11_21_MEDIAS,
@@ -283,7 +291,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
-    if (a.events || a.radio || a.radioComments || a.places) {
+    if (a.events || a.radio || a.radioComments || a.places || a.films) {
       // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie (avant toute notification)
       try {
         if (a.events) Object.assign(result, await importEvents(a.events, now));
@@ -299,6 +307,18 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
             placesAdded++;
           }
           result.placesAdded = placesAdded;
+        }
+        if (a.films) {
+          let filmsAdded = 0;
+          for (let i = 0; i < a.films.length; i++) {
+            const { id, ...rest } = a.films[i];
+            const ref = adminDb.collection('films').doc(id);
+            if ((await ref.get()).exists) continue;
+            const at = new Date(now - i * 1000).toISOString();
+            await ref.set({ ...rest, createdAt: at, updatedAt: at });
+            filmsAdded++;
+          }
+          result.filmsAdded = filmsAdded;
         }
       } catch (err) { await ref.delete(); throw err; }
     }
@@ -317,7 +337,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
       result.emails = emails;
     }
     await ref.set({ sentAt: new Date().toISOString(), ...result }, { merge: true });
-    out[a.id] = a.push && !a.email && !a.events && !a.radio && !a.radioComments && !a.places ? result.people : result;
+    out[a.id] = a.push && !a.email && !a.events && !a.radio && !a.radioComments && !a.places && !a.films ? result.people : result;
   }
   return out;
 };

@@ -158,7 +158,7 @@ const useNewArticles = () => {
   return n;
 };
 
-type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: InfoScope) => void; onVendredi?: () => void; onAdresses?: () => void };
+type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: InfoScope) => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void };
 
 /** « Aujourd'hui » : ce qui change chaque jour (le mot, la sortie du moment, la dernière reco). */
 export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onInfo' | 'onVendredi'>> = ({ onEvents, onRadio, onMot, onInfo, onVendredi }) => (
@@ -175,7 +175,7 @@ export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onI
 );
 
 /** Articles et jeux. Avec « today », le bloc « Aujourd'hui » est affiché juste avant. */
-const Discover: React.FC<Props & { today?: boolean }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio, onMot, onInfo, onVendredi, onAdresses, today = true }) => {
+const Discover: React.FC<Props & { today?: boolean }> = ({ onArticles, onJambo, onBac, onWiseman, onEvents, onRadio, onMot, onInfo, onVendredi, onAdresses, onFilms, today = true }) => {
   const fresh = useNewArticles();
   return (
     <>
@@ -189,6 +189,13 @@ const Discover: React.FC<Props & { today?: boolean }> = ({ onArticles, onJambo, 
         {onAdresses && (
           <Tile onClick={onAdresses} title="Mes adresses" sub="Les lieux que je recommande" bg={C.card} fg={C.ink} subColor={C.mute}>
             <div className="absolute top-3.5 left-4 w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: C.ochreSoft, color: C.ochreText }} aria-hidden="true"><Icon name="pin" size={20} /></div>
+          </Tile>
+        )}
+        {onFilms && (
+          <Tile onClick={onFilms} title="Films et séries" sub="Mes notes et mes avis" bg={C.night} fg="#F7F3EA" subColor="rgba(247,243,234,.7)">
+            <div className="absolute top-3.5 left-4 w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: C.coral, color: C.ink }} aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
+            </div>
           </Tile>
         )}
         <Tile onClick={onJambo} title="Jambo" sub="Fap Fap, seul ou entre amis" bg="#16204A" fg="#fff" subColor="rgba(255,255,255,.7)">

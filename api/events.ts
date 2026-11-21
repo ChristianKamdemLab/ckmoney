@@ -1,5 +1,6 @@
 import { adminAuth, adminDb, isAdmin, pushToUser } from './_lib/admin.js';
 import { fridayActions } from './_lib/vendredi.js';
+import { filmActions } from './_lib/films.js';
 import { cleanEvent, cleanName, escapeHtml, icsFor, isUpcoming, summary, AppEvent, KIND_LABEL } from '../utils/events.js';
 
 // /api/events — les sorties : événements (salons…), spots (« je suis au bar X ») et chills organisés
@@ -14,6 +15,7 @@ import { cleanEvent, cleanName, escapeHtml, icsFor, isUpcoming, summary, AppEven
 //                                       retirer n'importe quelle sortie)
 //  POST people                          Christian seulement (choisir « certaines personnes »)
 //  POST places.* / friday.*             Mes adresses et Mon vendredi soir (voir _lib/vendredi.ts)
+//  POST films.*                         Films et séries (voir _lib/films.ts)
 // Les réponses d'un chill ne sont visibles que par la personne qui l'organise.
 
 const col = () => adminDb.collection('events');
@@ -191,6 +193,10 @@ export default async function handler(req: any, res: any) {
     const admin = isAdmin(who.email, who.email_verified === true);
 
     // Mes adresses et Mon vendredi soir (voir _lib/vendredi.ts)
+    if (/^films\./.test(String(body.action))) {
+      const r = await filmActions(body, admin);
+      return res.status(r.status).json(r.json);
+    }
     if (/^(places|friday)\./.test(String(body.action))) {
       const r = await fridayActions(body, who, admin);
       return res.status(r.status).json(r.json);

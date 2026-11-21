@@ -95,7 +95,7 @@ describe('annonces', () => {
   it('les annonces du code sont bien formées et assez courtes pour un écran verrouillé', () => {
     for (const a of ANNOUNCEMENTS) {
       expect(Number.isNaN(Date.parse(a.sendAt))).toBe(false);
-      expect(a.push || a.email || a.events?.length || a.places?.length || a.radio?.length || a.radioComments?.length).toBeTruthy();
+      expect(a.push || a.email || a.events?.length || a.places?.length || a.films?.length || a.radio?.length || a.radioComments?.length).toBeTruthy();
       if (a.push) {
         expect(a.push.title.length).toBeLessThanOrEqual(40);
         expect(a.push.body.length).toBeLessThanOrEqual(170);
