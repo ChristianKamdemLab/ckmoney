@@ -80,3 +80,17 @@ describe('Le mot du jour', () => {
     expect(stats({ 1: [puzzleFor(1).word], 2: [puzzleFor(2).word] }, 3).streak).toBe(2);
   });
 });
+
+describe('Indices des mots du 237', () => {
+  it('chaque mot du 237 a un indice qui ne contient pas le mot', () => {
+    LOCAL_WORDS.forEach(l => {
+      expect(l.hint, l.w).toBeTruthy();
+      expect(norm(l.hint!).includes(l.w), l.w).toBe(false);
+    });
+  });
+  it('le partage dit quand l’indice a servi', () => {
+    const p = puzzleFor(3);
+    expect(shareText(p, [p.word], 'x', true)).toContain('(avec indice)');
+    expect(shareText(p, [p.word], 'x')).not.toContain('indice');
+  });
+});

@@ -76,10 +76,13 @@ export const isWon = (guesses: string[], answer: string) => guesses.some(g => no
 export const isOver = (guesses: string[], answer: string) => isWon(guesses, answer) || guesses.length >= MAX_TRIES;
 
 /** Grille à partager : les couleurs, jamais les lettres. */
-export const shareText = (p: Puzzle, guesses: string[], link: string) => {
+/** Nombre d'essais ratés à partir duquel on propose l'indice (mots du 237). */
+export const HINT_AFTER = 2;
+
+export const shareText = (p: Puzzle, guesses: string[], link: string, hinted = false) => {
   const won = isWon(guesses, p.word);
   const rows = guesses.map(g => evaluate(g, p.word).map(m => (m === 'ok' ? '🟩' : m === 'near' ? '🟨' : '⬛')).join(''));
-  return `Le mot du jour n° ${p.n}${p.local ? ' · mot du 237' : ''} : ${won ? guesses.length : 'X'}/${MAX_TRIES}\n\n${rows.join('\n')}\n\nÀ toi : ${link}`;
+  return `Le mot du jour n° ${p.n}${p.local ? ' · mot du 237' : ''} : ${won ? guesses.length : 'X'}/${MAX_TRIES}${hinted ? ' (avec indice)' : ''}\n\n${rows.join('\n')}\n\nÀ toi : ${link}`;
 };
 
 export type History = Record<string, string[]>; // n° du jour → essais
