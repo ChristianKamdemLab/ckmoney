@@ -3,7 +3,7 @@ import { Screen, TopBar, Toast, Icon, C } from './ui';
 import { FELT } from './JamboTable';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
-import { MAX_TRIES, Mark, dayNumber, untilNext, puzzleFor, evaluate, keyMarks, isWon, isOver, norm, shareText, stats, History, EXTRA_WORDS } from '../../games/mot';
+import { HINT_AFTER, MAX_TRIES, Mark, dayNumber, untilNext, puzzleFor, evaluate, keyMarks, isWon, isOver, norm, shareText, stats, History, EXTRA_WORDS } from '../../games/mot';
 
 // « Le mot du jour » : un mot par jour, le même pour tous, 6 essais. Pas de compte de points entre
 // amis ni de classement : on partage sa grille de couleurs sur WhatsApp, sans dévoiler le mot.
@@ -14,7 +14,10 @@ const LINK = 'https://ck-money.vercel.app/?mot';
 const CAT_LABEL: Record<string, string> = { plat: 'un plat', camfranglais: 'du camfranglais', ville: 'une ville', musique: 'une musique', foot: 'une figure du foot', 'vie courante': 'la vie de tous les jours' };
 
 const loadHistory = (): History => { try { return JSON.parse(localStorage.getItem(KEY) || '{}').h || {}; } catch { return {}; } };
-const saveHistory = (h: History) => { try { localStorage.setItem(KEY, JSON.stringify({ h })); } catch { /* stockage indisponible */ } };
+const saveHistory = (h: History) => { try { const o = JSON.parse(localStorage.getItem(KEY) || '{}'); localStorage.setItem(KEY, JSON.stringify({ ...o, h })); } catch { /* stockage indisponible */ } };
+// Indices ouverts, par numéro de jour (pour le dire au partage)
+const loadHints = (): Record<string, boolean> => { try { return JSON.parse(localStorage.getItem(KEY) || '{}').hints || {}; } catch { return {}; } };
+const saveHint = (n: number) => { try { const o = JSON.parse(localStorage.getItem(KEY) || '{}'); localStorage.setItem(KEY, JSON.stringify({ ...o, hints: { ...(o.hints || {}), [n]: true } })); } catch { /* stockage indisponible */ } };
 
 // Dictionnaire des essais acceptés, chargé à la demande pour la longueur du jour
 const dicts = new Map<number, Promise<Set<string> | null>>();
@@ -71,6 +74,7 @@ const Mot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const puzzle = useMemo(() => puzzleFor(today), [today]);
   const len = puzzle.word.length;
   const [history, setHistory] = useState<History>(loadHistory);
+  const [hints, setHints] = useState<Record<string, boolean>>(loadHints);
   const guesses = history[today] || [];
   const [cur, setCur] = useState('');
   const [toast, setToast] = useState<string | null>(null);
@@ -132,7 +136,11 @@ const Mot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const marks = useMemo(() => keyMarks(guesses, puzzle.word), [guesses, puzzle.word]);
   const st = useMemo(() => stats(history, today), [history, today]);
   const size = Math.min(56, Math.floor((Math.min(window.innerWidth, 480) - 48 - (len - 1) * 6) / len));
-  const share = shareText(puzzle, guesses, LINK);
+  const hinted = !!hints[today];
+  const share = shareText(puzzle, guesses, LINK, hinted);
+  const hint = puzzle.local?.hint;
+  const canHint = !!hint && !over && guesses.length >= HINT_AFTER;
+  const openHint = () => { saveHint(today); setHints(h => ({ ...h, [today]: true })); };
 
   return (
     <Screen>
@@ -141,6 +149,17 @@ const Mot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className="text-[12.5px] font-semibold" style={{ color: C.ochre }}>N° {puzzle.n} · {len} lettres</div>
         <div className="text-[14px] leading-snug mt-1" style={{ color: 'rgba(255,255,255,.85)' }}>
           {puzzle.local ? <>Aujourd’hui, un <b>mot du 237</b> : {CAT_LABEL[puzzle.local.cat]}.</> : 'Un mot français. Les accents ne comptent pas.'}
+          {hint && (hinted ? (
+            <div className="mt-2.5 rounded-xl px-3 py-2.5 text-[14px] leading-snug" style={{ background: 'rgba(255,194,61,.14)', color: '#FFE3A3' }}>
+              <span className="font-extrabold" style={{ color: C.mango }}>Indice · </span>{hint}
+            </div>
+          ) : canHint ? (
+            <button onClick={openHint} className="mt-2.5 h-10 px-3.5 rounded-xl text-[13.5px] font-extrabold" style={{ background: C.mango, color: C.ink }}>
+              Besoin d’un indice ?
+            </button>
+          ) : !over && guesses.length < HINT_AFTER ? (
+            <div className="mt-1.5 text-[12.5px]" style={{ color: 'rgba(255,255,255,.55)' }}>Un indice sera proposé après {HINT_AFTER} essais.</div>
+          ) : null)}
         </div>
       </div>
 
