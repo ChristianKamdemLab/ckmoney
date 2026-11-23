@@ -46,14 +46,14 @@ const pushAll = async (msg: { title: string; body: string; url: string; tag: str
 };
 
 /** « Nouvel article » : une seule fois par article. */
-export const notifyNewArticle = async (id: string, a: { title: string; kind?: string; source?: string; authorFirst?: string }) => {
+export const notifyNewArticle = async (id: string, a: { title: string; kind?: string; source?: string; authorFirst?: string; alert?: string }) => {
   const ref = adminDb.collection('articles').doc(id);
   const snap = await ref.get();
   if (snap.data()?.notifiedAt) return 0;
   await ref.set({ notifiedAt: new Date().toISOString() }, { merge: true });
   return pushAll({
-    title: a.kind === 'press' ? `Revue de presse · ${a.source}` : `Nouvel article${a.authorFirst ? ` de ${a.authorFirst}` : ''}`,
-    body: a.title, url: `/?article=${id}`, tag: `article-${id}`,
+    title: a.alert ? a.alert : a.kind === 'press' ? `Revue de presse · ${a.source}` : `Nouvel article${a.authorFirst ? ` de ${a.authorFirst}` : ''}`,
+    body: a.alert && a.source ? `${a.source} · ${a.title}` : a.title, url: `/?article=${id}`, tag: `article-${id}`,
   });
 };
 
@@ -92,7 +92,7 @@ export const parseEssentiel = (raw: string) => {
   const lines = raw.replace(/^\ufeff/, '').split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const head: Record<string, string> = {};
   while (lines.length) {
-    const m = lines[0].match(/^(accroche|source|journal|titre|date|auteur|lien)\s*:\s*(.*)$/i);
+    const m = lines[0].match(/^(accroche|source|journal|titre|date|auteur|lien|alerte)\s*:\s*(.*)$/i);
     if (!m) break;
     head[m[1].toLowerCase()] = m[2].replace(/[<>]/g, '').trim();
     lines.shift();
@@ -105,6 +105,8 @@ export const parseEssentiel = (raw: string) => {
     date: head.date ? findDate(head.date.replace(/\./g, '/')) : undefined,
     author: (head.auteur || '').slice(0, 120),
     link,
+    // « Alerte : Breaking News » : titre de la notification à la place de « Revue de presse · … »
+    alert: (head.alerte || '').slice(0, 40),
     summary: lines.join('\n\n').replace(/[<>]/g, '').slice(0, MAX_SUMMARY).trim(),
   };
 };
@@ -250,7 +252,7 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
         // Relu sans plus de succès : Christian a déjà été prévenu la première fois
         if (!retry && !essChanged) await pushToUser(me.uid, { title: 'Article à vérifier', body: `« ${r.title} » : je n'ai pas reconnu sa source. Il t'attend en brouillon.`, url: `/?article=${ref.id}`, tag: `import-${f.id}` }).catch(() => 0);
       } else if (live) {
-        await notifyNewArticle(ref.id, { title: r.title, kind: r.kind, source: r.kind === 'press' ? r.source : undefined, authorFirst: me.first });
+        await notifyNewArticle(ref.id, { title: r.title, kind: r.kind, source: r.kind === 'press' ? r.source : undefined, authorFirst: me.first, alert: r.kind === 'press' ? e?.alert || undefined : undefined });
       } else if (r.kind === 'press' && state?.status !== 'press') {
         // Fiche reconnue, en attente de sa synthèse : Christian seul est prévenu, une fois
         await pushToUser(me.uid, { title: `Fiche à compléter · ${r.source}`, body: `« ${r.title} » attend son « L'essentiel » avant d'être publiée.`, url: `/?article=${ref.id}`, tag: `import-${f.id}` }).catch(() => 0);
