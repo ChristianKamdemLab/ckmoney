@@ -96,7 +96,7 @@ export const scheduleSummary = (s: Installment[], currency: string) => {
  */
 export const createOffer = async (args: {
   user: User; profile: Profile; terms: Terms; nickname: string; phone?: string;
-  lenderSignature: string; knownBorrowerUid?: string; counterOf?: string; borrowerPaymentLink?: string; borrowerReceive?: ReceiveInfo;
+  lenderSignature: string; knownBorrowerUid?: string; knownVia?: string; counterOf?: string; borrowerPaymentLink?: string; borrowerReceive?: ReceiveInfo;
 }): Promise<{ loanId: string; token: string }> => {
   const { user, profile, terms } = args;
   const token = newInviteId(args.nickname, terms.amount);
@@ -108,6 +108,8 @@ export const createOffer = async (args: {
     borrowerName: args.nickname.trim(),
     borrowerPhone: args.phone || undefined,
     borrowerUid: args.knownBorrowerUid || undefined,
+    // Prêt ou demande déjà échangés avec cet ami : les règles Firestore le vérifient avant d'accepter l'offre.
+    knownVia: args.knownBorrowerUid ? args.knownVia || undefined : undefined,
     counterOf: args.counterOf || undefined,
     borrowerPaymentLink: args.borrowerPaymentLink || undefined,
     borrowerReceive: args.borrowerReceive ? clean(args.borrowerReceive) : undefined,

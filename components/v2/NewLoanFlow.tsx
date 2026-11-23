@@ -160,7 +160,7 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
       }
       const r = await createOffer({
         user, profile, terms, nickname: friendLabel, phone: fullPhone || undefined,
-        lenderSignature: signature, knownBorrowerUid: friend?.uid, counterOf: prefill?.counterOf, borrowerPaymentLink: friend?.lastLoan?.borrowerPaymentLink, borrowerReceive: friend?.lastLoan?.borrowerReceive,
+        lenderSignature: signature, knownBorrowerUid: friend?.uid, knownVia: friend?.lastLoan?.id, counterOf: prefill?.counterOf, borrowerPaymentLink: friend?.lastLoan?.borrowerPaymentLink, borrowerReceive: friend?.lastLoan?.borrowerReceive,
       });
       setResult(r);
       setStep(4);

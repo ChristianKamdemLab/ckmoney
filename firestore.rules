@@ -30,38 +30,70 @@ service cloud.firestore {
               'borrowerSignedAt', 'borrowerSignedHash', 'borrowerSignedUserAgent', 'contractText',
               'acknowledgmentText', 'contractHash', 'contractVersion', 'amountInWords', 'status', 'signedDate'];
     }
+    // Signature de l'emprunteur : jamais écrite par le prêteur, ni à la création ni ensuite.
+    function borrowerSignatureFields() {
+      return ['borrowerAmountWords', 'borrowerSignature', 'borrowerSignedAt', 'borrowerSignedHash', 'borrowerSignedName', 'borrowerSignedUserAgent'];
+    }
+    // Identité de l'emprunteur telle qu'il l'a signée.
+    function borrowerIdentityFields() {
+      return ['borrowerName', 'borrowerCivility', 'borrowerBirthDate', 'borrowerBirthPlace', 'borrowerAddress', 'borrowerCountry', 'borrowerEmail'];
+    }
+    // Texte du contrat signé.
+    function contractFields() {
+      return ['contractText', 'acknowledgmentText', 'contractHash', 'contractVersion'];
+    }
+    function signed(d) { return d.get('borrowerSignedAt', null) != null; }
 
     match /loans/{loanId} {
       allow read: if isLenderOf(resource.data) || isBorrowerOf(resource.data);
 
-      // Le prêteur crée une offre (avec ou sans emprunteur déjà connu).
+      // Le prêteur crée une offre, jamais déjà signée par l'ami. Un ami déjà connu (borrowerUid)
+      // doit l'être par un prêt ou une demande existants entre eux deux (knownVia).
       allow create: if signedIn()
         && request.resource.data.lenderUid == uid()
         && request.resource.data.status == 'pending_borrower'
         && request.resource.data.amount is number && request.resource.data.amount > 0
-        && request.resource.data.initiatedBy == 'lender';
+        && request.resource.data.initiatedBy == 'lender'
+        && !request.resource.data.keys().hasAny(borrowerSignatureFields().concat(contractFields()))
+        && (request.resource.data.get('borrowerUid', null) == null
+            || loanDoc(request.resource.data.get('knownVia', '-')).lenderUid == uid()
+               && loanDoc(request.resource.data.get('knownVia', '-')).get('borrowerUid', '') == request.resource.data.borrowerUid);
 
       // L'ami fait une demande à un prêteur, par son lien de demande (le prêteur a une carte publique).
+      // Il ne peut pas y mettre la signature du prêteur ni un texte de contrat.
       allow create: if signedIn()
         && request.resource.data.borrowerUid == uid()
         && request.resource.data.lenderUid != uid()
         && exists(/databases/$(database)/documents/lenders/$(request.resource.data.lenderUid))
         && request.resource.data.status == 'requested'
         && request.resource.data.amount is number && request.resource.data.amount > 0
-        && request.resource.data.initiatedBy == 'borrower';
+        && request.resource.data.initiatedBy == 'borrower'
+        && !request.resource.data.keys().hasAny(['lenderSignature', 'lenderAttestation'].concat(contractFields()));
 
       // Prêteur : gère son prêt, accepte ou refuse une demande, sans toucher aux
       // conditions une fois signées ni à la signature de l'emprunteur.
       allow update: if isLenderOf(resource.data)
         && request.resource.data.lenderUid == resource.data.lenderUid
         && request.resource.data.get('borrowerUid', '') == resource.data.get('borrowerUid', '')
-        && !changed().hasAny(['borrowerAmountWords', 'borrowerSignature', 'borrowerSignedAt', 'borrowerSignedHash', 'borrowerSignedName'])
+        && !changed().hasAny(borrowerSignatureFields())
         && (
-          resource.data.status == 'pending_borrower' && resource.data.get('borrowerSignedAt', null) == null
-          || !changed().hasAny(termsFields())
-          // Report accepté à la demande de l'emprunteur : seules les dates bougent.
+          // Offre pas encore signée : le prêteur la modifie ou la classe, mais ne peut pas l'activer lui-même.
+          !signed(resource.data)
+            && request.resource.data.status in ['pending_borrower', 'declined']
+            && !changed().hasAny(['amendments', 'delayProposedDate', 'delayRequestDate'])
+          // Prêt (ou demande) signé par l'ami : conditions, identité, avenants et demande de délai intouchables ;
+          // le texte du contrat n'est écrit qu'une fois, quand le prêteur accepte une demande.
+          || signed(resource.data)
+            && !changed().hasAny(termsFields().concat(borrowerIdentityFields()).concat(['amendments', 'delayProposedDate', 'delayRequestDate']))
+            && (request.resource.data.status != 'delay_requested' || resource.data.status == 'delay_requested')
+            && (!changed().hasAny(contractFields())
+                || resource.data.status == 'requested' && resource.data.get('contractHash', null) == null)
+          // Report demandé par l'emprunteur : accepté (échéances reportées, un avenant de plus) ou refusé.
           || resource.data.status == 'delay_requested' && request.resource.data.status == 'active'
              && changed().hasOnly(['status', 'delayProposedDate', 'delayRequestDate', 'schedule', 'repaymentDate', 'amendments'])
+             && request.resource.data.get('schedule', []).size() == resource.data.get('schedule', []).size()
+             && request.resource.data.get('amendments', []).size() >= resource.data.get('amendments', []).size()
+             && request.resource.data.get('amendments', []).size() <= resource.data.get('amendments', []).size() + 1
         );
 
       // Ami : 1) se relie au prêt avec le lien personnel ;
@@ -78,7 +110,8 @@ service cloud.firestore {
         && resource.data.status == 'pending_borrower'
         && request.resource.data.status == 'active'
         && changed().hasOnly(borrowerSignFields())
-        && !changed().hasAny(termsFields());
+        && !changed().hasAny(termsFields())
+        && request.resource.data.borrowerSignedHash == request.resource.data.contractHash;
 
       //      3) demande un report d'échéance.
       allow update: if isBorrowerOf(resource.data)
