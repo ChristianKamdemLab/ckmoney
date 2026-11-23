@@ -23,11 +23,13 @@ jobs:
     steps:
       - name: Annonces
         if: ${{ !inputs.essai }}
-        run: curl -fsS -X POST -H "x-sync-secret: ${SYNC_SECRET}" https://ck-money.vercel.app/api/annonces
+        run: |
+          curl -fsS -X POST -H "x-sync-secret: ${SYNC_SECRET}" https://ck-money.vercel.app/api/annonces
         env:
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
         continue-on-error: true
       - name: Articles du dossier Drive
-        run: curl -fsS --max-time 70 -X POST -H "x-sync-secret: ${SYNC_SECRET}" "https://ck-money.vercel.app/api/articles-sync${{ inputs.essai && '?dry=1' || '' }}"
+        run: |
+          curl -fsS --max-time 70 -X POST -H "x-sync-secret: ${SYNC_SECRET}" "https://ck-money.vercel.app/api/articles-sync${{ inputs.essai && '?dry=1' || '' }}"
         env:
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
