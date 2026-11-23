@@ -14,8 +14,8 @@ interface ContractPreviewProps {
 }
 
 // Charte CKLabs
-const INK = '#1C2551';
-const OCHRE = '#C98A1E';
+const INK = '#0E1533';
+const OCHRE = '#F2A71B';
 const RULE = '#D9D2C3';
 const MUTE = '#6B6F80';
 const SOFT = '#EEF0F6';
@@ -102,11 +102,11 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({ loan, onClose, autoPr
   return (
     <div className="ck-doc-wrap min-h-screen" style={{ background: '#F1EFE9' }}>
       <style>{`
-        .ck-doc{font-family:'Figtree',system-ui,sans-serif;color:#22263A;font-size:10pt;line-height:1.45}
+        .ck-doc{font-family:'Manrope',system-ui,sans-serif;color:#22263A;font-size:10pt;line-height:1.45}
         .ck-doc p{margin:0 0 4pt}
-        .ck-doc .serif{font-family:'Source Serif 4',Georgia,serif}
-        .ck-art{display:flex;gap:8pt;align-items:baseline;font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:12pt;color:${INK};margin:9pt 0 2pt;break-after:avoid}
-        .ck-art span{font-family:'Figtree',sans-serif;font-size:8.5pt;font-weight:800;color:${OCHRE};letter-spacing:.08em}
+        .ck-doc .serif{font-family:'Manrope',system-ui,sans-serif}
+        .ck-art{display:flex;gap:8pt;align-items:baseline;font-family:'Manrope',system-ui,sans-serif;font-weight:600;font-size:12pt;color:${INK};margin:9pt 0 2pt;break-after:avoid}
+        .ck-art span{font-family:'Manrope',sans-serif;font-size:8.5pt;font-weight:800;color:${OCHRE};letter-spacing:.08em}
         .ck-label{font-size:7.5pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:${OCHRE};margin:10pt 0 3pt!important}
         .ck-note{font-size:8.5pt;color:${MUTE}}
         .ck-table{width:100%;border-collapse:collapse;margin:4pt 0 6pt;font-size:8.8pt;break-inside:avoid}
@@ -139,8 +139,8 @@ const ContractPreview: React.FC<ContractPreviewProps> = ({ loan, onClose, autoPr
         }
         @media print{
           @page{size:A4;margin:14mm 16mm 16mm;
-            @bottom-left{content:"CKMoney · Contrat ${ref}";font:500 7.5pt Figtree,sans-serif;color:${MUTE}}
-            @bottom-right{content:counter(page) " / " counter(pages);font:700 7.5pt Figtree,sans-serif;color:${INK}}}
+            @bottom-left{content:"CKMoney · Contrat ${ref}";font:500 7.5pt Manrope,sans-serif;color:${MUTE}}
+            @bottom-right{content:counter(page) " / " counter(pages);font:700 7.5pt Manrope,sans-serif;color:${INK}}}
           html,body{background:#fff!important}
           .no-print{display:none!important}
           .ck-doc-wrap{background:#fff!important;min-height:0!important}

@@ -1,4 +1,5 @@
 import { adminAuth, adminDb, authorEmail, pushToUser } from './admin.js';
+import { infoDate } from '../../utils/infoDuJour.js';
 import { DriveFile } from './drive.js';
 import { classify, readDocx, readPdf, readText, isIssueName, findDate, norm, MEDIA, Ingested, Hints } from './articleIngest.js';
 import { PdfTooLong } from '../../utils/pdfLines.js';
@@ -69,6 +70,8 @@ const read = async (f: DriveFile, deps: SyncDeps): Promise<{ title: string; bloc
 
 /** Un numéro entier de journal, ou un fichier démesuré : pas un article. */
 const notAnArticle = (f: DriveFile) => isIssueName(f.name) || Number(f.size || 0) > MAX_BYTES;
+/** Le document « CKMoney · Prononciations » du dossier : réglages de la voix, pas un article. */
+export const isSettingsDoc = (f: DriveFile) => /prononciations?\s*$/i.test(f.name.replace(/\.[a-z0-9]{2,5}$/i, ''));
 
 // ---------- « L'essentiel » : un document à côté du PDF
 
@@ -143,7 +146,7 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
     const cur = essentiels.get(keyOf(d.name));
     if (!cur || d.modifiedTime > cur.modifiedTime) essentiels.set(keyOf(d.name), d);
   }
-  for (const f of files.filter(x => !isEssentielDoc(x))) {
+  for (const f of files.filter(x => !isEssentielDoc(x) && !isSettingsDoc(x) && !infoDate(x.name))) {
     if (handled >= MAX_PER_RUN || Date.now() - t0 > (opts.budgetMs ?? TIME_BUDGET_MS)) break;
     const state = (await imports.doc(f.id).get()).data();
     const ess = essentiels.get(keyOf(f.name));

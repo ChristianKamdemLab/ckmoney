@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Chips, Field, inputClass, inputStyle, Icon, C, dateFr } from './ui';
+import { seenAt, markSeen, isNewSince } from '../../utils/seen';
+import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill, NightHeader } from './ui';
 import { listRadio, getRadio, previewRadio, saveRadio, deleteRadio, reactRadio, commentRadio, deleteRadioComment } from '../../services/radioService';
 import { RadioItem, RadioComment, RadioKind, REACTIONS, KIND_LABEL, PLATFORM_LABEL, MAX_COMMENT, embedHeight, parseMedia } from '../../utils/radio';
 
@@ -167,7 +168,7 @@ const Reader: React.FC<{ id: string; isAuthor: boolean; onBack: () => void; onEd
         <div className="mt-3 flex flex-col gap-2">
           <textarea value={text} onChange={e => setText(e.target.value)} rows={2} maxLength={MAX_COMMENT} aria-label="Ton commentaire"
             placeholder={comments.length ? 'Ajoute ton avis…' : 'Sois le premier à donner ton avis…'}
-            className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551] resize-none" style={inputStyle} />
+            className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533] resize-none" style={inputStyle} />
           {text.trim() && <Button busy={busy === 'send'} onClick={send}>Envoyer</Button>}
           {error && <Note tone="danger">{error}</Note>}
         </div>
@@ -249,7 +250,7 @@ const Editor: React.FC<{ initial?: RadioItem; onBack: () => void; onSaved: (id?:
             <Field label="Émission ou chaîne" htmlFor="rs"><input id="rs" value={f.show} onChange={set('show')} className={inputClass} style={inputStyle} /></Field>
             <Field label="Pourquoi tu le recommandes" htmlFor="rc" hint="Ce qui t'a marqué, ce qu'il faut écouter en premier…">
               <textarea id="rc" value={f.comment} onChange={set('comment')} rows={5} maxLength={1500}
-                className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
+                className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533]" style={inputStyle} />
             </Field>
             {!initial?.notified && <Toggle on={notify} onChange={setNotify} label="Prévenir par notification" sub="Tous ceux qui ont activé les notifications" />}
           </>
@@ -278,6 +279,8 @@ const RadioScreen: React.FC<{ onBack: () => void; initialId?: string }> = ({ onB
   const [filter, setFilter] = useState<Filter>('all');
   const [view, setView] = useState<{ k: 'list' } | { k: 'read'; id: string } | { k: 'edit'; item?: RadioItem }>(initialId ? { k: 'read', id: initialId } : { k: 'list' });
   const [toast, setToast] = useState<string | null>(null);
+  const [since] = useState(() => seenAt('radio'));
+  useEffect(() => { markSeen('radio'); }, []);
   const load = (fresh = false) => listRadio(fresh).then(r => { setList(r.items); setAuthor(r.author); setFailed(false); }).catch(() => { setFailed(true); setList([]); });
   useEffect(() => { load(); }, []);
   const go = (v: typeof view) => { setView(v); window.scrollTo(0, 0); };
@@ -291,12 +294,9 @@ const RadioScreen: React.FC<{ onBack: () => void; initialId?: string }> = ({ onB
   const shown = (list || []).filter(i => filter === 'all' || i.kind === filter);
   return withToast(
     <Screen>
-      <TopBar onBack={onBack} title="Radio CK" />
-      <div className="px-6 pt-2 pb-4">
-        <h1 className="serif text-[30px] font-semibold leading-tight">Radio CK</h1>
-        <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>Les podcasts et vidéos que Christian a aimés. Écoute, puis dis ce que tu en penses.</p>
-      </div>
-      {author && <div className="px-5 pb-4"><Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Ajouter une reco</Button></div>}
+      <NightHeader onBack={onBack} title="Radio CK" accent={C.coral} desc="Les podcasts et vidéos que Christian a aimés. Écoute, puis dis ce que tu en penses.">
+        {author && <button onClick={() => go({ k: 'edit' })} className="w-full min-h-[52px] rounded-xl flex items-center justify-center gap-2 text-[15.5px] font-extrabold" style={{ background: C.coral, color: C.ink }}><Icon name="plus" size={20} /> Ajouter une reco</button>}
+      </NightHeader>
       {kinds.length > 1 && (
         <div className="px-5 pb-3">
           <Chips options={[{ id: 'all', label: 'Tout' }, ...kinds.map(k => ({ id: k, label: k === 'musique' ? 'Musique' : `${KIND_LABEL[k]}s` }))]} value={filter} onChange={v => setFilter(v as Filter)} />
@@ -311,7 +311,7 @@ const RadioScreen: React.FC<{ onBack: () => void; initialId?: string }> = ({ onB
               <button key={i.id} onClick={() => go({ k: 'read', id: i.id })} className="w-full text-left flex items-center gap-3.5 px-4 py-3.5" style={{ borderTop: n ? `1px solid ${C.line}` : undefined }}>
                 <Thumb item={i} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.ochreText }}>{KIND_LABEL[i.kind]} · {ago(i.publishedAt)}</div>
+                  <div className="flex items-center justify-between gap-2"><div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.ochreText }}>{KIND_LABEL[i.kind]} · {ago(i.publishedAt)}</div>{isNewSince(i.publishedAt, since) && <NewPill />}</div>
                   <div className="serif text-[16.5px] font-semibold leading-snug mt-0.5 line-clamp-2">{i.title}</div>
                   {i.show && <div className="text-[13px] mt-0.5 truncate" style={{ color: C.mute }}>{i.show}</div>}
                   <div className="mt-1"><Reactions item={i} compact /></div>

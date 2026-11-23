@@ -3,10 +3,11 @@ import { Loan, Notification, Profile, User, ReceiveInfo, isIdentityComplete } fr
 import {
   Screen, TopBar, H1, Amount, Button, Card, KV, Avatar, Chips, Field, inputClass, inputStyle, Note, Footer, Sheet, Toast, Icon, Skeleton,
   C, euro, euro2, firstName, dateFr, relDays,
+  NightHero, DateInput,
 } from './ui';
 import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
-import Discover from './Discover';
+import Discover, { Today, InviteCard } from './Discover';
 import { InstallCard, InstallButton } from './Install';
 import ReceiveFields, { receiveValid } from './ReceiveFields';
 import CityInput from '../CityInput';
@@ -91,7 +92,7 @@ const IdentityStep: React.FC<{
           <input id="fn" autoComplete="name" value={b.fullName} onChange={e => setB({ ...b, fullName: e.target.value })} className={inputClass} style={inputStyle} placeholder="Ton prénom et ton nom" />
         </Field>
         <Field label="Date de naissance" htmlFor="bd">
-          <input id="bd" type="date" value={b.birthDate} max={toISODate(new Date())} onChange={e => setB({ ...b, birthDate: e.target.value })} className={inputClass} style={inputStyle} />
+          <DateInput id="bd" value={b.birthDate} max={toISODate(new Date())} onChange={e => setB({ ...b, birthDate: e.target.value })} />
         </Field>
         <CityInput label="Lieu de naissance" value={b.birthPlace} onChange={v => setB({ ...b, birthPlace: v })} required />
         <Field label="Adresse" htmlFor="ad">
@@ -99,7 +100,19 @@ const IdentityStep: React.FC<{
         </Field>
         {err && <Note tone="danger">{err}</Note>}
       </div>
-      <Footer><Button disabled={!ok} busy={busy} onClick={save}>Continuer</Button></Footer>
+      <Footer>
+        <Button disabled={!ok} busy={busy} onClick={save}>Continuer</Button>
+        {!ok && (() => {
+          // Dire ce qui manque, plutôt qu'un bouton gris sans explication
+          const miss = [
+            !b.fullName.trim().includes(' ') && 'ton prénom et ton nom',
+            !b.birthDate && 'ta date de naissance',
+            b.birthPlace.trim().length < 2 && 'ton lieu de naissance',
+            b.address.trim().length < 5 && 'ton adresse',
+          ].filter(Boolean) as string[];
+          return miss.length ? <div className="text-[13px] text-center mt-2.5" style={{ color: C.mute }}>Il manque {miss.join(', ').replace(/, ([^,]*)$/, ' et $1')}.</div> : null;
+        })()}
+      </Footer>
     </Screen>
   );
 };
@@ -357,7 +370,7 @@ export const RequestFlow: React.FC<{
           )}
           <ReceiveFields value={receive} onChange={setReceive} defaultHolder={profile?.fullName || user.name} />
           <Field label={`Un mot pour ${lenderFirstName} (facultatif)`} htmlFor="note">
-            <textarea id="note" rows={2} maxLength={280} value={note} onChange={e => setNote(e.target.value)} className="w-full rounded-[14px] bg-white px-4 py-3 text-base outline-none border-[1.5px] focus:border-[#1C2551] resize-none" style={inputStyle} placeholder="Pour quoi, par exemple" />
+            <textarea id="note" rows={2} maxLength={280} value={note} onChange={e => setNote(e.target.value)} className="w-full rounded-[14px] bg-white px-4 py-3 text-base outline-none border-[1.5px] focus:border-[#0E1533] resize-none" style={inputStyle} placeholder="Pour quoi, par exemple" />
           </Field>
           <Note>
             Sans intérêt. Si tu dépasses la date : intérêts de retard au taux légal ({LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an)
@@ -429,7 +442,7 @@ export const BorrowerSpace: React.FC<{
   onOpenLoan: (l: Loan) => void; onRequest: (lenderUid: string, lenderFirstName: string) => void;
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
   onOpenContract: (l: Loan) => void;
-  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void;
+  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: 'monde' | 'afrique') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
   onBecomeLender?: () => void;   // « Prêter à mes proches » (absent si déjà prêteur)
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);
@@ -480,16 +493,32 @@ export const BorrowerSpace: React.FC<{
   const lateFees = nextDue ? lateFeesDetail(nextDue.s.penalty, nextDue.s.lateInterest, n => euro2(n, nextDue.l.currency)) : '';
   const nextLink = nextDue ? payUrl(cards[nextDue.l.lenderUid || '']?.paymentLink || nextDue.l.lenderPaymentLink, nextAmount, nextDue.l.currency) : null;
 
+  // Rien en cours : pas de gros « 0,00 € », on met en avant ce qui change chaque jour
+  const quiet = !p.loading && open.length === 0;
+  const today = p.onEvents ? <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} /> : null;
+
   return (
     <Screen>
-      <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
-        {p.onBack ? <button onClick={p.onBack} aria-label="Retour" className="w-10 h-10 -ml-2 flex items-center justify-center"><Icon name="back" /></button> : <CKLogo size="sm" />}
-        <button onClick={() => setMenu(true)} aria-label="Mon compte"><Avatar name={p.profile?.fullName || p.user.name} size={36} /></button>
-      </div>
-      <div className="px-5 pt-7">
-        <div className="text-sm" style={{ color: C.mute }}>Tu dois</div>
-        {p.loading ? <Skeleton h={58} className="w-48 mt-1" /> : <Amount>{euro2(owed)}</Amount>}
-      </div>
+      <NightHero>
+        <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
+          {p.onBack ? <button onClick={p.onBack} aria-label="Retour" className="w-10 h-10 -ml-2 flex items-center justify-center"><Icon name="back" /></button> : <CKLogo size="sm" tone="light" />}
+          <button onClick={() => setMenu(true)} aria-label="Mon compte" className="rounded-full" style={{ boxShadow: `0 0 0 2px ${C.night}` }}><Avatar name={p.profile?.fullName || p.user.name} size={36} /></button>
+        </div>
+        <div className="px-5 pt-14">
+          <h1 className="display text-[30px] leading-[1.05]">Bonjour<br />{firstName(p.profile?.fullName || p.user.name)}.</h1>
+          {quiet ? (
+            <div className="text-[14px] mt-3 font-semibold" style={{ color: C.nightMute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>
+          ) : !p.loading && !open.some(l => l.status === 'active' || l.status === 'delay_requested') ? (
+            <div className="text-[14px] mt-3 font-semibold" style={{ color: C.nightMute }}>Rien à rembourser pour l'instant.</div>
+          ) : (
+            <>
+              <div className="mt-4 text-[13px] font-semibold" style={{ color: C.nightMute }}>Tu dois</div>
+              {p.loading ? <Skeleton h={44} className="w-40 mt-1 opacity-20" /> : <div className="display text-[36px] leading-none mt-1 tabular-nums">{euro2(owed)}</div>}
+            </>
+          )}
+        </div>
+      </NightHero>
+      {quiet && today}
 
       {nextDue && (
         <div className="px-5 pt-5">
@@ -526,12 +555,14 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      <div className="px-5 pt-7 pb-3 text-[17px] font-bold">En cours</div>
-      <div className="px-5">
-        {p.loading ? <div className="flex flex-col gap-2"><Skeleton /><Skeleton /></div>
-          : open.length ? <Card>{open.map(row)}</Card>
-          : <div className="text-sm" style={{ color: C.mute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>}
-      </div>
+      {!quiet && (
+        <>
+          <div className="px-5 pt-7 pb-3 text-[17px] font-bold">En cours</div>
+          <div className="px-5">
+            {p.loading ? <div className="flex flex-col gap-2"><Skeleton /><Skeleton /></div> : <Card>{open.map(row)}</Card>}
+          </div>
+        </>
+      )}
 
       {!p.loading && targets.length > 0 && (
         <div className="px-5 pt-4 flex flex-col gap-3">
@@ -552,6 +583,8 @@ export const BorrowerSpace: React.FC<{
           })}
         </div>
       )}
+
+      {!quiet && today}
 
       {mine.some(l => l.contractText) && (
         <>
@@ -588,8 +621,10 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} />}
+      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />}
+      <InviteCard />
 
+      <InstallCard slot="bottom" />
       {closed.length > 0 && (
         <>
           <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Terminés</div>

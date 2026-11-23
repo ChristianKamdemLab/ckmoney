@@ -2,12 +2,13 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase';
 import { Article } from '../types';
 import { callApi } from './push';
+import { auth } from './firebase';
 
 const fromDoc = (id: string, d: any): Article => ({
   id, title: d.title || '', body: d.body || '', excerpt: d.excerpt || '', readMinutes: d.readMinutes || 1,
   status: d.status === 'draft' ? 'draft' : 'published', publishedAt: d.publishedAt || undefined,
   updatedAt: d.updatedAt || '', authorUid: d.authorUid || '', authorName: d.authorName || 'CKLabs',
-  kind: d.kind === 'press' ? 'press' : 'own', source: d.source || '', sourceUrl: d.sourceUrl || '', sourceAuthor: d.sourceAuthor || '', sourceSection: d.sourceSection || '', summary: d.summary || '',
+  kind: d.kind === 'press' ? 'press' : 'own', source: d.source || '', sourceUrl: d.sourceUrl || '', sourceAuthor: d.sourceAuthor || '', sourceSection: d.sourceSection || '', summary: d.summary || '', audio: !!d.audioHash,
 });
 
 /** Articles publiés (+ brouillons de l'auteur), du plus récent au plus ancien ; brouillons en tête. */
@@ -37,3 +38,12 @@ export const importArticles = async (list: ArticleInput[]): Promise<string[]> =>
 export type PressInput = { id?: string; title: string; source: string; sourceUrl: string; sourceSection?: string; excerpt: string; summary?: string; publishedAt?: string };
 export const savePress = async (p: PressInput): Promise<string> => ok(await callApi('/api/articles', { action: 'press', article: p })).id;
 export const deleteArticle = async (id: string) => { ok(await callApi('/api/articles', { action: 'delete', id })); };
+
+/** « L'essentiel » lu : un lien local vers l'audio (à libérer avec URL.revokeObjectURL). */
+export const fetchAudio = async (id: string): Promise<string> => {
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) throw new Error('auth');
+  const r = await fetch('/api/articles', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` }, body: JSON.stringify({ action: 'audio', id }) });
+  if (!r.ok) throw new Error(`http_${r.status}`);
+  return URL.createObjectURL(await r.blob());
+};

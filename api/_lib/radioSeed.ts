@@ -68,3 +68,29 @@ export const RADIO_2026_11_19: RadioSeed[] = [
   { id: 'hdm-inside-deutsche-bank', url: 'https://open.spotify.com/episode/6Eh82LUo8VJ6gCetCIS7EM', title: '« Inside Deutsche Bank » : plongée dans la banque aux mille scandales', show: "L'Heure du Monde",
     comment: "15,6 millions de documents et environ 230 journalistes pour raconter comment une des plus grandes banques du monde contournerait ses propres engagements, entre soupçons de blanchiment et clients sous sanctions. Pour qui s’intéresse à l’argent et à ceux qui le gardent, c’est une enquête à écouter jusqu’au bout. La question que je me pose : qui contrôle vraiment les banques ?" },
 ];
+
+/** Envoyé par Christian le 19/11/2026 à 18 h 21, sans « pourquoi je le recommande » pour l'instant. */
+export const RADIO_2026_11_19_SOIR: RadioSeed[] = [
+  { id: 'cesoir-logement-2027', url: 'https://open.spotify.com/episode/0WGw8y4fDxfvkwwNnuh4Ax', title: 'Logement : la bombe sociale de 2027 ?', show: 'C ce soir' },
+];
+
+/** Vidéo envoyée par Christian le 20/11 à 20 h 30 : documentaire ARTE sur l'IA. */
+export const RADIO_2026_11_20_ARTE: RadioSeed[] = [
+  { id: 'arte-ia-ultime-invention', url: 'https://www.youtube.com/watch?v=U13RJUCAcxI', title: 'Intelligence artificielle : l’ultime invention humaine ?', show: 'ARTE' },
+];
+
+/** Podcast envoyé par Christian le 21/11 à 2 h 11, avec permission d'écrire le commentaire : faits
+ *  vérifiés (Arcom : lettre aux chaînes du 22/10, signalement au parquet annoncé le 3/11 ; propos tenus
+ *  le 18/10 sur LCI, BFMTV et CNews). Commentaire factuel, sans opinion prêtée à Christian. */
+export const RADIO_2026_11_21_MEDIAS: RadioSeed[] = [
+  {
+    id: 'heure-du-monde-medias-extreme-droite', url: 'https://open.spotify.com/episode/03R28baSoTskT1ZlLgMYw7',
+    title: 'Médias et extrême droite : histoire d’un glissement ?', show: 'L’Heure du Monde',
+    comment: "Au moment où la présidentielle se prépare, L’Heure du Monde pose une question qui ne date pas d’hier : certaines chaînes d’info françaises auraient-elles glissé, sans trop s’en rendre compte, vers les thèmes de l’extrême droite ? Le point de départ, ce sont les mobilisations du 17 octobre et surtout le lendemain, où Éric Zemmour a fait le tour des plateaux (LCI, BFMTV puis CNews) avec des propos, dont un appel à la « remigration », que l’Arcom a fini par signaler à la justice début novembre.\n\nEntre-temps, le gendarme de l’audiovisuel avait déjà dû écrire aux chaînes le 22 octobre pour leur rappeler leur devoir d’information rigoureuse, après plusieurs erreurs à l’antenne. Alors, glissement de fond ou simple emballement d’un moment ? Vingt minutes pour vous faire votre idée, et dites-moi ce que vous en pensez.",
+  },
+];
+
+/** « Pourquoi je le recommande » du podcast C ce soir sur le logement, d'après Christian (19/11, 18 h 29),
+ *  vérifié (ANIL : titre de séjour valide et plafonds de revenus, pas de condition d'emploi ni de durée)
+ *  et validé par lui à 18 h 32. */
+export const LOGEMENT_POURQUOI = "Au moment où la campagne de 2027 se prépare, le logement s’annonce comme la prochaine bombe sociale, et C ce soir met les cartes sur la table, face à Frédéric Falcon, le monsieur logement du RN. On y voit tomber une idée qui a la vie dure : les logements sociaux seraient d’abord pour les étrangers, comme s’il suffisait de poser le pied en France pour décrocher un HLM. Dans les faits, il faut un titre de séjour en règle, des revenus sous les plafonds, et beaucoup de patience sur des listes d’attente qui se comptent en années.\n\nEt quand on parle d’« étrangers », suivez mon regard : ce ne sont ni les Italiens ni les Espagnols qui sont visés. Écoutez, et dites-moi ce que vous en pensez.";

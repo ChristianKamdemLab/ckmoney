@@ -1,5 +1,9 @@
 import { syncArticles } from './_lib/articleSync.js';
 import { listFolder, downloadFile } from './_lib/drive.js';
+import { generateAudios, parseAliases } from './_lib/voice.js';
+import { isSettingsDoc } from './_lib/articleSync.js';
+import { syncInfo } from './_lib/infoSync.js';
+import { syncAllowed } from './_lib/syncSecret.js';
 
 // /api/articles-sync : l'agent Articles (voir api/_lib/articleSync.ts). Appelé toutes les heures par
 // GitHub Actions ; sans effet s'il n'y a rien de nouveau dans le dossier Drive.
@@ -7,9 +11,27 @@ export const config = { maxDuration: 60 };
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).end();
+  // Déclenche des lectures Drive et la voix ElevenLabs (payante) : réservé au workflow GitHub
+  if (!syncAllowed(req)) return res.status(401).json({ error: 'unauthorized' });
   try {
+    const t0 = Date.now();
     const dry = String(req.query?.dry || '') === '1';
-    return res.status(200).json(await syncArticles({ list: () => listFolder(), download: downloadFile }, new Date(), { dry }));
+    const files = await listFolder();
+    // « L'info du jour » d'abord : rapide, et attendue le matin
+    const info = dry ? {} : await syncInfo(files, downloadFile).catch(e => ({ erreur: String(e?.message || e).slice(0, 80) }));
+    const out: any = await syncArticles({ list: async () => files, download: downloadFile }, new Date(), { dry });
+    out.info = info;
+    // Puis la voix : les fiches publiées sans audio, tant qu'il reste du temps (la fonction a 60 s)
+    if (!dry) {
+      // Prononciations réglées par Christian dans le document « CKMoney · Prononciations » du dossier
+      let aliases: [string, string][] = [];
+      try {
+        const doc = (await listFolder()).find(isSettingsDoc);
+        if (doc) { const c = await downloadFile(doc); aliases = parseAliases(c.text ?? new TextDecoder().decode(c.data!)); }
+      } catch { /* sans prononciations */ }
+      out.audio = await generateAudios({ budgetMs: Math.max(0, 30_000 - (Date.now() - t0)), aliases });
+    }
+    return res.status(200).json(out);
   } catch (e: any) {
     console.error('articles-sync', e?.message);
     return res.status(500).json({ error: String(e?.message || 'erreur').slice(0, 120) });

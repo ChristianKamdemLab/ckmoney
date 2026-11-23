@@ -331,11 +331,11 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
         <Sheet open={optionsOpen} onClose={() => setOptionsOpen(false)} title="Options du prêt">
           <div className="flex flex-col gap-5">
             <Field label={`Intérêts : ${rate ? `${rate.toLocaleString('fr-FR')} % par an` : 'aucun'}`} hint={`${rate ? `Soit ${euro2(totalInterest, currency)} d'intérêts au total. ` : ''}Maximum légal pour ce montant : ${cap.toLocaleString('fr-FR')} % par an (${RATE_CAP_LABEL}). Les intérêts reçus sont imposables pour toi.`}>
-              <input type="range" min={0} max={cap} step={0.25} value={rate} onChange={e => setRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+              <input type="range" min={0} max={cap} step={0.25} value={rate} onChange={e => setRate(parseFloat(e.target.value))} className="w-full accent-[#0E1533]" />
             </Field>
             <Field label={`Pénalité forfaitaire si retard : ${penaltyRate ? `${penaltyRate.toLocaleString('fr-FR')} %` : 'aucune'}`}
               hint={`Due une fois par échéance non payée à temps${penaltyRate ? `, soit ${euro2(amount * penaltyRate / 100, currency)} sur ce prêt` : ''}. Maximum ${PENALTY_MAX} % : au-delà, un juge la réduirait.`}>
-              <input type="range" min={0} max={PENALTY_MAX} step={1} value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+              <input type="range" min={0} max={PENALTY_MAX} step={1} value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value))} className="w-full accent-[#0E1533]" />
             </Field>
             <button type="button" onClick={() => setAdvanced(v => !v)} aria-expanded={advanced} className="flex items-center justify-between text-left">
               <span>
@@ -351,12 +351,12 @@ const NewLoanFlow: React.FC<Props> = ({ user, profile, loans, prefill: prefillIn
             {lateMode === 'legal' && <Note>Intérêts au taux légal ({LEGAL_INTEREST_RATE.toLocaleString('fr-FR')} % par an aujourd'hui) sur les sommes en retard. C'est le réglage le plus sûr.</Note>}
             {lateMode === 'custom' && (
               <Field label={`Taux de retard : ${lateRate.toLocaleString('fr-FR')} % par an`} hint="Un juge peut réduire une pénalité excessive.">
-                <input type="range" min={0.5} max={cap} step={0.25} value={lateRate} onChange={e => setLateRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+                <input type="range" min={0.5} max={cap} step={0.25} value={lateRate} onChange={e => setLateRate(parseFloat(e.target.value))} className="w-full accent-[#0E1533]" />
               </Field>
             )}
             <Field label={`Taux de report : ${delayRate ? `${Math.min(cap, delayRate).toLocaleString('fr-FR')} % par an` : 'taux de retard'}`}
               hint={`Appliqué si ton proche demande une nouvelle date, depuis l'échéance manquée. Maximum ${cap.toLocaleString('fr-FR')} % pour ce montant.`}>
-              <input type="range" min={0} max={cap} step={0.5} value={Math.min(cap, delayRate)} onChange={e => setDelayRate(parseFloat(e.target.value))} className="w-full accent-[#1C2551]" />
+              <input type="range" min={0} max={cap} step={0.5} value={Math.min(cap, delayRate)} onChange={e => setDelayRate(parseFloat(e.target.value))} className="w-full accent-[#0E1533]" />
             </Field>
             <div>
               <Field label="Devise" htmlFor="cur">

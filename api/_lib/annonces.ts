@@ -1,7 +1,10 @@
 import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
+import type { Film } from '../../utils/films.js';
+import { FILMS_2026_11_21 } from './filmsSeed.js';
+import type { Place } from '../../utils/vendredi.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
-import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
+import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, RADIO_2026_11_20_ARTE, RADIO_2026_11_21_MEDIAS, LOGEMENT_POURQUOI, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
 //  - notification : à tous les appareils inscrits (l'appli installée avec les notifications) ;
@@ -28,6 +31,9 @@ export interface Announcement {
   events?: SeedEvent[]; // sorties à publier (voir salons.ts)
   radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
+  places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
+  films?: (Omit<Film, 'updatedAt'>)[];   // « Films et séries » à ajouter (idem ; le premier est le plus récent)
+  filmsReplace?: boolean;                // remplace le texte des fiches existantes (avec l'accord de Christian)
 }
 
 /** L'e-mail des nouveautés de la semaine (sert aussi d'aperçu avant envoi). */
@@ -71,6 +77,23 @@ export const NEWS_2026_11_13_PRET: NewsEmail = {
       title: 'Radio CK',
       text: "Les podcasts et vidéos que Christian recommande, à écouter dans l'appli. Écoute, réagis, et dis ce que tu en penses en commentaire.",
       link: { label: 'Écouter Radio CK', url: `${APP}/?radio` },
+    },
+  ],
+};
+
+export const NEWS_2026_11_21_FILMS: NewsEmail = {
+  subject: 'Nouveau sur CKMoney : Films et séries',
+  intro: "Une nouvelle rubrique est arrivée dans CKMoney : les films et séries que Christian a regardés, avec la bande-annonce, sa note sur 10 et son avis.",
+  sections: [
+    {
+      title: 'Films et séries',
+      text: "Pour commencer : MobLand saison 2 (8/10), WAR saison 1 (7/10) et Hope, le film du Coréen Na Hong-jin (9/10). La bande-annonce se regarde directement dans l'appli, et quand un avis dévoile l'intrigue, la partie concernée reste masquée tant que tu ne l'as pas demandée.",
+      link: { label: 'Voir Films et séries', url: `${APP}/?films` },
+    },
+    {
+      title: 'Et aussi cette semaine',
+      text: "Un nouveau look pour l'appli, L'info du jour chaque matin (le sujet dont le monde parle, et celui du Cameroun et de l'Afrique), Le mot du jour (un mot à trouver en six essais), Mes adresses (les lieux que Christian recommande) et Mon vendredi soir, où tu votes pour le lieu de la soirée.",
+      link: { label: 'Ouvrir CKMoney', url: `${APP}/` },
     },
   ],
 };
@@ -160,6 +183,94 @@ export const ANNOUNCEMENTS: Announcement[] = [
       url: '/?radio',
     },
   },
+  {
+    id: '2026-11-19-radio-logement',
+    sendAt: '2026-11-19T17:25:00.000Z', // podcast envoyé par Christian à 18 h 21
+    radio: RADIO_2026_11_19_SOIR,
+    push: {
+      title: 'Nouveau podcast dans Radio CK',
+      body: 'C ce soir : « Logement : la bombe sociale de 2027 ? », à écouter dans l’appli.',
+      url: '/?radio',
+    },
+  },  {
+    id: '2026-11-20-immorenovv',
+    sendAt: '2026-11-20T18:45:00.000Z', // invitation envoyée par Christian à 19 h 35 : il y participe le 21/11 ; pas de notification
+    events: [{
+      id: 'immorenovv-2026', title: 'Les Rencontres ImmoRenovv (2e édition)', start: '2026-11-21', end: '2026-11-21',
+      times: { startsAt: '2026-11-21T10:30:00.000Z', endsAt: '2026-11-21T17:30:00.000Z' }, // 11 h 30 – 18 h 30, heure de Paris
+      venue: 'Four Seasons Hotel George V', address: '31 avenue George V, 75008 Paris', price: 'Sur invitation', url: '', organizer: 'ImmoRenovv',
+      description: "Rencontre consacrée à l'investissement immobilier : investir, rénover, valoriser. 50 invités seulement, sur invitation personnelle.\nAu programme : 11 h 30 accueil et déjeuner ; 13 h conférences, retours d'expérience et échanges autour des projets immobiliers ; 17 h cocktail de clôture.\nChristian y participe.",
+    }],
+  },
+  {
+    id: '2026-11-20-adresse-chez-gala',
+    sendAt: '2026-11-20T19:05:00.000Z', // avis envoyé par Christian à 19 h 37 (soirée du 19/11) ; pas de notification
+    places: [{
+      id: 'chez-gala-smoking-room', name: 'Chez Gala · Smoking Room', address: '27 rue du Colisée, 75008 Paris',
+      url: 'https://www.chezgala.com/smoking-room', budget: 'Chicha à 70 €', hours: 'Bar et smoking room tous les jours, 19 h 30 – 2 h',
+      review: "L'espace fumeur est bien climatisé, les cocktails sont excellents et le DJ passe de la bonne musique. Seul bémol : la chicha à 70 €. Mais pour écouter de la musique et être chillax, je recommande.",
+    }],
+  },
+  {
+    id: '2026-11-21-adresse-jips',
+    sendAt: '2026-11-21T10:30:00.000Z', // avis envoyé par Christian à 11 h 18 ; adresse et horaires vérifiés (Schlouk Map) ; sans notification
+    places: [{
+      id: 'le-jips-tchapalodrome', name: "Le Jip's · « Le Tchapalodrome »", address: '41 rue Saint-Denis, 75001 Paris', url: '',
+      budget: 'Pinte d’Heineken autour de 9 €', hours: 'Du lundi au samedi 9 h 30 – 2 h, le dimanche 13 h – minuit',
+      review: "Le Jip's, c'est mon « Tchapalodrome » (oui, je lui ai donné ce surnom) : un bar en plein cœur de Paris, comme diraient certains, où je retrouve un peu l'atmosphère chaleureuse que j'ai quand je suis au Cameroun.\n\nL'ambiance y est assez cosmopolite, avec des clients venus de plusieurs pays d'Afrique subsaharienne, et très souvent les 3 C de l'Afrique francophone : Côte d'Ivoire, Cameroun et Congo RDC, sans oublier une clientèle gabonaise bien présente. Mais on y croise bien évidemment aussi une clientèle européenne, et c'est d'ailleurs là que j'ai eu mon premier contact ukrainien.\n\nCôté assiette, leur spécialité ce sont les tapas : les wings et les bananes plantains font fureur quand on décide de prendre sa pinte. Moi, j'ai mes habitudes : une pinte d'Heineken avec du sirop de citron, un mélange qui glisse facilement dans la gorge et réveille les papilles.\n\nJ'y vais souvent le vendredi soir pour retrouver ce moment chaleureux, d'autant qu'il y a souvent des musiciens qui viennent jouer.",
+    }],
+  },
+  {
+    id: '2026-11-21-films-notif',
+    sendAt: '2026-11-21T10:15:00.000Z', // demandé par Christian à 11 h 06 : la nouveauté en notification
+    push: {
+      title: 'Nouveau : Films et séries',
+      body: 'Les films et séries que Christian a regardés : bande-annonce, note et avis. MobLand, WAR et Hope pour commencer.',
+      url: '/?films',
+    },
+  },
+  {
+    id: '2026-11-21-email-films',
+    sendAt: '2026-11-21T10:15:00.000Z', // et par e-mail, à tous les comptes (Christian compris)
+    emailTo: 'all',
+    email: NEWS_2026_11_21_FILMS,
+  },
+  {
+    id: '2026-11-21-films-avis-structures',
+    sendAt: '2026-11-21T09:35:00.000Z', // avis restructurés, accord de Christian à 10 h 24 ; sans notification
+    films: FILMS_2026_11_21,
+    filmsReplace: true,
+  },
+  {
+    id: '2026-11-21-films-series',
+    sendAt: '2026-11-21T09:15:00.000Z', // avis envoyés par Christian à 10 h 02 ; nouvelle rubrique, sans notification
+    films: FILMS_2026_11_21,
+  },
+  {
+    id: '2026-11-21-radio-medias',
+    sendAt: '2026-11-21T08:30:00.000Z', // envoyé par Christian à 2 h 11 ; publié et notifié à 9 h 30 (pas de notification la nuit)
+    radio: RADIO_2026_11_21_MEDIAS,
+    push: {
+      title: 'Nouveau podcast dans Radio CK',
+      body: 'L’Heure du Monde : « Médias et extrême droite, histoire d’un glissement ? »',
+      url: '/?radio',
+    },
+  },
+  {
+    id: '2026-11-20-radio-arte-ia',
+    sendAt: '2026-11-20T19:42:00.000Z', // vidéo envoyée par Christian à 20 h 30
+    radio: RADIO_2026_11_20_ARTE,
+    push: {
+      title: 'Nouvelle vidéo dans Radio CK',
+      body: 'ARTE : « Intelligence artificielle, l’ultime invention humaine ? », à voir dans l’appli.',
+      url: '/?radio',
+    },
+  },
+  {
+    id: '2026-11-19-radio-logement-pourquoi',
+    sendAt: '2026-11-19T17:35:00.000Z', // texte validé par Christian à 18 h 32 ; pas de notification
+    radioComments: [{ id: 'cesoir-logement-2027', comment: LOGEMENT_POURQUOI }],
+  },
 ];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -228,12 +339,41 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
-    if (a.events || a.radio || a.radioComments) {
+    if (a.events || a.radio || a.radioComments || a.places || a.films) {
       // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie (avant toute notification)
       try {
         if (a.events) Object.assign(result, await importEvents(a.events, now));
         if (a.radio) { const r = await importRadio(a.radio, now); Object.assign(result, { radioAdded: r.added, radioAlready: r.already, radioInvalid: r.invalid }); }
         if (a.radioComments) Object.assign(result, await fillRadioComments(a.radioComments));
+        if (a.places) {
+          let placesAdded = 0;
+          for (const p of a.places) {
+            const ref = adminDb.collection('places').doc(p.id);
+            if ((await ref.get()).exists) continue;
+            const { id: _id, ...rest } = p;
+            await ref.set({ ...rest, createdAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString() });
+            placesAdded++;
+          }
+          result.placesAdded = placesAdded;
+        }
+        if (a.films) {
+          let filmsAdded = 0;
+          for (let i = 0; i < a.films.length; i++) {
+            const { id, ...rest } = a.films[i];
+            const ref = adminDb.collection('films').doc(id);
+            const prev = (await ref.get()).data();
+            if (prev && !a.filmsReplace) continue;
+            if (prev) {
+              const { title, teaser, review, spoilerText, spoilers } = rest;
+              await ref.set({ title, teaser, review, spoilerText, spoilers }, { merge: true });
+            } else {
+              const at = new Date(now - i * 1000).toISOString();
+              await ref.set({ ...rest, createdAt: at, updatedAt: at });
+            }
+            filmsAdded++;
+          }
+          result.filmsAdded = filmsAdded;
+        }
       } catch (err) { await ref.delete(); throw err; }
     }
     if (a.push) {
@@ -251,7 +391,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
       result.emails = emails;
     }
     await ref.set({ sentAt: new Date().toISOString(), ...result }, { merge: true });
-    out[a.id] = a.push && !a.email && !a.events && !a.radio && !a.radioComments ? result.people : result;
+    out[a.id] = a.push && !a.email && !a.events && !a.radio && !a.radioComments && !a.places && !a.films ? result.people : result;
   }
   return out;
 };

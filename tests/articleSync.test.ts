@@ -24,7 +24,7 @@ vi.mock('../api/_lib/admin.js', () => ({
   pushToUser: async (uid: string, msg: any) => { pushed.push({ uid, msg }); return 1; },
 }));
 
-const { syncArticles, CLASSIFIER, parseEssentiel } = await import('../api/_lib/articleSync');
+const { syncArticles, CLASSIFIER, parseEssentiel, isSettingsDoc } = await import('../api/_lib/articleSync');
 const PDF = 'application/pdf', DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const GDOC = 'application/vnd.google-apps.document';
 type F = { id: string; name: string; mimeType: string; modifiedTime: string; fixture?: string; size?: string; text?: string };
@@ -245,5 +245,14 @@ describe('agent Articles : le document « L’essentiel » peut donner la source
     expect(store.get('articles/a')).toMatchObject({ kind: 'press', status: 'published', body: '', source: 'Un site inconnu', sourceUrl: '', title: 'Un titre' });
     expect(pushed.filter(p => p.msg.title === 'Article à vérifier')).toEqual([]);
   }, 60000);
+});
+
+describe('agent Articles : le document des prononciations', () => {
+  it('n’est pas pris pour un article', async () => {
+    const f = { id: 'p', name: 'CKMoney · Prononciations', mimeType: GDOC, modifiedTime: 'm', text: 'Tshisekedi = Tchissékédi' };
+    expect(isSettingsDoc(f as any)).toBe(true);
+    expect((await syncArticles(drive([f]))).done).toEqual({});
+    expect(store.get('articleImports/p')).toBeUndefined();
+  });
 });
 

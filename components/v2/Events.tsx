@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Field, Chips, inputClass, inputStyle, Icon, C, firstName } from './ui';
+import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Field, Chips, inputClass, inputStyle, Icon, C, firstName, NightHeader } from './ui';
 import { EventDetail, EventRow } from './EventView';
 import { listEvents, saveEvent, deleteEvent, rsvp, listRsvps, listPeople } from '../../services/eventService';
 import { AppEvent, Audience, EventInput, EventKind, Region, AUDIENCE_LABEL, KIND_LABEL, isLive, isUpcoming, toLocalInput, fromLocalInput, defaultSpotEnd, parisDay, dayStart, dayEnd, regionOf, monthOf } from '../../utils/events';
@@ -153,7 +153,7 @@ const Editor: React.FC<{ initial?: AppEvent; prefill?: Partial<EventInput>; me: 
   );
   const textarea = (id: string, k: keyof Form, rows: number, placeholder?: string) => (
     <textarea id={id} value={f[k] as string} onChange={set(k)} rows={rows} placeholder={placeholder}
-      className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#1C2551]" style={inputStyle} />
+      className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533]" style={inputStyle} />
   );
   const dates = f.allDay ? (
     <>
@@ -381,12 +381,9 @@ const EventsScreen: React.FC<{ isAdmin: boolean; me?: string; onBack: () => void
 
   return withToast(
     <Screen>
-      <TopBar onBack={onBack} title="Sorties" />
-      <div className="px-6 pt-2 pb-5">
-        <h1 className="serif text-[30px] font-semibold leading-tight">Les sorties</h1>
-        <p className="text-[15px] leading-relaxed mt-1.5" style={{ color: C.mute }}>Événements, spots et chills. Partage-les à qui tu veux : la page s'ouvre sans compte.</p>
-      </div>
-      {<div className="px-5 pb-3"><Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Nouvelle sortie</Button></div>}
+      <NightHeader onBack={onBack} title="Les sorties" accent={C.mango} desc="Événements, spots et chills. Partage-les à qui tu veux : la page s'ouvre sans compte.">
+        <button onClick={() => go({ k: 'edit' })} className="w-full h-13 min-h-[52px] rounded-xl flex items-center justify-center gap-2 text-[15.5px] font-extrabold" style={{ background: C.mango, color: C.ink }}><Icon name="plus" size={20} /> Nouvelle sortie</button>
+      </NightHeader>
       <div className="px-5 flex flex-col gap-2 pb-[max(env(safe-area-inset-bottom),28px)]">
         {!list && <><Skeleton h={88} /><Skeleton h={88} /></>}
         {failed && <Note tone="warn">Les sorties n'ont pas pu être chargées. Vérifie ta connexion.</Note>}

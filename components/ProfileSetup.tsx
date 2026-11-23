@@ -6,7 +6,7 @@ import CKLogo from './brand/CKLogo';
 import { saveProfile } from '../services/profileService';
 import { USURY_BRACKETS } from '../config/legal';
 import { cityOf } from '../utils/contract';
-import { Screen, TopBar, H1, Field, Chips, Card, Note, Footer, Button, inputClass, inputStyle, C } from './v2/ui';
+import { Screen, TopBar, H1, Field, Chips, Card, Note, Footer, Button, inputClass, inputStyle, C, DateInput } from './v2/ui';
 
 interface ProfileSetupProps {
   user: User;
@@ -59,7 +59,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
           <input id="pf-name" autoComplete="name" value={p.fullName} onChange={e => setP({ ...p, fullName: e.target.value })} className={inputClass} style={inputStyle} />
         </Field>
         <Field label="Date de naissance" htmlFor="pf-birth">
-          <input id="pf-birth" type="date" value={p.birthDate} onChange={e => setP({ ...p, birthDate: e.target.value })} className={inputClass} style={inputStyle} />
+          <DateInput id="pf-birth" value={p.birthDate || ''} onChange={e => setP({ ...p, birthDate: e.target.value })} />
         </Field>
         <CityInput label="Ville de naissance" value={p.birthPlace} onChange={v => setP({ ...p, birthPlace: v })} required />
         <Field label="Adresse complète" htmlFor="pf-addr">
@@ -81,10 +81,10 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ user, initial, onSaved, onC
       <div className="px-6 pt-1 text-[13px]" style={{ color: C.mute }}>Tes réglages par défaut, repris dans chaque nouveau contrat. Tu peux les changer prêt par prêt.</div>
       <div className="px-6 pt-4 flex flex-col gap-5">
         <Field label={`Pénalité forfaitaire : ${p.penaltyRate ? `${p.penaltyRate.toLocaleString('fr-FR')} %` : 'aucune'}`} hint="Due une fois si une échéance n'est pas payée à temps. Maximum 10 %.">
-          <input type="range" min={0} max={10} step={1} value={p.penaltyRate || 0} onChange={e => setP({ ...p, penaltyRate: parseFloat(e.target.value) || undefined })} className="w-full accent-[#1C2551]" />
+          <input type="range" min={0} max={10} step={1} value={p.penaltyRate || 0} onChange={e => setP({ ...p, penaltyRate: parseFloat(e.target.value) || undefined })} className="w-full accent-[#0E1533]" />
         </Field>
         <Field label={`Taux de report : ${p.delayRate ? `${p.delayRate.toLocaleString('fr-FR')} % par an` : 'taux de retard du contrat'}`} hint={`Appliqué quand un proche te propose une nouvelle date, depuis l'échéance manquée. Plafonné au taux de l'usure (${cap.toLocaleString('fr-FR')} % jusqu'à 3 000 € aujourd'hui).`}>
-          <input type="range" min={0} max={cap} step={0.5} value={Math.min(cap, p.delayRate || 0)} onChange={e => setP({ ...p, delayRate: parseFloat(e.target.value) || undefined })} className="w-full accent-[#1C2551]" />
+          <input type="range" min={0} max={cap} step={0.5} value={Math.min(cap, p.delayRate || 0)} onChange={e => setP({ ...p, delayRate: parseFloat(e.target.value) || undefined })} className="w-full accent-[#0E1533]" />
         </Field>
       </div>
 

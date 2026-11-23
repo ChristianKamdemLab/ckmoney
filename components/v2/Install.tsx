@@ -149,11 +149,47 @@ export const useInstallable = () => {
 
 const KEY = 'ck_install_later';
 /** Carte bien visible sur l'accueil, tant que l'appli n'est pas installée. « Plus tard » la cache 7 jours. */
-export const InstallCard: React.FC = () => {
+const MOVED = 'ck_install_moved';
+const readInstall = () => {
+  try {
+    const snooze = Number(localStorage.getItem(KEY) || 0);
+    // Un premier « Plus tard » (ou l'ancien report de 7 jours) : la carte quitte le haut de l'accueil
+    return { moved: localStorage.getItem(MOVED) === '1' || snooze > 0, snoozed: Date.now() < snooze };
+  } catch { return { moved: false, snoozed: false }; }
+};
+
+/** Invitation à installer l'appli. En haut de l'accueil tant qu'on ne l'a pas repoussée ; après un
+ *  « Plus tard », plus discrète en bas de l'accueil (et un second « Plus tard » la cache 30 jours). */
+export const InstallCard: React.FC<{ slot?: 'top' | 'bottom' }> = ({ slot = 'top' }) => {
   const installable = useInstallable();
   const [open, setOpen] = useState(false);
-  const [later, setLater] = useState(() => { try { return Date.now() < Number(localStorage.getItem(KEY) || 0); } catch { return false; } });
-  if (!installable || later) return null;
+  const [st, setSt] = useState(readInstall);
+  useEffect(() => {
+    const h = () => setSt(readInstall());
+    window.addEventListener('ck-install', h);
+    return () => window.removeEventListener('ck-install', h);
+  }, []);
+  if (!installable || (slot === 'top' ? st.moved : !st.moved || st.snoozed)) return null;
+  const later = () => {
+    try {
+      if (slot === 'top') localStorage.setItem(MOVED, '1');
+      else localStorage.setItem(KEY, String(Date.now() + 30 * 86_400_000));
+    } catch { /* ignore */ }
+    window.dispatchEvent(new Event('ck-install'));
+  };
+  if (slot === 'bottom') return (
+    <div className="px-5 pt-7 no-print">
+      <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: C.card }}>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-[12px] shrink-0" style={{ background: C.ochre, color: C.ink }}>CK</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[14px] font-semibold leading-tight">L'appli sur ton écran d'accueil</div>
+          <button onClick={later} className="text-[12px] font-semibold mt-0.5" style={{ color: C.mute }}>Plus tard</button>
+        </div>
+        <button onClick={() => setOpen(true)} className="h-9 px-3.5 rounded-xl text-[13.5px] font-bold shrink-0" style={{ background: C.ink, color: '#fff' }}>Installer</button>
+      </div>
+      <InstallSheet open={open} onClose={() => setOpen(false)} />
+    </div>
+  );
   return (
     <div className="px-5 pt-4 no-print">
       <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: C.ink, color: '#fff' }}>
@@ -161,8 +197,7 @@ export const InstallCard: React.FC = () => {
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-bold leading-tight">Installe l'appli sur ton téléphone</div>
           <div className="text-[12.5px] mt-0.5 leading-snug" style={{ color: 'rgba(255,255,255,.7)' }}>Une icône sur ton écran d'accueil et les rappels en notification.</div>
-          <button onClick={() => { setLater(true); try { localStorage.setItem(KEY, String(Date.now() + 7 * 86_400_000)); } catch { /* ignore */ } }}
-            className="text-[12.5px] font-semibold mt-1.5" style={{ color: 'rgba(255,255,255,.6)' }}>Plus tard</button>
+          <button onClick={later} className="text-[12.5px] font-semibold mt-1.5" style={{ color: 'rgba(255,255,255,.6)' }}>Plus tard</button>
         </div>
         <button onClick={() => setOpen(true)} className="h-10 px-4 rounded-xl text-[14px] font-bold shrink-0" style={{ background: C.ochre, color: C.ink }}>Installer</button>
       </div>

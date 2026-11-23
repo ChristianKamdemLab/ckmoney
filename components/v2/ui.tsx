@@ -1,13 +1,28 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { registerBack } from '../../utils/backNav';
 
-// Briques d'interface CKMoney v2 (charte CKLabs) : sobres, mobiles d'abord.
-// Encre #1C2551, ocre #C98A1E, fond #F7F6F2, filets #EFEBE3, gris #6B6F80.
+// Briques d'interface CKMoney v2, charte « Ndop la nuit » (20/11/2026) : l'indigo du ndop, les aplats
+// du wax (mangue, corail, turquoise), titres en Unbounded, texte en Manrope ; coins peu arrondis.
 
 export const C = {
-  ink: '#1C2551', ochre: '#C98A1E', ochreText: '#6E4A0D', ochreSoft: '#F6EBD6', bg: '#F7F6F2', card: '#FFFFFF',
-  line: '#EFEBE3', border: '#E4E0D6', mute: '#6B6F80', text2: '#3A3E52', green: '#1F7A55', greenSoft: '#E3F1EA',
-  red: '#B42318', redSoft: '#FCE4E1', soft: '#EEF0F6',
+  ink: '#0E1533', ochre: '#F2A71B', ochreText: '#7A4A00', ochreSoft: '#FFF1D1', bg: '#F5F3EE', card: '#FFFFFF',
+  line: '#ECEAE4', border: '#DEDBD2', mute: '#5B6285', text2: '#2E3455', green: '#1F7A55', greenSoft: '#E3F1EA',
+  red: '#B42318', redSoft: '#FCE4E1', soft: '#ECEEF6',
+  // Ndop la nuit
+  night: '#0E1533', nightCard: '#19224A', nightText: '#F7F3EA', nightMute: '#A9B1D6',
+  mango: '#FFC23D', coral: '#FF5C7A', teal: '#1FB5A6',
 };
+/** En-tête « nuit » de l'accueil : indigo, deux cercles du wax (mangue, corail). */
+export const NightHero: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="relative overflow-hidden pb-7" style={{ background: C.night, color: C.nightText }}>
+    <span aria-hidden="true" className="absolute rounded-full" style={{ width: 220, height: 220, background: C.mango, top: -110, right: -78 }} />
+    <span aria-hidden="true" className="absolute rounded-full box-border" style={{ width: 92, height: 92, border: `15px solid ${C.coral}`, top: 92, right: 22 }} />
+    <div className="relative">{children}</div>
+  </div>
+);
+
+/** Ombre décalée « ndop » (cartes mises en avant). */
+export const ndopShadow = (color = C.ink) => `4px 4px 0 ${color}`;
 
 export const Screen: React.FC<{ children: React.ReactNode; bottomPad?: boolean }> = ({ children, bottomPad }) => (
   <div className="min-h-[100dvh] w-full flex justify-center" style={{ background: C.bg, color: C.ink }}>
@@ -15,23 +30,50 @@ export const Screen: React.FC<{ children: React.ReactNode; bottomPad?: boolean }
   </div>
 );
 
-export const TopBar: React.FC<{ onBack?: () => void; title?: string; right?: React.ReactNode; progress?: [number, number] }> = ({ onBack, title, right, progress }) => (
-  <div className="flex items-center gap-1 px-3 pt-[max(env(safe-area-inset-top),16px)] min-h-[60px]">
-    {onBack ? (
-      <button onClick={onBack} aria-label="Retour" className="w-11 h-11 flex items-center justify-center rounded-full active:bg-black/5">
-        <Icon name="back" />
-      </button>
-    ) : <div className="w-11" />}
-    {progress ? (
-      <div className="flex-1 flex gap-1.5 pr-14">
-        {Array.from({ length: progress[1] }, (_, i) => (
-          <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i < progress[0] ? C.ink : C.border }} />
-        ))}
+/** Inscrit la flèche ← de l'écran auprès du retour « natif » (Android, glissement depuis le bord). */
+export const useBack = (onBack?: () => void) => {
+  const ref = useRef(onBack);
+  ref.current = onBack;
+  const has = !!onBack;
+  useEffect(() => (has ? registerBack(() => ref.current?.()) : undefined), [has]);
+};
+
+export const TopBar: React.FC<{ onBack?: () => void; title?: string; right?: React.ReactNode; progress?: [number, number]; tone?: 'light' | 'night' }> = ({ onBack, title, right, progress, tone = 'light' }) => {
+  useBack(onBack);
+  const night = tone === 'night';
+  return (
+    <div className="flex items-center gap-1 px-3 pt-[max(env(safe-area-inset-top),16px)] min-h-[60px]" style={night ? { color: C.nightText } : undefined}>
+      {onBack ? (
+        <button onClick={onBack} aria-label="Retour" className={`w-11 h-11 flex items-center justify-center rounded-full ${night ? 'active:bg-white/10' : 'active:bg-black/5'}`}>
+          <Icon name="back" />
+        </button>
+      ) : <div className="w-11" />}
+      {progress ? (
+        <div className="flex-1 flex gap-1.5 pr-14">
+          {Array.from({ length: progress[1] }, (_, i) => (
+            <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i < progress[0] ? (night ? C.mango : C.ink) : (night ? 'rgba(255,255,255,.2)' : C.border) }} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1 text-center text-[15px] font-bold">{title}</div>
+      )}
+      {progress ? null : <div className="w-11 flex justify-end">{right}</div>}
+    </div>
+  );
+};
+
+/** En-tête « nuit » des rubriques (Sorties, Radio CK, vendredi…) : flèche, grand titre, une forme du wax. */
+export const NightHeader: React.FC<{ onBack?: () => void; title: string; desc?: React.ReactNode; right?: React.ReactNode; accent?: string; children?: React.ReactNode }> = ({ onBack, title, desc, right, accent = C.mango, children }) => (
+  <div className="relative overflow-hidden pb-6 mb-4" style={{ background: C.night, color: C.nightText }}>
+    <span aria-hidden="true" className="absolute rounded-full" style={{ width: 150, height: 150, background: accent, top: -70, right: -50 }} />
+    <div className="relative">
+      <TopBar onBack={onBack} tone="night" right={right} />
+      <div className="px-6 pt-3">
+        <h1 className="display text-[28px] leading-[1.08] pr-16">{title}</h1>
+        {desc && <p className="text-[14.5px] leading-relaxed mt-2 font-medium" style={{ color: C.nightMute }}>{desc}</p>}
       </div>
-    ) : (
-      <div className="flex-1 text-center text-[15px] font-semibold">{title}</div>
-    )}
-    {progress ? null : <div className="w-11 flex justify-end">{right}</div>}
+      {children && <div className="px-5 pt-4">{children}</div>}
+    </div>
   </div>
 );
 
@@ -60,7 +102,7 @@ export const Button: React.FC<{
   };
   return (
     <button type={type} onClick={onClick} disabled={disabled || busy}
-      className={`w-full h-14 rounded-2xl text-base font-bold flex items-center justify-center gap-2.5 transition active:scale-[0.99] disabled:opacity-40 ${className}`}
+      className={`w-full h-14 rounded-xl text-base font-extrabold flex items-center justify-center gap-2.5 transition active:scale-[0.99] disabled:opacity-40 ${className}`}
       style={styles[variant]}>
       {busy ? <span className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" /> : children}
     </button>
@@ -68,7 +110,7 @@ export const Button: React.FC<{
 };
 
 export const Card: React.FC<{ children: React.ReactNode; className?: string; style?: React.CSSProperties }> = ({ children, className = '', style }) => (
-  <div className={`rounded-2xl ${className}`} style={{ background: C.card, ...style }}>{children}</div>
+  <div className={`rounded-[10px] ${className}`} style={{ background: C.card, ...style }}>{children}</div>
 );
 
 export const KV: React.FC<{ rows: [React.ReactNode, React.ReactNode][] }> = ({ rows }) => (
@@ -115,8 +157,17 @@ export const Field: React.FC<{ label: string; children: React.ReactNode; hint?: 
 );
 
 // block, min-w-0 et appearance-none : sur iPhone, un champ date débordait à droite de l'écran
-export const inputClass = 'block min-w-0 max-w-full appearance-none h-[52px] w-full rounded-[14px] bg-white px-4 text-base outline-none border-[1.5px] focus:border-[#1C2551]';
+export const inputClass = 'block min-w-0 max-w-full appearance-none h-[52px] w-full rounded-[14px] bg-white px-4 text-base outline-none border-[1.5px] focus:border-[#0E1533]';
 export const inputStyle: React.CSSProperties = { borderColor: C.border, color: C.ink };
+
+const IOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent);
+/** Champ date : sur iPhone, un champ vide n'affiche rien du tout ; on y met « jj/mm/aaaa ». */
+export const DateInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { value: string }> = ({ value, className, style, ...rest }) => (
+  <div className="relative">
+    <input type="date" value={value} className={className ?? inputClass} style={style ?? inputStyle} {...rest} />
+    {IOS && !value && <span aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-base pointer-events-none" style={{ color: '#9AA0B4' }}>jj/mm/aaaa</span>}
+  </div>
+);
 
 export const Note: React.FC<{ children: React.ReactNode; tone?: 'info' | 'ok' | 'warn' | 'danger'; icon?: IconName }> = ({ children, tone = 'info', icon }) => {
   const t = { info: [C.soft, C.text2, C.ink], ok: [C.greenSoft, '#145A3E', C.green], warn: [C.ochreSoft, C.ochreText, C.ochreText], danger: [C.redSoft, '#8C1D18', C.red] }[tone];
@@ -143,7 +194,7 @@ export const Sheet: React.FC<{ open: boolean; onClose: () => void; title: string
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center" role="dialog" aria-modal="true" aria-label={title}>
-      <button aria-label="Fermer" className="absolute inset-0 bg-[#1C2551]/40" onClick={onClose} />
+      <button aria-label="Fermer" className="absolute inset-0 bg-[#0E1533]/40" onClick={onClose} />
       <div className="relative w-full max-w-[480px] rounded-t-[24px] px-5 pt-3 pb-[max(env(safe-area-inset-bottom),24px)] max-h-[90dvh] overflow-y-auto animate-[sheetIn_.22s_ease-out]" style={{ background: C.bg }}>
         <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: C.border }} />
         <div className="text-[19px] font-bold mb-4">{title}</div>
@@ -154,6 +205,12 @@ export const Sheet: React.FC<{ open: boolean; onClose: () => void; title: string
 };
 
 /** Message bref en bas de l'écran (remplace les alert() du navigateur). */
+/** Pastille « Nouveau » (depuis la dernière visite de la rubrique). */
+export const NewPill: React.FC<{ dark?: boolean }> = ({ dark }) => (
+  <span className="inline-flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wide px-2 py-[3px] rounded-full shrink-0"
+    style={{ background: dark ? C.ochre : C.ochreSoft, color: dark ? C.ink : C.ochreText }}>Nouveau</span>
+);
+
 export const Toast: React.FC<{ text: string | null; onDone: () => void }> = ({ text, onDone }) => {
   useEffect(() => { if (!text) return; const t = setTimeout(onDone, 2600); return () => clearTimeout(t); }, [text]);
   if (!text) return null;

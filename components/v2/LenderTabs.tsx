@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Loan, Notification, Profile, User } from '../../types';
-import { Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, euro2, firstName, relDays, dateFr, Note } from './ui';
+import { NightHero, Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, euro2, firstName, relDays, dateFr, Note } from './ui';
 import CKLogo from '../brand/CKLogo';
 import FiscalPanel from '../FiscalPanel';
 import PushCard from './PushCard';
-import Discover from './Discover';
+import Discover, { Today, InviteCard } from './Discover';
 import { InstallCard, InstallButton } from './Install';
 import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
@@ -35,6 +35,8 @@ interface Props {
   onWiseman: () => void;
   onEvents: () => void;
   onRadio?: () => void;
+  onMot?: () => void;
+  onInfo?: (scope?: 'monde' | 'afrique') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
   requestLink: string;
 }
 
@@ -99,6 +101,8 @@ const LenderTabs: React.FC<Props> = (p) => {
   const requests = open.filter(l => l.status === 'requested').length;
   const running = open.length - requests;
   const greeting = firstName(p.profile?.fullName || p.user.name);
+  // Aucun prêt en cours : « Aujourd'hui » remonte juste sous les boutons
+  const quiet = !p.loading && sorted.length === 0;
 
 
   const shareText = `Salut ! Pour tes demandes de dépannage, passe désormais par CKMoney : tu choisis le montant et la date de remboursement, je reçois la demande et je te réponds vite. Tout est au même endroit, même le lien pour me rembourser. ${p.requestLink}`;
@@ -123,49 +127,51 @@ const LenderTabs: React.FC<Props> = (p) => {
 
   if (p.tab === 'home') return (
     <Screen bottomPad>
-      <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
-        <CKLogo size="sm" />
-        <div className="text-[15px] font-semibold">Bonjour {greeting}</div>
-      </div>
-      <div className="px-5 pt-7">
-        <div className="text-sm" style={{ color: C.mute }}>On te doit</div>
-        {owed === null ? <Skeleton h={58} className="w-48 mt-1" /> : <Amount>{euro2(owed)}</Amount>}
-        <div className="text-sm mt-1.5" style={{ color: C.mute }}>
-          {running ? `${running} prêt${running > 1 ? 's' : ''} en cours${overdueCount ? ` · ${overdueCount} en retard` : ''}` : 'Aucun prêt en cours'}{requests ? ` · ${requests} demande${requests > 1 ? 's' : ''}` : ''}
+      <NightHero>
+        <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
+          <CKLogo size="sm" tone="light" />
         </div>
-      </div>
-      <div className="px-5 pt-6">
-        <button onClick={p.onCreate} className="w-full h-14 rounded-2xl flex items-center justify-center gap-2.5 text-base font-bold text-white" style={{ background: C.ink }}>
-          <Icon name="plus" /> Prêter à un proche
-        </button>
-        <button onClick={() => setShareOpen(true)} className="w-full mt-2.5 h-12 rounded-2xl flex items-center justify-center gap-2 text-[15px] font-semibold" style={{ background: C.card, color: C.ink }}>
-          <Icon name="chat" size={20} /> Partager mon lien de demande
-        </button>
-      </div>
+        <div className="px-5 pt-14">
+          <h1 className="display text-[30px] leading-[1.05]">Bonjour<br />{greeting}.</h1>
+          <div className="mt-4 text-[13px] font-semibold" style={{ color: C.nightMute }}>On te doit</div>
+          {owed === null ? <Skeleton h={44} className="w-40 mt-1 opacity-20" /> : <div className="display text-[36px] leading-none mt-1 tabular-nums">{euro2(owed)}</div>}
+          <div className="text-[13px] mt-2 font-semibold" style={{ color: C.nightMute }}>
+            {running ? `${running} prêt${running > 1 ? 's' : ''} en cours${overdueCount ? ` · ${overdueCount} en retard` : ''}` : 'Aucun prêt en cours'}{requests ? ` · ${requests} demande${requests > 1 ? 's' : ''}` : ''}
+          </div>
+          <button onClick={p.onCreate} className="w-full mt-6 h-14 rounded-xl flex items-center justify-center gap-2.5 text-base font-extrabold" style={{ background: C.mango, color: C.ink }}>
+            <Icon name="plus" /> Prêter à un proche
+          </button>
+          <button onClick={() => setShareOpen(true)} className="w-full mt-2.5 h-12 rounded-xl flex items-center justify-center gap-2 text-[15px] font-bold" style={{ background: 'transparent', color: C.nightText, border: `1.5px solid rgba(247,243,234,.35)` }}>
+            <Icon name="chat" size={20} /> Partager mon lien de demande de prêt
+          </button>
+        </div>
+      </NightHero>
+      {quiet && <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} />}
       <InstallCard />
       {ratesOutdated() && (
         <div className="px-5 pt-4"><Note tone="warn">Les taux légaux enregistrés dans l'appli datent d'avant le {dateFr(RATES_VALID_UNTIL, { day: 'numeric', month: 'long', year: 'numeric' })}. La mise à jour préparée par l'agent de veille attend ta validation sur GitHub.</Note></div>
       )}
       <div className="px-5 pt-4"><PushCard uid={p.user.id} text="Reçois les demandes de tes proches et leurs paiements dès qu'ils arrivent." /></div>
-      <div className="px-5 pt-7 pb-3 flex justify-between items-baseline">
-        <div className="text-[17px] font-bold">{sorted.some(l => priority(l) < 3) ? 'À traiter' : 'À venir'}</div>
-      </div>
-      <div className="px-5">
-        {p.loading ? (
-          <div className="flex flex-col gap-2"><Skeleton /><Skeleton /><Skeleton /></div>
-        ) : sorted.length ? (
-          <Card>{sorted.slice(0, 6).map((l, i) => <LoanRow key={l.id} loan={l} onOpen={p.onOpenLoan} first={i === 0} />)}</Card>
-        ) : (
-          <Card className="px-5 py-8 text-center">
-            <div className="text-[15px] font-semibold">Aucun prêt en cours</div>
-            <div className="text-sm mt-1" style={{ color: C.mute }}>Quand tu prêteras à un proche, tu suivras ici ses remboursements.</div>
-          </Card>
-        )}
-      </div>
+      {!quiet && (
+        <>
+          <div className="px-5 pt-7 pb-3 flex justify-between items-baseline">
+            <div className="text-[17px] font-bold">{sorted.some(l => priority(l) < 3) ? 'À traiter' : 'À venir'}</div>
+          </div>
+          <div className="px-5">
+            {p.loading ? (
+              <div className="flex flex-col gap-2"><Skeleton /><Skeleton /><Skeleton /></div>
+            ) : (
+              <Card>{sorted.slice(0, 6).map((l, i) => <LoanRow key={l.id} loan={l} onOpen={p.onOpenLoan} first={i === 0} />)}</Card>
+            )}
+          </div>
+        </>
+      )}
       {p.onBorrowerSpace && (
         <div className="px-5 pt-4"><Button variant="secondary" onClick={p.onBorrowerSpace}>Voir ce que je dois</Button></div>
       )}
-      <Discover onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} />
+      <Discover today={!quiet} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />
+      <InviteCard />
+      <InstallCard slot="bottom" />
       {shareSheet}
     </Screen>
   );

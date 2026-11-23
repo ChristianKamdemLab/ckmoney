@@ -167,7 +167,7 @@ export interface Profile {
 
 /** Identité suffisante pour figurer dans un contrat (prêteur ou emprunteur). */
 export const isIdentityComplete = (p: Partial<Profile> | null | undefined): boolean =>
-  !!p && !!p.fullName && !!p.birthDate && !!p.birthPlace && p.birthPlace.includes(',') && !!p.address;
+  !!p && !!p.fullName && !!p.birthDate && !!p.birthPlace && p.birthPlace.trim().length >= 2 && !!p.address && p.address.trim().length >= 5;
 
 /** Résumé public d'une invitation (lisible avec le seul jeton, avant connexion). */
 export interface Invite {
@@ -186,7 +186,7 @@ export interface Invite {
 }
 
 export const isProfileComplete = (p: Profile | null | undefined): p is Profile =>
-  !!p && !!p.fullName && !!p.birthDate && !!p.birthPlace && p.birthPlace.includes(',') && !!p.address;
+  !!p && !!p.fullName && !!p.birthDate && !!p.birthPlace && p.birthPlace.trim().length >= 2 && !!p.address && p.address.trim().length >= 5;
 
 /** Comment un proche reçoit l'argent prêté : PayPal, virement instantané (RIB) ou lien de paiement. */
 export interface ReceiveInfo {
@@ -228,4 +228,5 @@ export interface Article {
   sourceAuthor?: string;
   sourceSection?: string;  // rubrique (« Grande enquête », « Cameroun · Énergies »…)
   summary?: string;        // presse : « L'essentiel », synthèse écrite avec nos mots (jamais le texte du journal)
+  audio?: boolean;         // presse : « L'essentiel » lu (voix de Christian, ElevenLabs)
 }
