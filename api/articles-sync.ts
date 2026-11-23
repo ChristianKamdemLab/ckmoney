@@ -3,6 +3,7 @@ import { listFolder, downloadFile } from './_lib/drive.js';
 import { generateAudios, parseAliases } from './_lib/voice.js';
 import { isSettingsDoc } from './_lib/articleSync.js';
 import { syncInfo } from './_lib/infoSync.js';
+import { syncAllowed } from './_lib/syncSecret.js';
 
 // /api/articles-sync : l'agent Articles (voir api/_lib/articleSync.ts). Appelé toutes les heures par
 // GitHub Actions ; sans effet s'il n'y a rien de nouveau dans le dossier Drive.
@@ -10,6 +11,8 @@ export const config = { maxDuration: 60 };
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).end();
+  // Déclenche des lectures Drive et la voix ElevenLabs (payante) : réservé au workflow GitHub
+  if (!syncAllowed(req)) return res.status(401).json({ error: 'unauthorized' });
   try {
     const t0 = Date.now();
     const dry = String(req.query?.dry || '') === '1';
