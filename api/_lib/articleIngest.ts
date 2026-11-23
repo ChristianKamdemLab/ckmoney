@@ -80,13 +80,24 @@ export const findDate = (text: string): string | undefined => {
   return undefined;
 };
 
+/** « Publié aujourd'hui » (ou « hier ») sans autre date : le jour où le PDF a été enregistré. */
+export const todayDate = (text: string, created?: string): string | undefined => {
+  if (!created || /publi[ée]\s+le\s+\d/i.test(text)) return undefined;
+  const m = text.match(/publi[ée]\s+(aujourd|hier)/i);
+  if (!m) return undefined;
+  const d = new Date(`${created}T09:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return undefined;
+  if (/^hier/i.test(m[1])) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString();
+};
+
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
 /** Ce que l'on sait du fichier en dehors de son texte : son nom, le titre du document PDF et les adresses
  *  de ses liens. Un PDF enregistré depuis le navigateur garde le titre de la page (« Titre - 26/10/2026 -
  *  Africa Intelligence ») et les liens de la page, qui pointent presque tous vers le site du journal. */
-export interface Hints { fileName?: string; docTitle?: string; links?: string[] }
+export interface Hints { fileName?: string; docTitle?: string; links?: string[]; created?: string }
 
 export const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
   .replace(/\.(fr|com|cm|net)$/, '').replace(/[^a-z0-9]/g, '');
@@ -171,7 +182,9 @@ export const stripWatermark = <T extends { text: string }>(lines: T[]): T[] => {
   const name = (joined.match(/exclusivement\s+à\s+(.{3,60}?)\s+-\s+Abonn/i) || [])[1]?.trim().toLowerCase();
   return lines.filter(l => !NOISE.some(r => r.test(l.text)) && !(name && l.text.trim().toLowerCase() === name));
 };
-const isCaption = (s: string) => /©/.test(s) && s.length < 300;
+// Légende de photo : « © … », ou crédit d'agence en fin de ligne (« PATRICK T. FALLON / AFP ») ; sa date
+// (celle de la photo) ne doit jamais passer pour celle de l'article
+const isCaption = (s: string) => s.length < 300 && (/©/.test(s) || /\b[A-ZÀ-Ý][A-ZÀ-Ý.' -]{2,}\s*\/\s*(AFP|REUTERS|AP|EPA|SIPA|BLOOMBERG|GETTY IMAGES|HANS LUCAS|ABACA|MAXPPP|DIVERGENCE|PANOS|MYOP|LE MONDE)\b/.test(s));
 const isTagLine = (s: string) => s.length < 80 && /^[A-ZÀ-Ý0-9 ,'’&\-]+$/.test(s) && /[A-Z]{4,}/.test(s);
 const isDateLine = (s: string) => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s.trim());
 
@@ -256,7 +269,7 @@ export const classify = (rawTitle: string, blocks: Block[], hints: Hints = {}): 
     return {
       kind: 'press', title: frTypo(finalTitle), source: media.name,
       sourceUrl: url || `https://www.${media.domains[0]}`, excerpt: frTypo(pressExcerpt(teaserBlocks, title)),
-      author, section, publishedAt: findDate(dateLine ? `${dateLine}\n${datable}` : datable) || findDate(titleDate),
+      author, section, publishedAt: todayDate(datable, hints.created) || findDate(dateLine ? `${dateLine}\n${datable}` : datable) || findDate(titleDate),
     };
   }
   return { kind: 'unknown', title: frTypo(title), body: blocksToBody(clean) };
@@ -272,7 +285,7 @@ export const readPdf = async (data: Uint8Array) => {
   const pdfjs = await getResolvedPDFJS();
   const info: PdfInfo = { pages: 0, title: '', links: [] };
   const article = linesToArticle(stripWatermark(await pdfToLines(pdfjs as any, data, { maxPages: MAX_PAGES, info })));
-  return { ...article, docTitle: info.title, links: info.links, pages: info.pages };
+  return { ...article, docTitle: info.title, links: info.links, pages: info.pages, created: info.created };
 };
 
 /** « L'Équipe du vendredi 13 novembre 2026 » : le nom d'un numéro entier, pas d'un article. */
