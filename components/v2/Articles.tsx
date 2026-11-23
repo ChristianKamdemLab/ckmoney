@@ -4,6 +4,7 @@ import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chi
 import { listArticles, saveArticle, importArticles, deleteArticle, savePress, fetchAudio, ArticleInput, PressInput } from '../../services/articleService';
 import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils/articleText';
 import { seenAt, markSeen, isNewSince } from '../../utils/seen';
+import { shareArticlePdf } from '../../utils/articlePdf';
 
 // Articles : les textes de Christian (signés CKLabs, en entier) et sa revue de presse (fiches qui
 // renvoient vers le journal : source, titre, accroche, lien ; jamais le texte du journal).
@@ -170,10 +171,33 @@ const PressEditor: React.FC<{ initial?: Article; prefill?: Partial<PressInput>; 
 const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; onBack: () => void; onEdit: () => void; onOpen: (a: Article) => void }> = ({ article, next, isAuthor, onBack, onEdit, onOpen }) => {
   const blocks = useMemo(() => parseBody(article.body), [article.body]);
   useEffect(() => { window.scrollTo(0, 0); }, [article.id]);
+  // Partage en PDF : articles CKLabs publiés seulement (jamais les fiches de revue de presse)
+  const canPdf = article.status !== 'draft' && !isPress(article);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const sharePdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      const r = await shareArticlePdf({ title: article.title, authorName: article.authorName, date: day(article), blocks });
+      if (r === 'downloaded') setToast('PDF téléchargé');
+    } catch { setToast("Le PDF n'a pas pu être créé"); }
+    finally { setPdfBusy(false); }
+  };
+  const right = (canPdf || isAuthor) ? (
+    <div className="flex items-center gap-1">
+      {canPdf && (
+        <button onClick={sharePdf} aria-label="Partager l'article en PDF" className="w-11 h-11 flex items-center justify-center rounded-full" style={{ color: C.ink, opacity: pdfBusy ? .4 : 1 }}>
+          <Icon name="share" size={21} />
+        </button>
+      )}
+      {isAuthor && <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button>}
+    </div>
+  ) : undefined;
   return (
     <Screen>
       <ReadingProgress />
-      <TopBar onBack={onBack} right={isAuthor ? <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button> : undefined} />
+      <TopBar onBack={onBack} right={right} />
       <article className="px-6 pt-3 pb-10">
         <div className="text-[13px] font-semibold" style={{ color: C.ochreText }}>
           {article.status === 'draft' ? 'Brouillon · visible par toi seul' : 'CKLabs'}
@@ -188,7 +212,13 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
         </div>
         <div className="pt-7"><Blocks blocks={blocks} /></div>
         <div className="flex justify-center pt-4" aria-hidden="true"><div className="w-10 h-[3px] rounded-full" style={{ background: C.ochre }} /></div>
+        {canPdf && (
+          <div className="mt-8">
+            <Button variant="secondary" busy={pdfBusy} onClick={sharePdf}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Partager l'article en PDF</span></Button>
+          </div>
+        )}
       </article>
+      <Toast text={toast} onDone={() => setToast(null)} />
       {next && (
         <div className="px-5 pb-[max(env(safe-area-inset-bottom),28px)]">
           <div className="text-[13px] font-semibold mb-2" style={{ color: C.mute }}>À lire aussi</div>
