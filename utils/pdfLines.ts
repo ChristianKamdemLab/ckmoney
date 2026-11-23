@@ -7,7 +7,7 @@ export type PdfJs = { getDocument: (src: any) => { promise: Promise<any> } };
 
 /** Ce que le PDF dit de lui-même : nombre de pages, titre du document (un PDF enregistré depuis le
  *  navigateur porte le titre de la page, souvent « Titre - Nom du journal ») et adresses des liens. */
-export interface PdfInfo { pages: number; title: string; links: string[] }
+export interface PdfInfo { pages: number; title: string; links: string[]; created?: string }
 
 /** Trop de pages pour un article : sans doute un journal entier. */
 export class PdfTooLong extends Error {
@@ -19,7 +19,13 @@ export const pdfToLines = async (pdfjs: PdfJs, data: Uint8Array, opts: { maxPage
   const info = opts.info;
   if (info) {
     info.pages = doc.numPages;
-    try { info.title = String((await doc.getMetadata())?.info?.Title || '').replace(/\s+/g, ' ').trim(); } catch { /* sans métadonnées */ }
+    try {
+      const meta = (await doc.getMetadata())?.info;
+      info.title = String(meta?.Title || '').replace(/\s+/g, ' ').trim();
+      // « D:20261123153149+01'00' » : le jour où le PDF a été enregistré (pour « Publié aujourd'hui »)
+      const d = String(meta?.CreationDate || '').match(/^D:(20\d{2})(\d{2})(\d{2})/);
+      if (d) info.created = `${d[1]}-${d[2]}-${d[3]}`;
+    } catch { /* sans métadonnées */ }
   }
   if (opts.maxPages && doc.numPages > opts.maxPages) throw new PdfTooLong(doc.numPages);
   const out: PdfLine[] = [];

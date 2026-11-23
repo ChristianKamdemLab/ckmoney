@@ -62,7 +62,7 @@ const read = async (f: DriveFile, deps: SyncDeps): Promise<{ title: string; bloc
   const c = await deps.download(f);
   if (type === 'pdf') {
     const r = await readPdf(c.data!);
-    return { title: r.title, blocks: r.blocks, hints: { fileName: f.name, docTitle: r.docTitle, links: r.links } };
+    return { title: r.title, blocks: r.blocks, hints: { fileName: f.name, docTitle: r.docTitle, links: r.links, created: r.created } };
   }
   const r = type === 'docx' ? await readDocx(c.data!) : readText(c.text ?? new TextDecoder().decode(c.data!));
   return { ...r, hints: { fileName: f.name } };
@@ -221,7 +221,8 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
       }
       if (r.kind === 'unknown' && e) r = pressFromEssentiel(e, r.title) || r;
       else if (r.kind === 'press' && e) {
-        r = { ...r, title: e.title || r.title, publishedAt: r.publishedAt || e.date, author: r.author || e.author || undefined, sourceUrl: e.link || r.sourceUrl };
+        r = { ...r, title: e.title || r.title, publishedAt: e.date || r.publishedAt, // la date écrite dans « L'essentiel » l'emporte sur celle devinée dans le PDF
+           author: r.author || e.author || undefined, sourceUrl: e.link || r.sourceUrl };
       }
       const ref = state?.articleId ? articles.doc(state.articleId) : articles.doc();
       const prev = (await ref.get()).data();
