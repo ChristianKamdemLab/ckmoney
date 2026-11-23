@@ -14,7 +14,9 @@ export default async function handler(req: any, res: any) {
     const loan = (await adminDb.collection('loans').doc(n.loanId).get()).data();
     if (!loan || ![loan.lenderUid, loan.borrowerUid].includes(caller.uid) || caller.uid === n.userId) return res.status(403).end();
     if (n.pushedAt) return res.status(200).json({ sent: 0 });
-    const sent = await pushToUser(n.userId, { title: n.title, body: n.message, url: `/?loan=${n.loanId}`, tag: n.loanId });
+    // Texte écrit par le téléphone de l'autre partie : court et sans balises, jamais un lien à elle
+    const clip = (v: unknown, max: number) => String(v ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+    const sent = await pushToUser(n.userId, { title: clip(n.title, 80) || 'CKMoney', body: clip(n.message, 240), url: `/?loan=${encodeURIComponent(String(n.loanId))}`, tag: String(n.loanId) });
     await adminDb.collection('notifications').doc(String(notificationId)).set({ pushedAt: new Date().toISOString() }, { merge: true });
     return res.status(200).json({ sent });
   } catch (e: any) {
