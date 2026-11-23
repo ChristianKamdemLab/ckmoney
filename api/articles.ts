@@ -2,6 +2,7 @@ import { adminAuth, adminDb, isAdmin } from './_lib/admin.js';
 import { notifyNewArticle } from './_lib/articleSync.js';
 import { loadAudio } from './_lib/voice.js';
 import { excerptOf, readMinutes } from '../utils/articleText.js';
+import { articlePage, isShareable } from './_lib/articlePage.js';
 
 // POST /api/articles — l'auteur (compte prêteur autorisé, e-mail vérifié) écrit ses articles.
 //   { action: 'save', article: { id?, title, body, status, publishedAt? } }
@@ -40,7 +41,18 @@ const cleanPress = (a: any) => {
   };
 };
 
+const originOf = (req: any) => `https://${String(req.headers['x-forwarded-host'] || req.headers.host || 'ck-money.vercel.app').split(',')[0].trim()}`;
+
 export default async function handler(req: any, res: any) {
+  // GET ?page=ID : la page publique /a/ID d'un article CKLabs (voir vercel.json et _lib/articlePage.ts)
+  if ((req.method === 'GET' || req.method === 'HEAD') && req.query?.page !== undefined) {
+    const id = String(req.query.page).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
+    const d = id ? (await adminDb.collection('articles').doc(id).get()).data() : null;
+    const ok = isShareable(d);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
+    return res.status(ok ? 200 : 404).send(articlePage(originOf(req), id, ok ? d : null));
+  }
   if (req.method !== 'POST') return res.status(405).end();
   let caller;
   try { caller = await adminAuth.verifyIdToken((req.headers.authorization || '').replace(/^Bearer /, '')); }
