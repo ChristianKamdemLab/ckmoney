@@ -17,6 +17,10 @@ const deMedia = (s = '') => (/^[aeiouyhàâéèêîïôûœ]/i.test(s) ? `d’${
 const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, ''); } catch { return ''; } };
 
 /** Étiquette de type : « Revue de presse · Africa Intelligence » ou « CKLabs ». */
+/** Titre d'article : la police du texte (Manrope), en gras ; plus petit quand il est long, pour
+ *  qu'il tienne en quelques lignes et laisse voir le début de l'article sur l'écran d'un téléphone. */
+const titleCls = (t: string) => `${t.length > 90 ? 'text-[21px]' : t.length > 55 ? 'text-[23px]' : 'text-[25px]'} leading-[1.28] font-extrabold tracking-[-0.2px]`;
+
 const Kind: React.FC<{ a: Article; dark?: boolean }> = ({ a, dark }) => (
   <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-wide" style={{ color: dark ? C.ochre : C.ochreText }}>
     {isPress(a) ? <>Revue de presse <span style={{ opacity: .5 }}>·</span> {a.source}</> : 'CKLabs'}
@@ -24,12 +28,12 @@ const Kind: React.FC<{ a: Article; dark?: boolean }> = ({ a, dark }) => (
 );
 
 const Blocks: React.FC<{ blocks: Block[] }> = ({ blocks }) => (
-  <div className="serif text-[18px] leading-[1.72]" style={{ color: '#22263A' }}>
+  <div className="text-[17px] leading-[1.7]" style={{ color: '#22263A' }}>
     {blocks.map((b, i) => {
-      if (b.t === 'h') return <h2 key={i} className="font-sans text-[20px] font-bold leading-snug mt-9 mb-3" style={{ color: C.ink, fontFamily: 'Figtree, system-ui, sans-serif' }}>{frTypo(b.text)}</h2>;
+      if (b.t === 'h') return <h2 key={i} className="text-[19px] font-bold leading-snug mt-9 mb-3" style={{ color: C.ink }}>{frTypo(b.text)}</h2>;
       if (b.t === 'li') return (
         <div key={i} className="flex gap-3 mb-4 pl-1">
-          <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[13px]" style={{ background: C.ochre }} />
+          <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[12px]" style={{ background: C.ochre }} />
           <p>{(() => {
             // Puce « Intitulé : explication » : l'intitulé en gras, pour se repérer d'un coup d'œil
             const t = frTypo(b.text), k = t.indexOf('\u00a0:');
@@ -37,7 +41,7 @@ const Blocks: React.FC<{ blocks: Block[] }> = ({ blocks }) => (
           })()}</p>
         </div>
       );
-      return <p key={i} className={i === 0 ? 'text-[19.5px] leading-[1.65] mb-5' : 'mb-5'}>{frTypo(b.text)}</p>;
+      return <p key={i} className={i === 0 ? 'text-[18px] leading-[1.65] mb-5' : 'mb-5'}>{frTypo(b.text)}</p>;
     })}
   </div>
 );
@@ -86,7 +90,7 @@ const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () =>
         <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: C.mute }}>Revue de presse</div>
         <div className="serif text-[22px] font-semibold mt-1" style={{ color: C.ochreText }}>{a.source}</div>
         {a.sourceSection && <div className="text-[13px] font-semibold mt-0.5" style={{ color: C.mute }}>{a.sourceSection}</div>}
-        <h1 className="serif text-[28px] leading-[1.18] font-semibold tracking-[-0.3px] mt-4">{frTypo(a.title)}</h1>
+        <h1 className={`${titleCls(a.title)} mt-4`}>{frTypo(a.title)}</h1>
         <div className="text-[13px] mt-3" style={{ color: C.mute }}>{day(a)}{a.sourceAuthor ? ` · ${a.sourceAuthor}` : ''}</div>
         {a.excerpt && <p className="serif text-[18px] leading-[1.55] mt-6 pl-4" style={{ borderLeft: `3px solid ${C.ochre}`, color: C.text2 }}>{frTypo(a.excerpt)}</p>}
         {a.audio && paras.length > 0 && <Listen id={a.id} />}
@@ -174,7 +178,7 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
         <div className="text-[13px] font-semibold" style={{ color: C.ochreText }}>
           {article.status === 'draft' ? 'Brouillon · visible par toi seul' : 'CKLabs'}
         </div>
-        <h1 className="serif text-[30px] leading-[1.15] font-semibold tracking-[-0.3px] mt-2">{frTypo(article.title)}</h1>
+        <h1 className={`${titleCls(article.title)} mt-2`}>{frTypo(article.title)}</h1>
         <div className="flex items-center gap-3 mt-5 pb-6" style={{ borderBottom: `1px solid ${C.line}` }}>
           <Avatar name={article.authorName} size={40} tone={0} />
           <div>
@@ -304,7 +308,7 @@ const Editor: React.FC<{ initial?: Article; onBack: () => void; onSaved: (id?: s
           </>
         ) : (
           <Card className="px-5 py-6">
-            <h1 className="serif text-[26px] leading-[1.15] font-semibold">{frTypo(d.title) || 'Sans titre'}</h1>
+            <h1 className={titleCls(d.title || '')}>{frTypo(d.title) || 'Sans titre'}</h1>
             <div className="text-[13px] mt-2 mb-5" style={{ color: C.mute }}>{readMinutes(d.body)} min de lecture</div>
             {blocks.length ? <Blocks blocks={blocks} /> : <div className="text-sm" style={{ color: C.mute }}>Le texte apparaîtra ici.</div>}
           </Card>
