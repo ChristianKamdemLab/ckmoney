@@ -24,12 +24,12 @@ jobs:
       - name: Annonces
         if: ${{ !inputs.essai }}
         run: |
-          curl -fsS -X POST -H "x-sync-secret: ${SYNC_SECRET}" https://ck-money.vercel.app/api/annonces
+          code=$(curl -sS -o out.json -w '%{http_code}' -X POST -H "x-sync-secret: ${SYNC_SECRET}" https://ck-money.vercel.app/api/annonces); cat out.json; echo; echo "HTTP $code"; test "$code" -lt 400
         env:
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
         continue-on-error: true
       - name: Articles du dossier Drive
         run: |
-          curl -fsS --max-time 70 -X POST -H "x-sync-secret: ${SYNC_SECRET}" "https://ck-money.vercel.app/api/articles-sync${{ inputs.essai && '?dry=1' || '' }}"
+          code=$(curl -sS --max-time 70 -o out.json -w '%{http_code}' -X POST -H "x-sync-secret: ${SYNC_SECRET}" "https://ck-money.vercel.app/api/articles-sync${{ inputs.essai && '?dry=1' || '' }}"); cat out.json; echo; echo "HTTP $code"; test "$code" -lt 400
         env:
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}

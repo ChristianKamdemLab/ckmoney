@@ -4,6 +4,8 @@ import { generateAudios, parseAliases } from './_lib/voice.js';
 import { isSettingsDoc } from './_lib/articleSync.js';
 import { syncInfo } from './_lib/infoSync.js';
 import { syncAllowed } from './_lib/syncSecret.js';
+import { adminDb } from './_lib/admin.js';
+import { takeLock, summarize } from './_lib/syncGuard.js';
 
 // /api/articles-sync : l'agent Articles (voir api/_lib/articleSync.ts). Appelé toutes les heures par
 // GitHub Actions ; sans effet s'il n'y a rien de nouveau dans le dossier Drive.
@@ -13,6 +15,10 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).end();
   // Déclenche des lectures Drive et la voix ElevenLabs (payante) : réservé au workflow GitHub
   if (!syncAllowed(req)) return res.status(401).json({ error: 'unauthorized' });
+  // Route publique tant que le secret n'est pas configuré : un seul passage à la fois, et pas plus
+  // d'un toutes les 45 s (on ne peut plus la faire tourner en boucle pour consommer la voix)
+  const lockRef = adminDb.collection('settings').doc('syncLock');
+  if (!(await takeLock(lockRef, Date.now()).catch(() => false))) return res.status(200).json({ skipped: 'déjà en cours ou passé il y a moins de 45 s' });
   try {
     const t0 = Date.now();
     const dry = String(req.query?.dry || '') === '1';
@@ -31,8 +37,11 @@ export default async function handler(req: any, res: any) {
       } catch { /* sans prononciations */ }
       out.audio = await generateAudios({ budgetMs: Math.max(0, 30_000 - (Date.now() - t0)), aliases });
     }
-    return res.status(200).json(out);
+    await lockRef.set({ until: Date.now() + 45_000 }, { merge: true }).catch(() => undefined);
+    // Jamais de noms de fichiers ni de titres dans la réponse : seulement des comptes
+    return res.status(200).json(summarize(out));
   } catch (e: any) {
+    await lockRef.set({ until: Date.now() + 45_000 }, { merge: true }).catch(() => undefined);
     console.error('articles-sync', e?.message);
     return res.status(500).json({ error: String(e?.message || 'erreur').slice(0, 120) });
   }
