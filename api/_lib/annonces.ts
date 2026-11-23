@@ -100,6 +100,16 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: '2026-11-23-verif-mail-nodemailer',
+    sendAt: '2026-11-23T07:30:00.000Z', // vérifie l'envoi d'e-mails après la mise à jour de nodemailer (à Christian seul)
+    emailTo: 'author',
+    email: {
+      subject: 'CKMoney · vérification des e-mails',
+      intro: "Petit e-mail technique, à toi seul : la bibliothèque qui envoie les e-mails de l'appli vient d'être mise à jour pour corriger une faille de sécurité. Si tu lis ceci, les e-mails (rappels, bilans, annonces) partent toujours bien. Rien à faire.",
+      sections: [],
+    },
+  },
+  {
     id: '2026-11-13-nouveautes',
     sendAt: '2026-11-13T07:30:00.000Z', // 8 h 30 à Paris (envoyée à 8 h 40)
     push: {
