@@ -219,7 +219,9 @@ const claimHandle = async (uid: string, first: string, current?: string): Promis
   }
   return uid;
 };
-const RESERVED = new Set(['p', 'assets', 'icons', 'api', 'app', 'sw', 'manifest', 'index', 'login', 'admin', 'jambo', 'articles', 'pronos', 'bac', 'wiseman', 'jeux', 'e', 'og', 'evenement', 'evenements', 'radio']);
+const RESERVED = new Set(['p', 'assets', 'icons', 'api', 'app', 'sw', 'manifest', 'index', 'login', 'admin', 'jambo', 'articles', 'pronos', 'bac', 'wiseman', 'jeux', 'e', 'og', 'evenement', 'evenements', 'radio',
+  // Noms qui feraient croire à un compte officiel (aussi refusés par firestore.rules)
+  'ckmoney', 'ck-money', 'cklabs', 'support', 'aide', 'contact', 'securite', 'administrateur', 'officiel', 'equipe', 'service-client', 'banque', 'paiement', 'remboursement']);
 
 export const publishLenderCard = async (uid: string, profile: Profile): Promise<string> => {
   const prev = await getLenderCard(uid);
@@ -264,8 +266,24 @@ export const payUrl = (link: string | undefined, amount?: number, currency = 'EU
   return url;
 };
 
-export const payProvider = (link?: string) =>
-  !link ? '' : /paypal/i.test(link) ? 'PayPal' : /revolut/i.test(link) ? 'Revolut' : /lydia/i.test(link) ? 'Lydia' : 'le lien de paiement';
+// Service reconnu par le nom d'hôte du lien, jamais par un mot n'importe où dans l'adresse : un lien
+// « https://exemple.test/paypal » ne doit pas s'afficher « PayPal » (lien saisi par l'autre partie).
+const PAY_HOSTS: [RegExp, string][] = [
+  [/(^|\.)paypal\.(me|com)$/, 'PayPal'],
+  [/(^|\.)revolut\.(me|com)$/, 'Revolut'],
+  [/(^|\.)lydia-app\.com$/, 'Lydia'],
+];
+export const payHost = (link?: string): string => {
+  if (!link) return '';
+  try { return new URL(link.startsWith('http') ? link : `https://${link}`).hostname.toLowerCase().replace(/^www\./, ''); }
+  catch { return ''; }
+};
+export const payProvider = (link?: string) => {
+  if (!link) return '';
+  const host = payHost(link);
+  const known = PAY_HOSTS.find(([re]) => re.test(host));
+  return known ? known[1] : host ? `le lien de paiement (${host})` : 'le lien de paiement';
+};
 
 export const getInvite = async (token: string): Promise<Invite | null> => {
   const snap = await getDoc(doc(db, "invites", token));
