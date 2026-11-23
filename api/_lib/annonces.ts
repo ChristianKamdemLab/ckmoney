@@ -1,4 +1,4 @@
-import { adminAuth, adminDb, pushToUser, isAdmin } from './admin.js';
+import { adminAuth, adminDb, pushToUser, isAdmin, authorEmail } from './admin.js';
 import type { Film } from '../../utils/films.js';
 import { FILMS_2026_11_21 } from './filmsSeed.js';
 import type { Place } from '../../utils/vendredi.js';
@@ -26,6 +26,7 @@ export interface Announcement {
   id: string;
   sendAt: string;
   push?: { title: string; body: string; url: string };
+  pushTo?: 'author';    // notification à Christian seul (essai ou renvoi)
   email?: NewsEmail;
   emailTo?: 'all' | 'no-push' | 'author' | 'others'; // 'author' : essai à Christian seul ; 'others' : tous sauf lui
   events?: SeedEvent[]; // sorties à publier (voir salons.ts)
@@ -99,6 +100,12 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 };
 
 export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-11-23-article-immorenovv-renvoi-christian',
+    sendAt: '2026-11-23T10:05:00.000Z', // l'avis du 23/11 à 9 h 58 a manqué Christian (jeton renouvelé à 9 h 59) : renvoi à lui seul
+    pushTo: 'author',
+    push: { title: 'Nouvel article de Christian', body: "ImmoRenovv : et si c'était la solution pour vous construire un patrimoine immobilier en France ?", url: '/?article=ObdSSl8SiaoLnv5LWtY0' },
+  },
   {
     id: '2026-11-23-verif-mail-nodemailer',
     sendAt: '2026-11-23T07:30:00.000Z', // vérifie l'envoi d'e-mails après la mise à jour de nodemailer (à Christian seul)
@@ -387,7 +394,9 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
       } catch (err) { await ref.delete(); throw err; }
     }
     if (a.push) {
-      const uids = (await adminDb.collection('pushTokens').get()).docs.map((d: any) => d.id);
+      const uids = a.pushTo === 'author'
+        ? [(await adminAuth.getUserByEmail(authorEmail())).uid]
+        : (await adminDb.collection('pushTokens').get()).docs.map((d: any) => d.id);
       const sent = await Promise.all(uids.map((u: string) => pushToUser(u, { ...a.push!, tag: `annonce-${a.id}` }).catch(() => 0)));
       result.people = sent.filter((n: number) => n > 0).length;
       result.devices = sent.reduce((s: number, n: number) => s + n, 0);
@@ -401,7 +410,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
       result.emails = emails;
     }
     await ref.set({ sentAt: new Date().toISOString(), ...result }, { merge: true });
-    out[a.id] = a.push && !a.email && !a.events && !a.radio && !a.radioComments && !a.places && !a.films ? result.people : result;
+    out[a.id] = a.pushTo ? { people: result.people, devices: result.devices } : a.push && !a.email && !a.events && !a.radio && !a.radioComments && !a.places && !a.films ? result.people : result;
   }
   return out;
 };
