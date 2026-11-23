@@ -9,6 +9,10 @@ const transport = user && pass ? nodemailer.createTransport({ service: 'gmail', 
 const APP = 'https://ck-money.vercel.app';
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
+// Nom affiché de l'expéditeur : c'est le prénom saisi par le prêteur. Sans guillemets, chevrons, virgules
+// ni retours à la ligne, il ne peut pas glisser une autre adresse dans l'en-tête From.
+export const safeDisplayName = (s: string) => (s || '').replace(/["<>\\,;:@()\[\]\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'CKMoney';
+
 export const mailEnabled = () => !!transport;
 
 export const sendReminderMail = async (args: {
@@ -31,7 +35,7 @@ export const sendReminderMail = async (args: {
   </div></body></html>`;
   try {
     await transport.sendMail({
-      from: `"${args.fromName} via CKMoney" <${user}>`, to: args.to, replyTo: args.replyTo || user,
+      from: `"${safeDisplayName(args.fromName)} via CKMoney" <${user}>`, to: args.to, replyTo: args.replyTo || user,
       subject: args.subject, html, text: `${args.title}\n\n${args.body}\n\n${args.payUrl ? `Payer : ${args.payUrl}\n` : ''}Ouvrir CKMoney : ${open}`,
     });
     return true;
