@@ -171,9 +171,10 @@ const PressEditor: React.FC<{ initial?: Article; prefill?: Partial<PressInput>; 
 const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; onBack: () => void; onEdit: () => void; onOpen: (a: Article) => void }> = ({ article, next, isAuthor, onBack, onEdit, onOpen }) => {
   const blocks = useMemo(() => parseBody(article.body), [article.body]);
   useEffect(() => { window.scrollTo(0, 0); }, [article.id]);
-  // Partage en PDF : articles CKLabs publiés seulement (jamais les fiches de revue de presse)
+  // Partage (lien web ou PDF) : articles CKLabs publiés seulement (jamais les fiches de revue de presse)
   const canPdf = article.status !== 'draft' && !isPress(article);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const sharePdf = async () => {
     if (pdfBusy) return;
@@ -181,13 +182,23 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
     try {
       const r = await shareArticlePdf({ title: article.title, authorName: article.authorName, date: day(article), blocks });
       if (r === 'downloaded') setToast('PDF téléchargé');
+      setShareOpen(false);
     } catch { setToast("Le PDF n'a pas pu être créé"); }
     finally { setPdfBusy(false); }
+  };
+  // Le lien web (/a/ID) : une page publique avec le début de l'article, qui fait entrer dans l'appli
+  const shareLink = async () => {
+    const url = `${window.location.origin}/a/${article.id}`;
+    setShareOpen(false);
+    try {
+      if (navigator.share) { await navigator.share({ title: article.title, text: `${frTypo(article.title)} · un article CKLabs`, url }); return; }
+    } catch (e: any) { if (e?.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); setToast('Lien copié'); } catch { setToast(url); }
   };
   const right = (canPdf || isAuthor) ? (
     <div className="flex items-center gap-1">
       {canPdf && (
-        <button onClick={sharePdf} aria-label="Partager l'article en PDF" className="w-11 h-11 flex items-center justify-center rounded-full" style={{ color: C.ink, opacity: pdfBusy ? .4 : 1 }}>
+        <button onClick={() => setShareOpen(true)} aria-label="Partager l'article" className="w-11 h-11 flex items-center justify-center rounded-full" style={{ color: C.ink }}>
           <Icon name="share" size={21} />
         </button>
       )}
@@ -213,11 +224,20 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
         <div className="pt-7"><Blocks blocks={blocks} /></div>
         <div className="flex justify-center pt-4" aria-hidden="true"><div className="w-10 h-[3px] rounded-full" style={{ background: C.ochre }} /></div>
         {canPdf && (
-          <div className="mt-8">
-            <Button variant="secondary" busy={pdfBusy} onClick={sharePdf}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Partager l'article en PDF</span></Button>
+          <div className="mt-8 flex flex-col gap-2.5">
+            <div className="text-[13px] font-semibold mb-0.5" style={{ color: C.mute }}>Partager l'article</div>
+            <Button onClick={shareLink}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Envoyer le lien</span></Button>
+            <Button variant="secondary" busy={pdfBusy} onClick={sharePdf}><span className="inline-flex items-center gap-2"><Icon name="file" size={19} />Envoyer en PDF</span></Button>
           </div>
         )}
       </article>
+      <Sheet open={shareOpen} onClose={() => setShareOpen(false)} title="Partager l'article">
+        <p className="text-[14.5px] leading-relaxed mb-4" style={{ color: C.text2 }}>Le lien montre le début de l'article et invite à le lire en entier sur CKMoney. Le PDF contient l'article complet.</p>
+        <div className="flex flex-col gap-2.5">
+          <Button onClick={shareLink}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Envoyer le lien</span></Button>
+          <Button variant="secondary" busy={pdfBusy} onClick={sharePdf}><span className="inline-flex items-center gap-2"><Icon name="file" size={19} />Envoyer en PDF</span></Button>
+        </div>
+      </Sheet>
       <Toast text={toast} onDone={() => setToast(null)} />
       {next && (
         <div className="px-5 pb-[max(env(safe-area-inset-bottom),28px)]">

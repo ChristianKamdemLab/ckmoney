@@ -13,6 +13,10 @@
       "destination": "/wiseman.html"
     },
     {
+      "source": "/a/:id",
+      "destination": "/api/articles?page=:id"
+    },
+    {
       "source": "/e/:id",
       "destination": "/api/events?page=:id"
     },
