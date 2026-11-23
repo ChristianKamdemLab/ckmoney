@@ -186,7 +186,7 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
     } catch { setToast("Le PDF n'a pas pu être créé"); }
     finally { setPdfBusy(false); }
   };
-  // Le lien web (/a/ID) : une page publique avec le début de l'article, qui fait entrer dans l'appli
+  // Le lien web (/a/ID) : l'article en entier sur une page publique, qui invite à rejoindre l'appli
   const shareLink = async () => {
     const url = `${window.location.origin}/a/${article.id}`;
     setShareOpen(false);
@@ -232,7 +232,7 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
         )}
       </article>
       <Sheet open={shareOpen} onClose={() => setShareOpen(false)} title="Partager l'article">
-        <p className="text-[14.5px] leading-relaxed mb-4" style={{ color: C.text2 }}>Le lien montre le début de l'article et invite à le lire en entier sur CKMoney. Le PDF contient l'article complet.</p>
+        <p className="text-[14.5px] leading-relaxed mb-4" style={{ color: C.text2 }}>Le lien ouvre l'article en entier, sans connexion, avec une invitation à rejoindre CKMoney. Le PDF, lui, s'enregistre et s'imprime.</p>
         <div className="flex flex-col gap-2.5">
           <Button onClick={shareLink}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Envoyer le lien</span></Button>
           <Button variant="secondary" busy={pdfBusy} onClick={sharePdf}><span className="inline-flex items-center gap-2"><Icon name="file" size={19} />Envoyer en PDF</span></Button>

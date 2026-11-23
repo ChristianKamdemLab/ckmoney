@@ -1,9 +1,10 @@
-import { parseBody, frTypo } from '../../utils/articleText.js';
+import { parseBody, frTypo, Block } from '../../utils/articleText.js';
 import { escapeHtml } from '../../utils/events.js';
 
-// Page publique d'un article CKLabs (/a/ID) : ce qu'on partage par lien. Titre, auteur, date et le
-// début du texte (pas l'article entier) ; « Lire la suite » ouvre l'appli, qui demande de se connecter
-// puis ouvre l'article. Les balises d'aperçu donnent le titre et l'accroche dans WhatsApp, iMessage…
+// Page publique d'un article CKLabs (/a/ID) : ce qu'on partage par lien. L'article en entier, lisible
+// sans connexion (choix de Christian, 23/11 : un lien s'ouvre dans le navigateur ou dans WhatsApp, jamais
+// dans l'appli installée sur l'écran d'accueil, et redemander la connexion gênait les amis déjà inscrits).
+// À la fin, l'invitation à rejoindre CKMoney. Les balises d'aperçu donnent le titre et l'accroche.
 // Seulement les articles CKLabs publiés : jamais les fiches de revue de presse.
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -14,27 +15,6 @@ const dayFr = (iso?: string) => {
   return `${p.getUTCDate()} ${MONTHS[p.getUTCMonth()]} ${p.getUTCFullYear()}`;
 };
 
-/** Le début de l'article : les premiers paragraphes, environ 650 caractères, sans couper une phrase. */
-export const teaserOf = (body: string, max = 650): string[] => {
-  const out: string[] = [];
-  let n = 0;
-  for (const b of parseBody(body)) {
-    if (b.t === 'h') continue;
-    const t = frTypo(b.text);
-    if (n && n + t.length > max) break;
-    if (!n && t.length > max) {
-      const cut = t.slice(0, max);
-      const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
-      out.push(end > 200 ? cut.slice(0, end + 1) : `${cut.slice(0, cut.lastIndexOf(' '))}…`);
-      break;
-    }
-    out.push(b.t === 'li' ? `• ${t}` : t);
-    n += t.length;
-    if (out.length >= 3) break;
-  }
-  return out;
-};
-
 export const isShareable = (d: any) => !!d && d.status === 'published' && d.kind !== 'press';
 
 export const articlePage = (origin: string, id: string, d: any | null): string => {
@@ -43,9 +23,18 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
   const desc = ok ? String(d.excerpt || '') : "Cet article n'est plus en ligne.";
   const author = ok ? String(d.authorName || 'CKLabs') : '';
   const date = ok ? dayFr(d.publishedAt || d.updatedAt) : '';
-  const appUrl = ok ? `/?article=${encodeURIComponent(id)}` : '/';
   const e = escapeHtml;
-  const paras = ok ? teaserOf(String(d.body || '')) : [];
+  const blocks: Block[] = ok ? parseBody(String(d.body || '')) : [];
+  // Les puces qui se suivent forment une liste
+  const html: string[] = [];
+  blocks.forEach((b, i) => {
+    const t = e(frTypo(b.text));
+    if (b.t === 'li') {
+      if (blocks[i - 1]?.t !== 'li') html.push('<ul>');
+      html.push(`<li>${t}</li>`);
+      if (blocks[i + 1]?.t !== 'li') html.push('</ul>');
+    } else html.push(b.t === 'h' ? `<h2>${t}</h2>` : `<p>${t}</p>`);
+  });
   return `<!doctype html>
 <html lang="fr">
 <head>
@@ -79,24 +68,33 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
   h1 { font-size:${title.length > 90 ? 22 : title.length > 55 ? 24 : 27}px; line-height:1.28; font-weight:800; letter-spacing:-.2px; margin:8px 0 0; }
   .by { color:var(--mute); font-size:14px; margin-top:14px; padding-bottom:22px; border-bottom:1px solid var(--line); }
   .by strong { color:var(--ink); font-weight:600; }
-  .text { position:relative; padding-top:24px; font-size:17px; line-height:1.7; color:var(--text); }
+  .text { padding-top:24px; font-size:17px; line-height:1.7; color:var(--text); }
   .text p { margin:0 0 18px; }
-  .text p:first-child { font-size:18px; line-height:1.65; }
-  .fade { position:absolute; left:0; right:0; bottom:0; height:120px; background:linear-gradient(rgba(245,243,238,0), var(--bg)); }
-  .cta { position:sticky; bottom:0; background:linear-gradient(rgba(245,243,238,0), var(--bg) 22%); padding:26px 0 max(env(safe-area-inset-bottom),22px); }
-  .btn { display:flex; align-items:center; justify-content:center; height:54px; border-radius:14px; background:var(--ink); color:#fff; font-weight:700; font-size:16px; text-decoration:none; }
-  .note { text-align:center; color:var(--mute); font-size:13px; margin-top:10px; }
+  .text > p:first-child { font-size:18px; line-height:1.65; }
+  .text h2 { font-size:19px; line-height:1.35; color:var(--ink); margin:34px 0 12px; }
+  .text ul { margin:0 0 18px; padding:0; list-style:none; }
+  .text li { position:relative; padding-left:22px; margin:0 0 14px; }
+  .text li::before { content:''; position:absolute; left:4px; top:.72em; width:6px; height:6px; border-radius:50%; background:var(--ochre); }
+  .end { display:flex; justify-content:center; padding:8px 0 30px; }
+  .end i { width:40px; height:3px; border-radius:3px; background:var(--ochre); }
+  .cta { background:var(--ink); color:#fff; border-radius:18px; padding:22px 20px; margin-bottom:max(env(safe-area-inset-bottom),28px); }
+  .cta h3 { margin:0; font-size:18px; line-height:1.3; font-weight:800; }
+  .cta p { margin:8px 0 18px; color:rgba(255,255,255,.75); font-size:14.5px; line-height:1.55; }
+  .btn { display:flex; align-items:center; justify-content:center; height:52px; border-radius:14px; background:var(--ochre); color:var(--ink); font-weight:800; font-size:16px; text-decoration:none; }
+  .note { text-align:center; color:rgba(255,255,255,.6); font-size:12.5px; margin-top:10px; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><b>CK<i>·</i>MONEY</b><a href="${e(appUrl)}">Ouvrir l'appli</a></div>
+  <div class="brand"><b>CK<i>·</i>MONEY</b><a href="/">Ouvrir l'appli</a></div>
   <div class="kicker">CKLabs</div>
   <h1>${e(title)}</h1>
   ${ok ? `<div class="by"><strong>${e(author)}</strong>${date ? ` · ${e(date)}` : ''}${d.readMinutes ? ` · ${Number(d.readMinutes)} min de lecture` : ''}</div>` : `<div class="by">${e(desc)}</div>`}
-  ${ok ? `<div class="text">${paras.map(p => `<p>${e(p)}</p>`).join('')}<div class="fade"></div></div>` : ''}
+  ${ok ? `<article class="text">${html.join('')}</article><div class="end"><i></i></div>` : '<div style="height:28px"></div>'}
   <div class="cta">
-    <a class="btn" href="${e(appUrl)}">${ok ? 'Lire la suite sur CKMoney' : 'Découvrir CKMoney'}</a>
+    <h3>${ok ? 'D’autres articles t’attendent sur CKMoney' : 'Découvre CKMoney'}</h3>
+    <p>Les articles CKLabs, la revue de presse, le mot du jour, Radio CK et les sorties entre amis.</p>
+    <a class="btn" href="/">Rejoindre CKMoney</a>
     <div class="note">Gratuit · connexion avec Google ou un e-mail</div>
   </div>
 </div>
