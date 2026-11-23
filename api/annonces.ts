@@ -1,4 +1,5 @@
 import { sendDueAnnouncements } from './_lib/annonces.js';
+import { syncAllowed } from './_lib/syncSecret.js';
 
 // Envoi des e-mails un par un depuis Gmail : on laisse jusqu'à 60 s (maximum du plan gratuit).
 export const config = { maxDuration: 60 };
@@ -7,6 +8,7 @@ export const config = { maxDuration: 60 };
 // prévue, et une seule fois par annonce : on peut l'appeler sans risque.
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).end();
+  if (!syncAllowed(req)) return res.status(401).json({ error: 'unauthorized' });
   try {
     return res.status(200).json({ sent: await sendDueAnnouncements() });
   } catch (e: any) {
