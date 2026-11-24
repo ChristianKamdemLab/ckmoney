@@ -4,7 +4,7 @@ import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chi
 import { listArticles, saveArticle, importArticles, deleteArticle, savePress, ArticleInput, PressInput } from '../../services/articleService';
 import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils/articleText';
 import { seenAt, markSeen, isNewSince } from '../../utils/seen';
-import { shareArticlePdf } from '../../utils/articlePdf';
+import { shareArticlePdf, PdfArticle } from '../../utils/articlePdf';
 
 // Articles : les textes de Christian (signés CKLabs, en entier) et sa revue de presse (fiches qui
 // renvoient vers le journal : source, titre, accroche, lien ; jamais le texte du journal).
@@ -63,13 +63,78 @@ const ReadingProgress: React.FC = () => {
 };
 
 
+/** Partager une fiche (lien web /a/ID ou PDF) : articles CKLabs et revue de presse publiés. */
+const useShare = (a: Article, pdf: () => PdfArticle) => {
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const sharePdf = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await shareArticlePdf(pdf());
+      if (r === 'downloaded') setToast('PDF téléchargé');
+      setOpen(false);
+    } catch { setToast("Le PDF n'a pas pu être créé"); }
+    finally { setBusy(false); }
+  };
+  const shareLink = async () => {
+    const url = `${window.location.origin}/a/${a.id}`;
+    setOpen(false);
+    const text = isPress(a) ? `${frTypo(a.title)} · la revue de presse CKMoney (${a.source})` : `${frTypo(a.title)} · un article CKLabs`;
+    try {
+      if (navigator.share) { await navigator.share({ title: a.title, text, url }); return; }
+    } catch (e: any) { if (e?.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); setToast('Lien copié'); } catch { setToast(url); }
+  };
+  return { busy, open, setOpen, toast, setToast, sharePdf, shareLink };
+};
+type Share = ReturnType<typeof useShare>;
+
+const ShareButtons: React.FC<{ s: Share }> = ({ s }) => (
+  <div className="flex flex-col gap-2.5">
+    <Button onClick={s.shareLink}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Envoyer le lien</span></Button>
+    <Button variant="secondary" busy={s.busy} onClick={s.sharePdf}><span className="inline-flex items-center gap-2"><Icon name="file" size={19} />Envoyer en PDF</span></Button>
+  </div>
+);
+const ShareIcon: React.FC<{ s: Share }> = ({ s }) => (
+  <button onClick={() => s.setOpen(true)} aria-label="Partager" className="w-11 h-11 flex items-center justify-center rounded-full" style={{ color: C.ink }}>
+    <Icon name="share" size={21} />
+  </button>
+);
+const ShareSheet: React.FC<{ s: Share; press?: boolean }> = ({ s, press }) => (
+  <>
+    <Sheet open={s.open} onClose={() => s.setOpen(false)} title={press ? 'Partager la fiche' : "Partager l'article"}>
+      <p className="text-[14.5px] leading-relaxed mb-4" style={{ color: C.text2 }}>
+        {press ? "Le lien ouvre la fiche sans connexion (pendant 7 jours), avec le lien vers l'article du journal et une invitation à rejoindre CKMoney. Le PDF, lui, s'enregistre et s'imprime."
+          : "Le lien ouvre l'article en entier, sans connexion, avec une invitation à rejoindre CKMoney. Le PDF, lui, s'enregistre et s'imprime."}
+      </p>
+      <ShareButtons s={s} />
+    </Sheet>
+    <Toast text={s.toast} onDone={() => s.setToast(null)} />
+  </>
+);
+
 const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () => void; onEdit: () => void }> = ({ article: a, isAuthor, onBack, onEdit }) => {
   useEffect(() => { window.scrollTo(0, 0); }, [a.id]);
   const host = hostOf(a.sourceUrl);
   const paras = (a.summary || '').split(/\n+/).filter(Boolean);
+  const canShare = a.status !== 'draft';
+  const share = useShare(a, () => ({
+    kicker: `Revue de presse · ${a.source}`, title: a.title, authorName: a.sourceAuthor || '', date: day(a),
+    lead: a.excerpt || undefined, label: paras.length ? "L'essentiel" : undefined,
+    blocks: paras.map(text => ({ t: 'p', text } as Block)),
+    sourceNote: `Source : ${a.source}${a.sourceSection ? `, « ${a.sourceSection} »` : ''}, ${day(a)}. Synthèse rédigée pour CKMoney ; l'article complet est sur le site du journal${a.sourceUrl ? ` : ${a.sourceUrl}` : '.'}`,
+  }));
+  const right = (canShare || isAuthor) ? (
+    <div className="flex items-center gap-1">
+      {canShare && <ShareIcon s={share} />}
+      {isAuthor && <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button>}
+    </div>
+  ) : undefined;
   return (
     <Screen>
-      <TopBar onBack={onBack} right={isAuthor ? <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button> : undefined} />
+      <TopBar onBack={onBack} right={right} />
       <article className="px-6 pt-3 pb-10">
         <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: C.mute }}>Revue de presse</div>
         <div className="serif text-[22px] font-semibold mt-1" style={{ color: C.ochreText }}>{a.source}</div>
@@ -87,7 +152,14 @@ const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () =>
           Source : {a.source}{a.sourceSection ? `, « ${a.sourceSection} »` : ''}, {day(a)}. Synthèse rédigée pour CKMoney et partagée par {a.authorName.split(' ')[0] || 'Christian'} ; l'article complet est sur le site du journal.
           {a.sourceUrl && <> <a href={a.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{host || 'Voir la source'}</a></>}
         </div>
+        {canShare && (
+          <div className="mt-8 flex flex-col gap-2.5">
+            <div className="text-[13px] font-semibold mb-0.5" style={{ color: C.mute }}>Partager la fiche</div>
+            <ShareButtons s={share} />
+          </div>
+        )}
       </article>
+      <ShareSheet s={share} press />
     </Screen>
   );
 };
@@ -153,37 +225,11 @@ const PressEditor: React.FC<{ initial?: Article; prefill?: Partial<PressInput>; 
 const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; onBack: () => void; onEdit: () => void; onOpen: (a: Article) => void }> = ({ article, next, isAuthor, onBack, onEdit, onOpen }) => {
   const blocks = useMemo(() => parseBody(article.body), [article.body]);
   useEffect(() => { window.scrollTo(0, 0); }, [article.id]);
-  // Partage (lien web ou PDF) : articles CKLabs publiés seulement (jamais les fiches de revue de presse)
   const canPdf = article.status !== 'draft' && !isPress(article);
-  const [pdfBusy, setPdfBusy] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const sharePdf = async () => {
-    if (pdfBusy) return;
-    setPdfBusy(true);
-    try {
-      const r = await shareArticlePdf({ title: article.title, authorName: article.authorName, date: day(article), blocks });
-      if (r === 'downloaded') setToast('PDF téléchargé');
-      setShareOpen(false);
-    } catch { setToast("Le PDF n'a pas pu être créé"); }
-    finally { setPdfBusy(false); }
-  };
-  // Le lien web (/a/ID) : l'article en entier sur une page publique, qui invite à rejoindre l'appli
-  const shareLink = async () => {
-    const url = `${window.location.origin}/a/${article.id}`;
-    setShareOpen(false);
-    try {
-      if (navigator.share) { await navigator.share({ title: article.title, text: `${frTypo(article.title)} · un article CKLabs`, url }); return; }
-    } catch (e: any) { if (e?.name === 'AbortError') return; }
-    try { await navigator.clipboard.writeText(url); setToast('Lien copié'); } catch { setToast(url); }
-  };
+  const share = useShare(article, () => ({ title: article.title, authorName: article.authorName, date: day(article), blocks }));
   const right = (canPdf || isAuthor) ? (
     <div className="flex items-center gap-1">
-      {canPdf && (
-        <button onClick={() => setShareOpen(true)} aria-label="Partager l'article" className="w-11 h-11 flex items-center justify-center rounded-full" style={{ color: C.ink }}>
-          <Icon name="share" size={21} />
-        </button>
-      )}
+      {canPdf && <ShareIcon s={share} />}
       {isAuthor && <button onClick={onEdit} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button>}
     </div>
   ) : undefined;
@@ -208,19 +254,11 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
         {canPdf && (
           <div className="mt-8 flex flex-col gap-2.5">
             <div className="text-[13px] font-semibold mb-0.5" style={{ color: C.mute }}>Partager l'article</div>
-            <Button onClick={shareLink}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Envoyer le lien</span></Button>
-            <Button variant="secondary" busy={pdfBusy} onClick={sharePdf}><span className="inline-flex items-center gap-2"><Icon name="file" size={19} />Envoyer en PDF</span></Button>
+            <ShareButtons s={share} />
           </div>
         )}
       </article>
-      <Sheet open={shareOpen} onClose={() => setShareOpen(false)} title="Partager l'article">
-        <p className="text-[14.5px] leading-relaxed mb-4" style={{ color: C.text2 }}>Le lien ouvre l'article en entier, sans connexion, avec une invitation à rejoindre CKMoney. Le PDF, lui, s'enregistre et s'imprime.</p>
-        <div className="flex flex-col gap-2.5">
-          <Button onClick={shareLink}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Envoyer le lien</span></Button>
-          <Button variant="secondary" busy={pdfBusy} onClick={sharePdf}><span className="inline-flex items-center gap-2"><Icon name="file" size={19} />Envoyer en PDF</span></Button>
-        </div>
-      </Sheet>
-      <Toast text={toast} onDone={() => setToast(null)} />
+      <ShareSheet s={share} />
       {next && (
         <div className="px-5 pb-[max(env(safe-area-inset-bottom),28px)]">
           <div className="text-[13px] font-semibold mb-2" style={{ color: C.mute }}>À lire aussi</div>

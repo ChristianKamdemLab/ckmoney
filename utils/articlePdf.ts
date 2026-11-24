@@ -3,7 +3,11 @@ import { Block, frTypo } from './articleText';
 // Un article CKLabs en PDF (A4), pour le partager hors de l'appli : titre, auteur, date, texte,
 // signature, et en bas de page « CKLabs · lu sur CKMoney ». jsPDF n'est chargé qu'au moment du partage.
 
-export interface PdfArticle { title: string; authorName: string; date: string; blocks: Block[] }
+export interface PdfArticle {
+  title: string; authorName: string; date: string; blocks: Block[];
+  /** Fiche de revue de presse : « Revue de presse · Le Monde », l'accroche, et la source en fin de texte */
+  kicker?: string; lead?: string; label?: string; sourceNote?: string;
+}
 
 /** Les polices standard du PDF ne connaissent pas l'espace fine insécable : espace insécable à la place. */
 export const pdfText = (s: string) => frTypo(s).replace(/[  ]/g, ' ').replace(/[^\u0000-ÿ‘’‚“”„…–—Œœ€•]/gu, '');
@@ -32,10 +36,12 @@ export const buildArticlePdf = async (a: PdfArticle): Promise<Blob> => {
     y += o.after || 0;
   };
 
-  write('CKLabs', { size: 10, style: 'bold', color: OCHRE, lh: 1.2, after: 3 });
+  write(a.kicker || 'CKLabs', { size: 10, style: 'bold', color: OCHRE, lh: 1.2, after: 3 });
   write(a.title, { size: 19, style: 'bold', color: INK, lh: 1.25, after: 3 });
-  write(`${a.authorName} · ${a.date}`, { size: 10, color: MUTE, lh: 1.3, after: 2 });
+  write([a.authorName, a.date].filter(Boolean).join(' · '), { size: 10, color: MUTE, lh: 1.3, after: 2 });
   doc.setDrawColor(...GOLD); doc.setLineWidth(0.8); doc.line(M, y, M + 14, y); y += 9;
+  if (a.lead) write(a.lead, { size: 12.5, color: INK, lh: 1.5, after: 5 });
+  if (a.label) write(a.label.toUpperCase(), { size: 9.5, style: 'bold', color: OCHRE, lh: 1.2, after: 2.5 });
 
   a.blocks.forEach((b, i) => {
     if (b.t === 'h') { y += 2; ensure(14); write(b.text, { size: 13, style: 'bold', color: INK, lh: 1.3, after: 2 }); return; }
@@ -47,10 +53,12 @@ export const buildArticlePdf = async (a: PdfArticle): Promise<Blob> => {
     write(b.text, { size: i === 0 ? 12 : 11, color: BODY, lh: 1.55, after: 3.5 });
   });
 
+  if (a.sourceNote) { y += 2; write(a.sourceNote, { size: 9.5, color: MUTE, lh: 1.5 }); }
+
   const pages = doc.getNumberOfPages();
   for (let p = 1; p <= pages; p++) {
     doc.setPage(p); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTE);
-    doc.text(pdfText('CKLabs · lu sur CKMoney, ck-money.vercel.app'), M, H - 12);
+    doc.text(pdfText(`${a.kicker ? 'Revue de presse' : 'CKLabs'} · lu sur CKMoney, ck-money.vercel.app`), M, H - 12);
     doc.text(`${p} / ${pages}`, W - M, H - 12, { align: 'right' });
   }
   return doc.output('blob');

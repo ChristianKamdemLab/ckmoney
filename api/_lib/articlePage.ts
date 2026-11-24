@@ -5,7 +5,9 @@ import { escapeHtml } from '../../utils/events.js';
 // sans connexion (choix de Christian, 23/11 : un lien s'ouvre dans le navigateur ou dans WhatsApp, jamais
 // dans l'appli installée sur l'écran d'accueil, et redemander la connexion gênait les amis déjà inscrits).
 // À la fin, l'invitation à rejoindre CKMoney. Les balises d'aperçu donnent le titre et l'accroche.
-// Seulement les articles CKLabs publiés : jamais les fiches de revue de presse.
+// Articles CKLabs et fiches de revue de presse publiés (24/11). Une fiche de presse ne montre que notre
+// synthèse (« L'essentiel »), avec la source et le lien vers l'article du journal ; elle disparaît après
+// 7 jours (api/_lib/retention.ts) et la page dit alors qu'elle n'est plus en ligne.
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const dayFr = (iso?: string) => {
@@ -15,7 +17,7 @@ const dayFr = (iso?: string) => {
   return `${p.getUTCDate()} ${MONTHS[p.getUTCMonth()]} ${p.getUTCFullYear()}`;
 };
 
-export const isShareable = (d: any) => !!d && d.status === 'published' && d.kind !== 'press';
+export const isShareable = (d: any) => !!d && d.status === 'published';
 
 export const articlePage = (origin: string, id: string, d: any | null): string => {
   const ok = isShareable(d);
@@ -24,7 +26,11 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
   const author = ok ? String(d.authorName || 'CKLabs') : '';
   const date = ok ? dayFr(d.publishedAt || d.updatedAt) : '';
   const e = escapeHtml;
-  const blocks: Block[] = ok ? parseBody(String(d.body || '')) : [];
+  const press = ok && d.kind === 'press';
+  const host = (() => { try { return new URL(String(d?.sourceUrl || '')).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+  const blocks: Block[] = !ok ? [] : press
+    ? String(d.summary || '').split(/\n+/).map(x => x.trim()).filter(Boolean).map(text => ({ t: 'p', text } as Block))
+    : parseBody(String(d.body || ''));
   // Les puces qui se suivent forment une liste
   const html: string[] = [];
   blocks.forEach((b, i) => {
@@ -40,7 +46,7 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>${e(title)} · CKLabs</title>
+<title>${e(title)} · ${press ? 'CKMoney' : 'CKLabs'}</title>
 <meta name="description" content="${e(desc)}">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="CKMoney · CKLabs">
@@ -77,6 +83,10 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
   .text li::before { content:''; position:absolute; left:4px; top:.72em; width:6px; height:6px; border-radius:50%; background:var(--ochre); }
   .end { display:flex; justify-content:center; padding:8px 0 30px; }
   .end i { width:40px; height:3px; border-radius:3px; background:var(--ochre); }
+  .lead { font-size:18px; line-height:1.55; color:var(--text); margin:22px 0 0; padding-left:16px; border-left:3px solid var(--ochre); }
+  .label { color:var(--ochreText); font-size:12.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin:26px 0 -8px; }
+  .src { color:var(--mute); font-size:13.5px; line-height:1.6; border-top:1px solid var(--line); padding-top:16px; margin:6px 0 28px; }
+  .src a { color:var(--ochreText); font-weight:700; }
   .cta { background:var(--ink); color:#fff; border-radius:18px; padding:22px 20px; margin-bottom:max(env(safe-area-inset-bottom),28px); }
   .cta h3 { margin:0; font-size:18px; line-height:1.3; font-weight:800; }
   .cta p { margin:8px 0 18px; color:rgba(255,255,255,.75); font-size:14.5px; line-height:1.55; }
@@ -87,13 +97,18 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
 <body>
 <div class="wrap">
   <div class="brand"><b>CK<i>·</i>MONEY</b><a href="/">Ouvrir l'appli</a></div>
-  <div class="kicker">CKLabs</div>
+  <div class="kicker">${press ? `Revue de presse · ${e(String(d.source || ''))}` : 'CKLabs'}</div>
   <h1>${e(title)}</h1>
-  ${ok ? `<div class="by"><strong>${e(author)}</strong>${date ? ` · ${e(date)}` : ''}${d.readMinutes ? ` · ${Number(d.readMinutes)} min de lecture` : ''}</div>` : `<div class="by">${e(desc)}</div>`}
-  ${ok ? `<article class="text">${html.join('')}</article><div class="end"><i></i></div>` : '<div style="height:28px"></div>'}
+  ${!ok ? `<div class="by">${e(desc)}</div>`
+    : press ? `<div class="by">${date ? e(date) : ''}${d.sourceAuthor ? ` · ${e(String(d.sourceAuthor))}` : ''}</div>`
+    : `<div class="by"><strong>${e(author)}</strong>${date ? ` · ${e(date)}` : ''}${d.readMinutes ? ` · ${Number(d.readMinutes)} min de lecture` : ''}</div>`}
+  ${press && d.excerpt ? `<p class="lead">${e(frTypo(String(d.excerpt)))}</p>` : ''}
+  ${press && html.length ? '<div class="label">L’essentiel</div>' : ''}
+  ${ok ? `<article class="text">${html.join('')}</article>` : '<div style="height:28px"></div>'}
+  ${press ? `<div class="src">Source : ${e(String(d.source || ''))}${date ? `, ${e(date)}` : ''}. Synthèse rédigée pour CKMoney ; l’article complet est sur le site du journal.${/^https:\/\//.test(String(d.sourceUrl || '')) ? ` <a href="${e(String(d.sourceUrl))}" rel="noopener noreferrer">Lire sur ${e(host || 'le site du journal')}</a>` : ''}</div>` : ok ? '<div class="end"><i></i></div>' : ''}
   <div class="cta">
     <h3>${ok ? 'D’autres articles t’attendent sur CKMoney' : 'Découvre CKMoney'}</h3>
-    <p>Les articles CKLabs, la revue de presse, le mot du jour, Radio CK et les sorties entre amis.</p>
+    <p>${press ? 'Chaque jour, la revue de presse, l’info du jour et son décryptage, les articles CKLabs' : 'Les articles CKLabs, la revue de presse'}, le mot du jour, Radio CK et les sorties entre amis.</p>
     <a class="btn" href="/">Rejoindre CKMoney</a>
     <div class="note">Gratuit · connexion avec Google ou un e-mail</div>
   </div>
