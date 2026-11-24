@@ -1,4 +1,5 @@
-// « Le décryptage du jour » : un court dialogue (environ 4 minutes) entre Christian et une seconde voix,
+// « Le décryptage du jour » : une chronique (environ 3 à 4 minutes) dite par Christian seul (choix du
+// 24/11 au soir : une seconde voix de synthèse se reconnaît tout de suite), ou un dialogue à deux voix,
 // qui reprend les grands sujets de la veille (revue de presse, textes CKLabs, info du jour) avec leurs
 // tenants et aboutissants. Écrit chaque matin par l'agent « Décryptage du jour » dans le dossier Drive,
 // document « Décryptage · AAAA-MM-JJ », au format :
@@ -8,11 +9,12 @@
 //   Sujet : <titre court> | <lien : /?article=ID, /?info ou https://…>
 //   Source : <média> | https://…
 //   CHRISTIAN : <réplique>
-//   AWA : <réplique>
+//   [VIRGULE]                  (courte virgule sonore entre deux sujets)
+//   CHRISTIAN : <paragraphe suivant>
 //
-// Les répliques de CHRISTIAN sont lues avec sa voix, les autres avec la seconde voix.
+// Les répliques de CHRISTIAN sont lues avec sa voix, celles d'un autre nom avec la seconde voix.
 
-export interface DecryptageLine { who: 'host' | 'guest'; name: string; text: string }
+export interface DecryptageLine { who: 'host' | 'guest' | 'sting'; name: string; text: string }
 export interface DecryptageLink { title: string; link: string }
 export interface Decryptage {
   date: string;
@@ -47,6 +49,12 @@ export const parseDecryptage = (raw: string, date: string): Decryptage | null =>
   for (const line0 of String(raw || '').replace(/^﻿/, '').split(/\r?\n/)) {
     const line = line0.replace(/^\s*[*_#>-]+\s*/, '').trim();
     if (!line) continue;
+    // Virgule sonore entre deux sujets (jamais en tête ni deux de suite)
+    if (/^\[?\s*virgule(\s+sonore)?\s*\]?$/.test(norm(line))) {
+      const last = out.lines[out.lines.length - 1];
+      if (last && last.who !== 'sting' && out.lines.length < MAX_LINES) out.lines.push({ who: 'sting', name: '', text: '' });
+      continue;
+    }
     const m = line.match(/^([\p{L}' ]{2,30}?)\s*:\s*(.+)$/u);
     if (!m) continue;
     const key = norm(m[1]).trim();
@@ -71,8 +79,9 @@ export const parseDecryptage = (raw: string, date: string): Decryptage | null =>
       out.lines.push({ who: /^christian/i.test(norm(name)) ? 'host' : 'guest', name: name[0] + name.slice(1).toLowerCase(), text });
     }
   }
-  const voices = new Set(out.lines.map(l => l.who));
-  if (!out.title || out.lines.length < 4 || voices.size < 2) return null;
+  while (out.lines[out.lines.length - 1]?.who === 'sting') out.lines.pop();
+  const spoken = out.lines.filter(l => l.who !== 'sting').length;
+  if (!out.title || spoken < 3) return null;
   return out;
 };
 

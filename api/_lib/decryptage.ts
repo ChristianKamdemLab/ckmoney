@@ -6,7 +6,8 @@ import { joinMp3, describe } from './mp3.js';
 // 2 : MP3 recollé proprement (sans les trames d'information des morceaux) avec la vraie durée en tête
 // 3 : le jingle (stéréo) n'est plus collé aux voix (mono) : le lecteur le joue juste avant
 // 4 : voix en 96 kb/s au lieu de 64 (24/11, Christian : « pas assez claire »)
-export const AUDIO_VERSION = 6; // 6 : voix suave (24/11 au soir) et seconde voix Victoria
+// 6 : voix suave (24/11 au soir) et seconde voix Victoria
+export const AUDIO_VERSION = 7; // 7 : décryptage en solo, virgules sonores entre les sujets
 import { decryptageDate, parseDecryptage, minutesOf, Decryptage } from '../../utils/decryptage.js';
 import { synthesize, MODEL, voiceEnabled, PODCAST_SETTINGS, GUEST_VOICE_NAME, generateJingle, JINGLE_VERSION, JINGLE_PROMPT } from './voice.js';
 
@@ -21,6 +22,22 @@ const col = () => adminDb.collection('decryptage');
 const audioCol = () => adminDb.collection('decryptageAudio');
 const CHUNK = 900_000;
 const FORMAT = 'mp3_44100_96';
+
+export // Virgule sonore : un son court en MP3 mono 44,1 kHz 96 kb/s, comme les voix, pour être collé entre deux
+// sujets sans changer de format dans le fichier (le téléphone s'arrête à un changement mono/stéréo).
+const STING_URL = 'https://ck-money.vercel.app/sting-1.mp3';
+const STING_KEY = 'sting';
+let stingCache: Buffer | null = null;
+const sting = async (): Promise<Buffer> => {
+  if (stingCache) return stingCache;
+  try {
+    const r = await fetch(STING_URL);
+    const b = r.ok ? Buffer.from(await r.arrayBuffer()) : Buffer.alloc(0);
+    const ok = b.length > 1000 && describe(b).runs.every(x => x.fmt.includes('44100 mono'));
+    stingCache = ok ? b : Buffer.alloc(0);
+  } catch { stingCache = Buffer.alloc(0); }
+  return stingCache;
+};
 
 export const isDecryptageDoc = (f: DriveFile) => !!decryptageDate(f.name) && f.mimeType !== 'application/pdf';
 
@@ -87,9 +104,10 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
     if (!d.audioReady) {
       if (!voiceEnabled() || left() <= 0) { out[d.date] = 'audio en attente'; continue; }
       const parts = audioCol().doc(d.date).collection('parts');
-      const keys = d.lines.map(l => lineHash(l.who, l.text));
+      const keys = d.lines.map(l => l.who === 'sting' ? STING_KEY : lineHash(l.who, l.text));
       const have = new Map<string, Buffer>();
-      for (const k of new Set(keys)) { const p = (await parts.doc(k).get()).data(); if (p?.data) have.set(k, Buffer.from(p.data)); }
+      if (keys.includes(STING_KEY)) have.set(STING_KEY, await sting()); // vide si indisponible : pas de virgule
+      for (const k of new Set(keys)) { if (k === STING_KEY) continue; const p = (await parts.doc(k).get()).data(); if (p?.data) have.set(k, Buffer.from(p.data)); }
       let next = 0;
       let error = '';
       const worker = async () => {
@@ -97,7 +115,7 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
           const i = next++;
           if (have.has(keys[i])) continue;
           try {
-            const mp3 = await synthesize(d.lines[i].text, fetch, MODEL(), FORMAT, d.lines[i].who, PODCAST_SETTINGS);
+            const mp3 = await synthesize(d.lines[i].text, fetch, MODEL(), FORMAT, d.lines[i].who as 'host' | 'guest', PODCAST_SETTINGS);
             have.set(keys[i], mp3);
             await parts.doc(keys[i]).set({ data: mp3 });
           } catch (e: any) { error = String(e?.message || e).slice(0, 60); }
@@ -109,7 +127,7 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
       await jingle(); // créé une fois et servi à part (action decryptage.audio, part jingle)
       const mp3 = joinMp3(keys.map(k => have.get(k)!));
       await saveDecryptageAudio(d.date, mp3, now);
-      for (const k of new Set(keys)) await parts.doc(k).delete().catch(() => 0);
+      for (const k of new Set(keys)) if (k !== STING_KEY) await parts.doc(k).delete().catch(() => 0);
       await doc.ref.set({ audioReady: true, audioBytes: mp3.length, audioVersion: AUDIO_VERSION }, { merge: true });
       d.audioReady = true;
       out[d.date] = 'audio prêt';

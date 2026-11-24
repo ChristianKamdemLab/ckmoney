@@ -35,7 +35,7 @@ const DecryptagePlayer: React.FC<{ d: DecryptageDay; autoFocus?: boolean }> = ({
   const current = phase === 'jingle' && jingleSrc ? jingleSrc : src;
   useEffect(() => { if (current && audio.current) void audio.current.play().catch(() => undefined); }, [current]);
 
-  const guest = d.lines.find(l => l.who === 'guest')?.name || 'son invitée';
+  const guest = d.lines.find(l => l.who === 'guest')?.name;
   const label = d.date === todayIso() ? 'Le décryptage du jour' : `Le décryptage du ${dateFr(d.date, { day: 'numeric', month: 'long' })}`;
   const pct = pos.len ? Math.min(100, (pos.t / pos.len) * 100) : 0;
 
@@ -47,7 +47,7 @@ const DecryptagePlayer: React.FC<{ d: DecryptageDay; autoFocus?: boolean }> = ({
           {d.draft && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: C.coral, color: '#fff' }}>Brouillon · toi seul</span>}
         </div>
         <h2 className="text-[21px] font-extrabold leading-[1.25] mt-1.5">{frTypo(d.title)}</h2>
-        <div className="text-[13px] mt-1" style={{ color: C.nightMute }}>{d.minutes} min · Christian et {guest}</div>
+        <div className="text-[13px] mt-1" style={{ color: C.nightMute }}>{d.minutes} min · {guest ? `Christian et ${guest}` : 'par Christian · CKLabs'}</div>
       </div>
       <div className="px-5 pt-4 flex items-center gap-3.5">
         <button onClick={toggle} disabled={state === 'loading'} aria-label={playing ? 'Pause' : 'Écouter'}
