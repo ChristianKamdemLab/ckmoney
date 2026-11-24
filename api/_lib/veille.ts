@@ -4,6 +4,8 @@ import { adminDb } from './admin.js';
 // chapôs publiés par leurs flux RSS (faits pour être repris), sur les 36 dernières heures. Les outils de
 // lecture des agents ne peuvent pas ouvrir plusieurs de ces sites (RFI, Le Monde, France 24…) ; le
 // serveur de l'appli, lui, lit leurs flux. Jamais le texte des articles : titre, chapô court, lien, date.
+// Les médias sans flux ouvert (Reuters, Les Echos, Africa Intelligence…) passent par la recherche Google
+// Actualités, limitée à leur site : titres et liens seulement, avec le nom du média à la fin du titre (retiré).
 // Mis en cache 15 minutes (Firestore settings/veille).
 
 export interface Feed { media: string; zone: 'monde' | 'afrique' | 'cameroun'; url: string }
@@ -20,30 +22,27 @@ export const FEEDS: Feed[] = [
   { media: 'Al Jazeera', zone: 'monde', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
   { media: 'Euronews', zone: 'monde', url: 'https://fr.euronews.com/rss' },
   // Demandés par Christian (24/11) : Reuters, Les Echos, Financial Times, AFP, Africa Intelligence
-  { media: 'Reuters', zone: 'monde', url: 'https://www.reutersagency.com/feed/?best-topics=top-news&post_type=best' },
-  { media: 'Les Echos', zone: 'monde', url: 'https://services.lesechos.fr/rss/les-echos-monde.xml' },
-  { media: 'Les Echos Économie', zone: 'monde', url: 'https://services.lesechos.fr/rss/les-echos-economie.xml' },
+  { media: 'Reuters', zone: 'monde', url: 'https://news.google.com/rss/search?q=site:reuters.com+when:2d&hl=en-US&gl=US&ceid=US:en' },
+  { media: 'Les Echos', zone: 'monde', url: 'https://news.google.com/rss/search?q=site:lesechos.fr+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
   { media: 'Financial Times', zone: 'monde', url: 'https://www.ft.com/world?format=rss' },
-  { media: 'AFP', zone: 'monde', url: 'https://www.afp.com/fr/rss' },
   { media: 'TV5Monde (AFP)', zone: 'monde', url: 'https://information.tv5monde.com/rss.xml' },
-  { media: 'Africa Intelligence', zone: 'afrique', url: 'https://www.africaintelligence.fr/rss' },
+  { media: 'Africa Intelligence', zone: 'afrique', url: 'https://news.google.com/rss/search?q=site:africaintelligence.fr+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
   // Afrique
   { media: 'RFI Afrique', zone: 'afrique', url: 'https://www.rfi.fr/fr/afrique/rss' },
   { media: 'Le Monde Afrique', zone: 'afrique', url: 'https://www.lemonde.fr/afrique/rss_full.xml' },
   { media: 'France 24 Afrique', zone: 'afrique', url: 'https://www.france24.com/fr/afrique/rss' },
   { media: 'BBC Afrique', zone: 'afrique', url: 'https://feeds.bbci.co.uk/afrique/rss.xml' },
   { media: 'Jeune Afrique', zone: 'afrique', url: 'https://www.jeuneafrique.com/feed/' },
-  { media: 'Africanews', zone: 'afrique', url: 'https://fr.africanews.com/feed/rss' },
-  { media: 'Agence Ecofin', zone: 'afrique', url: 'https://www.agenceecofin.com/?format=feed&type=rss' },
+  { media: 'Africanews', zone: 'afrique', url: 'https://news.google.com/rss/search?q=site:africanews.com+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
+  { media: 'Agence Ecofin', zone: 'afrique', url: 'https://news.google.com/rss/search?q=site:agenceecofin.com+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
   { media: 'The Africa Report', zone: 'afrique', url: 'https://www.theafricareport.com/feed/' },
   // Cameroun
-  { media: 'Investir au Cameroun', zone: 'cameroun', url: 'https://www.investiraucameroun.com/?format=feed&type=rss' },
-  { media: 'Business in Cameroon', zone: 'cameroun', url: 'https://www.businessincameroon.com/?format=feed&type=rss' },
+  { media: 'Investir au Cameroun', zone: 'cameroun', url: 'https://news.google.com/rss/search?q=site:investiraucameroun.com+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
   { media: 'Actu Cameroun', zone: 'cameroun', url: 'https://actucameroun.com/feed/' },
   { media: 'Journal du Cameroun', zone: 'cameroun', url: 'https://www.journalducameroun.com/feed/' },
   { media: 'Mimi Mefo Info', zone: 'cameroun', url: 'https://mimimefoinfos.com/feed/' },
-  { media: 'CRTV', zone: 'cameroun', url: 'https://www.crtv.cm/feed/' },
-  { media: 'Cameroon Tribune', zone: 'cameroun', url: 'https://www.cameroon-tribune.cm/rss.xml' },
+  { media: 'CRTV', zone: 'cameroun', url: 'https://news.google.com/rss/search?q=site:crtv.cm+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
+  { media: 'Cameroon Tribune', zone: 'cameroun', url: 'https://news.google.com/rss/search?q=site:cameroon-tribune.cm+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
   { media: 'Data Cameroon', zone: 'cameroun', url: 'https://datacameroon.com/feed/' },
 ];
 
@@ -74,9 +73,10 @@ export const parseFeed = (xml: string, feed: Feed): VeilleItem[] => {
     if (!/^https?:/.test(link)) link = (b.match(/<link[^>]*href="([^"]+)"/i) || [])[1] || '';
     const rawDate = clean(tag(b, 'pubDate') || tag(b, 'published') || tag(b, 'updated') || tag(b, 'dc:date'));
     const d = new Date(rawDate);
-    const desc = clean(tag(b, 'description') || tag(b, 'summary')).slice(0, 300);
+    const desc = feed.url.includes('news.google.com') ? '' : clean(tag(b, 'description') || tag(b, 'summary')).slice(0, 300);
     if (!title || !/^https:\/\//.test(link)) continue;
-    out.push({ media: feed.media, zone: feed.zone, title: title.slice(0, 200), link: link.slice(0, 400), date: Number.isNaN(d.getTime()) ? '' : d.toISOString(), desc });
+    const t = feed.url.includes('news.google.com') ? title.replace(/\s+-\s+[^-]{2,60}$/, '') : title;
+    out.push({ media: feed.media, zone: feed.zone, title: t.slice(0, 200), link: link.slice(0, 400), date: Number.isNaN(d.getTime()) ? '' : d.toISOString(), desc });
   }
   return out;
 };
