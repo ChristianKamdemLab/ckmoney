@@ -55,7 +55,18 @@ export default async function handler(req: any, res: any) {
   // GET ?veille=1 : titres des médias reconnus des 36 dernières heures, pour les agents (voir _lib/veille.ts)
   if (req.method === 'GET' && req.query?.veille !== undefined) {
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=600');
-    return res.status(200).json(await veille());
+    // ?zone=monde|afrique|cameroun, ?h=24 (heures), ?format=txt : une ligne par article, plus court à lire
+    const v = await veille();
+    const zone = String(req.query.zone || '');
+    const hours = Math.min(36, Math.max(1, Number(req.query.h) || 36));
+    const since = Date.now() - hours * 3600_000;
+    const items = v.items.filter((i: any) => (!zone || i.zone === zone) && (!i.date || Date.parse(i.date) >= since));
+    if (String(req.query.format || '') === 'txt') {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      const head = `Veille CKMoney · ${v.updatedAt} · ${items.length} articles\nFlux : ${v.feeds.map((f: any) => `${f.media} ${f.status === 'ok' ? f.count : f.status}`).join(' ; ')}\n\n`;
+      return res.status(200).send(head + items.map((i: any) => `${i.date.slice(5, 16).replace('T', ' ')} | ${i.media} | ${i.title}${i.desc ? ` — ${i.desc.slice(0, 160)}` : ''} | ${i.link}`).join('\n'));
+    }
+    return res.status(200).json({ ...v, items });
   }
   if (req.method !== 'POST') return res.status(405).end();
   let caller;
