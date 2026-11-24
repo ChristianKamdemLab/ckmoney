@@ -74,7 +74,7 @@ const EventBanner: React.FC<{ src: string; title: string }> = ({ src, title }) =
   if (!ok) return null;
   return (
     <div className="px-5 pt-1 pb-2">
-      <img src={src} alt={`Visuel de ${title}`} referrerPolicy="no-referrer" onError={() => setOk(false)} className="w-full aspect-[16/9] rounded-[18px] object-cover" style={{ background: C.soft }} />
+      <img src={src} alt={`Visuel de ${title}`} referrerPolicy="no-referrer" onError={() => setOk(false)} className="w-full aspect-[16/9] rounded-[18px] object-contain" style={{ background: C.ink }} />
     </div>
   );
 };
