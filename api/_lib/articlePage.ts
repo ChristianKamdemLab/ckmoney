@@ -96,7 +96,7 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><b>CK<i>·</i>MONEY</b><a href="/">Ouvrir l'appli</a></div>
+  <div class="brand"><b>CK<i>·</i>MONEY</b><a href="${ok ? e(`/?article=${encodeURIComponent(id)}`) : '/'}">Ouvrir l'appli</a></div>
   <div class="kicker">${press ? `Revue de presse · ${e(String(d.source || ''))}` : 'CKLabs'}</div>
   <h1>${e(title)}</h1>
   ${!ok ? `<div class="by">${e(desc)}</div>`
