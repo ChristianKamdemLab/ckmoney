@@ -120,16 +120,36 @@ const voiceId = async (f: Fetch) => {
   return v.voice_id;
 };
 
+/** La seconde voix du « Décryptage du jour » : ELEVENLABS_GUEST_VOICE_ID, sinon une voix féminine qui
+ *  parle français dans le compte (sinon la première voix féminine des voix fournies par ElevenLabs). */
+const guestVoiceId = async (f: Fetch) => {
+  if (process.env.ELEVENLABS_GUEST_VOICE_ID) return process.env.ELEVENLABS_GUEST_VOICE_ID;
+  const key = `${process.env.ELEVENLABS_API_KEY}|guest`;
+  if (cachedVoice.has(key)) return cachedVoice.get(key)!;
+  const r = await f(`${API}/voices`, { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY! } });
+  if (!r.ok) throw new Error(`voices_${r.status}`);
+  const voices: any[] = (await r.json())?.voices || [];
+  const female = (v: any) => /female|femme/i.test(String(v?.labels?.gender || ''));
+  const french = (v: any) => /fr/i.test(String(v?.labels?.language || '')) || /french|fran/i.test(String(v?.labels?.accent || ''))
+    || (v?.verified_languages || []).some((l: any) => /^fr/i.test(String(l?.language || '')));
+  const v = voices.find(x => female(x) && french(x) && !/christian/i.test(x.name))
+    || voices.find(x => female(x) && x.category === 'premade')
+    || voices.find(x => female(x) && !/christian/i.test(x.name));
+  if (!v) throw new Error('guest_voice_not_found');
+  cachedVoice.set(key, v.voice_id);
+  return v.voice_id;
+};
+
 const TTS_TIMEOUT_MS = 25_000;
-export const synthesize = async (text: string, f: Fetch = fetch, model = MODEL(), format = 'mp3_44100_64'): Promise<Buffer> => {
-  const id = await voiceId(f);
+export const synthesize = async (text: string, f: Fetch = fetch, model = MODEL(), format = 'mp3_44100_64', who: 'host' | 'guest' = 'host'): Promise<Buffer> => {
+  const id = who === 'guest' ? await guestVoiceId(f) : await voiceId(f);
   const r = await f(`${API}/text-to-speech/${encodeURIComponent(id)}?output_format=${format}`, {
     method: 'POST', signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
     headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
     body: JSON.stringify({ text: forModel(text, model), model_id: model, language_code: 'fr', voice_settings: VOICE_SETTINGS }),
   });
   // Modèle refusé (paramètre non pris en charge, modèle indisponible sur le compte) : Multilingual v2
-  if ((r.status === 400 || r.status === 422) && model !== FALLBACK_MODEL) return synthesize(text, f, FALLBACK_MODEL, format);
+  if ((r.status === 400 || r.status === 422) && model !== FALLBACK_MODEL) return synthesize(text, f, FALLBACK_MODEL, format, who);
   if (!r.ok) {
     const detail = await r.text().catch(() => '');
     // Crédits épuisés (ou clé refusée) : on met la voix en pause plutôt que de réessayer à chaque passage

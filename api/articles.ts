@@ -3,6 +3,7 @@ import { notifyNewArticle } from './_lib/articleSync.js';
 import { excerptOf, readMinutes } from '../utils/articleText.js';
 import { articlePage, isShareable } from './_lib/articlePage.js';
 import { veille } from './_lib/veille.js';
+import { listDecryptage, loadDecryptageAudio } from './_lib/decryptage.js';
 
 // POST /api/articles — l'auteur (compte prêteur autorisé, e-mail vérifié) écrit ses articles.
 //   { action: 'save', article: { id?, title, body, status, publishedAt? } }
@@ -11,6 +12,8 @@ import { veille } from './_lib/veille.js';
 //       fiche « revue de presse » d'un autre média : une accroche et « L'essentiel » écrits avec nos mots,
 //       la source en bas ; jamais le texte de l'article
 //   { action: 'delete', id }
+//   { action: 'decryptage' }  tout compte connecté : les décryptages prêts des 7 derniers jours (brouillon : Christian)
+//   { action: 'decryptage.audio', date }  l'audio (audio/mpeg)
 //   { action: 'daily' }       tout compte connecté (pas invité) : « L'info du jour » des 7 derniers jours
 // La lecture se fait directement dans Firestore : réservée aux comptes connectés (voir firestore.rules).
 // Les textes ne sont jamais dans le dépôt GitHub, qui est public.
@@ -74,6 +77,19 @@ export default async function handler(req: any, res: any) {
   catch { return res.status(401).json({ error: 'unauthorized' }); }
   // Écouter une fiche : ouvert à tous les comptes CKMoney (pas aux invités anonymes des jeux)
   const raw = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body || {});
+  if (raw.action === 'decryptage' || raw.action === 'decryptage.audio') {
+    if (caller.firebase?.sign_in_provider === 'anonymous') return res.status(403).json({ error: 'forbidden' });
+    const admin = isAdmin(caller.email, caller.email_verified === true);
+    const days = await listDecryptage(admin);
+    if (raw.action === 'decryptage') { res.setHeader('Cache-Control', 'private, max-age=120'); return res.status(200).json({ days }); }
+    const date = String(raw.date || '');
+    if (!days.some((d: any) => d.date === date)) return res.status(404).json({ error: 'not_found' });
+    const mp3 = await loadDecryptageAudio(date);
+    if (!mp3) return res.status(404).json({ error: 'no_audio' });
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    return res.status(200).send(mp3);
+  }
   if (raw.action === 'daily') {
     if (caller.firebase?.sign_in_provider === 'anonymous') return res.status(403).json({ error: 'forbidden' });
     const snap = await adminDb.collection('daily').orderBy('date', 'desc').limit(7).get();

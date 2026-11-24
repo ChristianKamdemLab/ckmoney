@@ -13,6 +13,7 @@ import { AppEvent, isLive, sortUpcoming, summary, untilText, KIND_LABEL } from '
 import { listRadio } from '../../services/radioService';
 import { RadioItem, KIND_LABEL as RADIO_KIND } from '../../utils/radio';
 import { dayNumber, puzzleFor, isOver, isWon, stats, MAX_TRIES } from '../../games/mot';
+import { listDecryptage, DecryptageDay } from '../../services/decryptageService';
 
 // « À découvrir » : le prochain événement, Radio CK, les articles et les jeux, sur l'accueil du prêteur
 // comme sur l'espace des proches.
@@ -88,13 +89,28 @@ const MotTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
 };
 
 /** Case « L'info du jour » : les deux titres, comme une une de journal ; chacun ouvre son info. */
-const InfoTile: React.FC<{ onClick: (scope?: InfoScope) => void }> = ({ onClick }) => {
+const InfoTile: React.FC<{ onClick: (scope?: InfoScope | 'decryptage') => void }> = ({ onClick }) => {
   const [day, setDay] = useState<InfoDay | null | undefined>(undefined);
   useEffect(() => { let on = true; listInfo().then(d => on && setDay(d[0] || null)).catch(() => on && setDay(null)); return () => { on = false; }; }, []);
-  if (!day) return null;
+  const [dec, setDec] = useState<DecryptageDay | null>(null);
+  useEffect(() => { let on = true; listDecryptage().then(d => on && setDec(d[0] || null)).catch(() => undefined); return () => { on = false; }; }, []);
+  if (!day && !dec) return null;
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Douala' }).format(new Date());
+  const decToday = dec && dec.date === new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
   return (
     <div className="col-span-2 rounded-[10px] overflow-hidden" style={{ background: C.ink, color: '#fff' }}>
+      {dec && (
+        <button onClick={() => onClick('decryptage')} className="w-full text-left px-4 py-3.5 flex items-center gap-3" style={{ background: 'rgba(255,194,61,.1)', borderBottom: day ? '1px solid rgba(255,255,255,.12)' : undefined }}>
+          <span className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: C.mango, color: C.ink }}>
+            <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 3.2v13.6L16.5 10z" fill="currentColor" /></svg>
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[11px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>{decToday ? 'Le décryptage du jour' : "Le décryptage d'hier"} · {dec.minutes} min</span>
+            <span className="block text-[15.5px] font-extrabold leading-snug mt-0.5 line-clamp-2">{dec.title}</span>
+          </span>
+        </button>
+      )}
+      {day && <>
       <button onClick={() => onClick()} className="w-full text-left px-4 pt-3.5 flex items-center justify-between">
         <span className="text-[11.5px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>{day.date === today ? "L'info du jour" : "L'info d'hier"}</span>
         <span style={{ color: 'rgba(255,255,255,.55)' }}><Icon name="chevron" size={16} /></span>
@@ -105,6 +121,7 @@ const InfoTile: React.FC<{ onClick: (scope?: InfoScope) => void }> = ({ onClick 
           <div className="text-[16px] font-extrabold leading-snug mt-0.5 line-clamp-2">{it.title}</div>
         </button>
       ))}
+      </>}
     </div>
   );
 };
@@ -158,7 +175,7 @@ const useNewArticles = () => {
   return n;
 };
 
-type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: InfoScope) => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void };
+type Props = { onArticles: () => void; onJambo: () => void; onBac: () => void; onWiseman: () => void; onEvents: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: InfoScope | 'decryptage') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void };
 
 /** « Aujourd'hui » : ce qui change chaque jour (le mot, la sortie du moment, la dernière reco). */
 export const Today: React.FC<Pick<Props, 'onEvents' | 'onRadio' | 'onMot' | 'onInfo' | 'onVendredi'>> = ({ onEvents, onRadio, onMot, onInfo, onVendredi }) => (
