@@ -6,9 +6,9 @@ import { joinMp3, describe } from './mp3.js';
 // 2 : MP3 recollé proprement (sans les trames d'information des morceaux) avec la vraie durée en tête
 // 3 : le jingle (stéréo) n'est plus collé aux voix (mono) : le lecteur le joue juste avant
 // 4 : voix en 96 kb/s au lieu de 64 (24/11, Christian : « pas assez claire »)
-export const AUDIO_VERSION = 4;
+export const AUDIO_VERSION = 5; // 5 : réglages de voix « podcast » (PODCAST_SETTINGS)
 import { decryptageDate, parseDecryptage, minutesOf, Decryptage } from '../../utils/decryptage.js';
-import { synthesize, MODEL, voiceEnabled, VOICE_SETTINGS, generateJingle, JINGLE_VERSION, JINGLE_PROMPT } from './voice.js';
+import { synthesize, MODEL, voiceEnabled, PODCAST_SETTINGS, generateJingle, JINGLE_VERSION, JINGLE_PROMPT } from './voice.js';
 
 // « Le décryptage du jour » : lu dans le document « Décryptage · AAAA-MM-JJ » du dossier Drive (écrit par
 // l'agent du matin), mis en voix réplique par réplique (Christian et la seconde voix, ElevenLabs) au fil
@@ -25,7 +25,7 @@ const FORMAT = 'mp3_44100_96';
 export const isDecryptageDoc = (f: DriveFile) => !!decryptageDate(f.name) && f.mimeType !== 'application/pdf';
 
 const lineHash = (who: string, text: string) =>
-  createHash('sha1').update(`${FORMAT}|${MODEL()}|${JSON.stringify(VOICE_SETTINGS)}|${who}|${text}`).digest('hex').slice(0, 16);
+  createHash('sha1').update(`${FORMAT}|${MODEL()}|${JSON.stringify(PODCAST_SETTINGS)}|${who}|${text}`).digest('hex').slice(0, 16);
 
 /** Lit les documents des 3 derniers jours ; un document modifié remet l'audio à refaire. */
 export const syncDecryptage = async (files: DriveFile[], download: (f: DriveFile) => Promise<{ data?: Uint8Array; text?: string }>) => {
@@ -97,7 +97,7 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
           const i = next++;
           if (have.has(keys[i])) continue;
           try {
-            const mp3 = await synthesize(d.lines[i].text, fetch, MODEL(), FORMAT, d.lines[i].who);
+            const mp3 = await synthesize(d.lines[i].text, fetch, MODEL(), FORMAT, d.lines[i].who, PODCAST_SETTINGS);
             have.set(keys[i], mp3);
             await parts.doc(keys[i]).set({ data: mp3 });
           } catch (e: any) { error = String(e?.message || e).slice(0, 60); }
