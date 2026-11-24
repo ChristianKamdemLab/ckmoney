@@ -2,6 +2,7 @@ import { adminAuth, adminDb, isAdmin } from './_lib/admin.js';
 import { notifyNewArticle } from './_lib/articleSync.js';
 import { excerptOf, readMinutes } from '../utils/articleText.js';
 import { articlePage, isShareable } from './_lib/articlePage.js';
+import { veille } from './_lib/veille.js';
 
 // POST /api/articles — l'auteur (compte prêteur autorisé, e-mail vérifié) écrit ses articles.
 //   { action: 'save', article: { id?, title, body, status, publishedAt? } }
@@ -50,6 +51,11 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
     return res.status(ok ? 200 : 404).send(articlePage(originOf(req), id, ok ? d : null));
+  }
+  // GET ?veille=1 : titres des médias reconnus des 36 dernières heures, pour les agents (voir _lib/veille.ts)
+  if (req.method === 'GET' && req.query?.veille !== undefined) {
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=600');
+    return res.status(200).json(await veille());
   }
   if (req.method !== 'POST') return res.status(405).end();
   let caller;
