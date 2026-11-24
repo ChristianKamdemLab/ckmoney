@@ -1,7 +1,5 @@
 import { syncArticles } from './_lib/articleSync.js';
 import { listFolder, downloadFile } from './_lib/drive.js';
-import { generateAudios, parseAliases } from './_lib/voice.js';
-import { isSettingsDoc } from './_lib/articleSync.js';
 import { syncInfo } from './_lib/infoSync.js';
 import { syncAllowed } from './_lib/syncSecret.js';
 import { adminDb } from './_lib/admin.js';
@@ -27,16 +25,8 @@ export default async function handler(req: any, res: any) {
     const info = dry ? {} : await syncInfo(files, downloadFile).catch(e => ({ erreur: String(e?.message || e).slice(0, 80) }));
     const out: any = await syncArticles({ list: async () => files, download: downloadFile }, new Date(), { dry });
     out.info = info;
-    // Puis la voix : les fiches publiées sans audio, tant qu'il reste du temps (la fonction a 60 s)
-    if (!dry) {
-      // Prononciations réglées par Christian dans le document « CKMoney · Prononciations » du dossier
-      let aliases: [string, string][] = [];
-      try {
-        const doc = (await listFolder()).find(isSettingsDoc);
-        if (doc) { const c = await downloadFile(doc); aliases = parseAliases(c.text ?? new TextDecoder().decode(c.data!)); }
-      } catch { /* sans prononciations */ }
-      out.audio = await generateAudios({ budgetMs: Math.max(0, 30_000 - (Date.now() - t0)), aliases });
-    }
+    // La lecture audio des articles a été retirée le 24/11 (choix de Christian : peu écoutée) ;
+    // la voix sert désormais au « Décryptage du jour ».
     await lockRef.set({ until: Date.now() + 45_000 }, { merge: true }).catch(() => undefined);
     // Jamais de noms de fichiers ni de titres dans la réponse : seulement des comptes
     return res.status(200).json(summarize(out));
