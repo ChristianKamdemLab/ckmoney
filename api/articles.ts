@@ -64,7 +64,7 @@ export default async function handler(req: any, res: any) {
     if (String(req.query.format || '') === 'txt') {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       const head = `Veille CKMoney · ${v.updatedAt} · ${items.length} articles\nFlux : ${v.feeds.map((f: any) => `${f.media} ${f.status === 'ok' ? f.count : f.status}`).join(' ; ')}\n\n`;
-      return res.status(200).send(head + items.map((i: any) => `${i.date.slice(5, 16).replace('T', ' ')} | ${i.media} | ${i.title}${i.desc ? ` — ${i.desc.slice(0, 160)}` : ''} | ${i.link}`).join('\n'));
+      return res.status(200).send(head + items.map((i: any) => `${i.date.slice(5, 16).replace('T', ' ')} | ${i.media} | ${i.title}${i.desc ? ` · ${i.desc.slice(0, 160)}` : ''} | ${i.link}`).join('\n'));
     }
     return res.status(200).json({ ...v, items });
   }
