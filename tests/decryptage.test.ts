@@ -35,7 +35,22 @@ describe('décryptage du jour', () => {
   it('un brouillon est reconnu', () => {
     expect(parseDecryptage(doc.replace('Statut : publié', 'Statut : brouillon'), '2026-11-24')!.draft).toBe(true);
   });
-  it('refuse un texte sans deux voix', () => {
-    expect(parseDecryptage(doc.replace(/AWA/g, 'CHRISTIAN'), '2026-11-24')).toBeNull();
+  it('accepte un décryptage en solo, avec des virgules sonores entre les sujets', () => {
+    const solo = [
+      'Titre : Solo', 'Statut : publié',
+      '[VIRGULE]',
+      'CHRISTIAN : Bienvenue sur CKMoney.',
+      '[VIRGULE]',
+      'CHRISTIAN : Premier sujet.',
+      'Virgule',
+      'VIRGULE',
+      'CHRISTIAN : Deuxième sujet.',
+      '[virgule sonore]',
+    ].join('\n');
+    const d = parseDecryptage(solo, '2026-11-24')!;
+    expect(d.lines.map(l => l.who)).toEqual(['host', 'sting', 'host', 'sting', 'host']);
+  });
+  it('refuse un texte trop court', () => {
+    expect(parseDecryptage('Titre : X\nCHRISTIAN : Bonjour.\n[VIRGULE]\nCHRISTIAN : Au revoir.', '2026-11-24')).toBeNull();
   });
 });
