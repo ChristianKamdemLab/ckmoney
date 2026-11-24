@@ -57,8 +57,25 @@ export const EventRow: React.FC<{ event: AppEvent; onOpen: () => void; past?: bo
           {note && <span className="text-[11.5px] font-semibold self-center" style={{ color: C.mute }}>{note}</span>}
         </div>
       </div>
-      <Icon name="chevron" size={18} />
+      {e.image ? <EventThumb src={e.image} /> : <Icon name="chevron" size={18} />}
     </button>
+  );
+};
+
+/** Le visuel officiel d'un événement : masqué s'il ne se charge pas (site de l'organisateur indisponible). */
+const EventThumb: React.FC<{ src: string }> = ({ src }) => {
+  const [ok, setOk] = React.useState(true);
+  if (!ok) return <Icon name="chevron" size={18} />;
+  return <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setOk(false)} className="w-14 h-14 rounded-[10px] object-cover shrink-0" style={{ background: C.soft }} />;
+};
+
+const EventBanner: React.FC<{ src: string; title: string }> = ({ src, title }) => {
+  const [ok, setOk] = React.useState(true);
+  if (!ok) return null;
+  return (
+    <div className="px-5 pt-1 pb-2">
+      <img src={src} alt={`Visuel de ${title}`} referrerPolicy="no-referrer" onError={() => setOk(false)} className="w-full aspect-[16/9] rounded-[18px] object-cover" style={{ background: C.soft }} />
+    </div>
   );
 };
 
@@ -120,6 +137,7 @@ export const EventDetail: React.FC<{ event: AppEvent; rsvp?: RsvpState; extra?: 
 
   return (
     <>
+      {e.image && <EventBanner src={e.image} title={e.title} />}
       <div className="px-5 pt-1">
         <div className="rounded-[22px] p-5 pt-4" style={{ background: C.ink, color: '#fff' }}>
           <div className="flex items-center gap-2 flex-wrap">

@@ -17,7 +17,7 @@ export const publicHost = (u: string) => {
   } catch { return false; }
 };
 
-const get = async (url: string, accept: string) => {
+export const get = async (url: string, accept: string) => {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 6000);
   try {
@@ -51,4 +51,14 @@ export const fetchMeta = async (raw: string) => {
   }
   title = title.replace(/\s+[-|·]\s+(YouTube|Apple Podcasts|Spotify|Deezer)$/i, '').trim();
   return { ...media, title: title.slice(0, 200), show: show.slice(0, 120), thumbnail: /^https:\/\//i.test(thumbnail) ? thumbnail : media.thumbnail || '' };
+};
+
+/** Le visuel d'une page (og:image), en https : pour les sorties (affiche ou visuel de l'organisateur). */
+export const pageImage = async (page: string): Promise<string> => {
+  if (!/^https:\/\//i.test(page) || !publicHost(page)) return '';
+  const html = await get(page, 'text/html');
+  if (!html) return '';
+  let img = ogTags(html).image;
+  try { img = img ? new URL(img, page).toString() : ''; } catch { img = ''; }
+  return /^https:\/\//i.test(img) && img.length <= 600 ? img : '';
 };

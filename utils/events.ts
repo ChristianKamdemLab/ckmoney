@@ -6,6 +6,7 @@ export type Audience = 'all' | 'some' | 'link';
 
 export interface AppEvent {
   id: string;
+  image?: string;        // visuel officiel de l'organisateur (https), posé par le serveur
   kind: EventKind;       // événement (salon…), spot (« je suis au bar X »), chill (organisé par l'auteur)
   title: string;
   startsAt: string;      // ISO
