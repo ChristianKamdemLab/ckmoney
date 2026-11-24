@@ -56,6 +56,7 @@ export const clean = (s: string) => String(s || '')
   .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
   .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
   .replace(/&([a-z]+);/gi, (m, n) => ENT[n.toLowerCase()] ?? m)
+  .replace(/<[^>]+>/g, ' ') // balises encodées (&lt;p&gt;) dans les chapôs
   .replace(/\s+/g, ' ').trim();
 
 const tag = (block: string, name: string) => {

@@ -20,5 +20,5 @@ describe('veille des médias', () => {
   it('ignore les liens non https', () => {
     expect(parseFeed('<rss><item><title>T</title><link>http://x.test</link></item></rss>', feed)).toEqual([]);
   });
-  it('nettoie les entités', () => expect(clean('l&rsquo;&eacute;t&#233; &laquo;a&raquo;')).toBe('l’été été «a»'));
+  it('nettoie les entités', () => expect(clean('l&rsquo;&eacute;t&#233; &laquo;a&raquo;')).toBe('l’été «a»'));
 });
