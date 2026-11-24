@@ -153,6 +153,8 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
   for (const f of files.filter(x => !isEssentielDoc(x) && !isSettingsDoc(x) && !infoDate(x.name) && !isDecryptageName(x.name))) {
     if (handled >= MAX_PER_RUN || Date.now() - t0 > (opts.budgetMs ?? TIME_BUDGET_MS)) break;
     const state = (await imports.doc(f.id).get()).data();
+    // Fiche de presse effacée après 7 jours (api/_lib/retention.ts) : jamais réimportée
+    if (state?.status === 'expired') continue;
     const ess = essentiels.get(keyOf(f.name));
     // Déjà lu, dans cette version : rien à faire. Resté « à vérifier » ou illisible avec un tri plus
     // ancien : on le relit une fois, si le brouillon n'a pas été touché depuis. Fiche de presse dont

@@ -212,7 +212,6 @@ export const purgeDecryptage = async (now = Date.now()) => {
       for (const d of s.docs) await d.ref.delete();
     }
     await ref.delete();
-    await col().doc(ref.id).set({ audioReady: false, purgedAt: new Date(now).toISOString() }, { merge: true }).catch(() => undefined);
     n++;
   }
   return n;
