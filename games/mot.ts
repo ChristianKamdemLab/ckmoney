@@ -26,8 +26,16 @@ const shuffled = <T,>(list: T[], seed: number): T[] => {
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 };
-const FR_ORDER = shuffled(FR_WORDS, 237);
-const LOCAL_ORDER = shuffled(LOCAL_WORDS, 1960);
+// Les mots ajoutés après coup (par paquets de FR_CHUNK et LOCAL_CHUNK, à la fin des listes) sont mélangés
+// paquet par paquet et placés après les autres : l'ordre des mots déjà prévus ne bouge jamais.
+export const FR_BASE = 260, FR_CHUNK = 20, LOCAL_BASE = 44, LOCAL_CHUNK = 10;
+const ordered = <T,>(list: T[], base: number, chunk: number, seed: number): T[] => {
+  const out = shuffled(list.slice(0, base), seed);
+  for (let k = 0, i = base; i < list.length; k++, i += chunk) out.push(...shuffled(list.slice(i, i + chunk), seed + k + 1));
+  return out;
+};
+const FR_ORDER = ordered(FR_WORDS, FR_BASE, FR_CHUNK, 237);
+const LOCAL_ORDER = ordered(LOCAL_WORDS, LOCAL_BASE, LOCAL_CHUNK, 1960);
 
 /** Un jour sur trois (n° 3, 6, 9…), un mot du 237. Le premier jour, un mot du 237 aussi. */
 export const isLocalDay = (n: number) => n === 1 || n % 3 === 0;
