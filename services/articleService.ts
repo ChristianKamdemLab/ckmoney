@@ -39,11 +39,3 @@ export type PressInput = { id?: string; title: string; source: string; sourceUrl
 export const savePress = async (p: PressInput): Promise<string> => ok(await callApi('/api/articles', { action: 'press', article: p })).id;
 export const deleteArticle = async (id: string) => { ok(await callApi('/api/articles', { action: 'delete', id })); };
 
-/** « L'essentiel » lu : un lien local vers l'audio (à libérer avec URL.revokeObjectURL). */
-export const fetchAudio = async (id: string): Promise<string> => {
-  const idToken = await auth.currentUser?.getIdToken();
-  if (!idToken) throw new Error('auth');
-  const r = await fetch('/api/articles', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` }, body: JSON.stringify({ action: 'audio', id }) });
-  if (!r.ok) throw new Error(`http_${r.status}`);
-  return URL.createObjectURL(await r.blob());
-};
