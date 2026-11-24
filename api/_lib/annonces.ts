@@ -32,7 +32,7 @@ export interface Announcement {
   emailTo?: 'all' | 'no-push' | 'author' | 'others'; // 'author' : essai à Christian seul ; 'others' : tous sauf lui
   events?: SeedEvent[]; // sorties à publier (voir salons.ts)
   eventsRemove?: string[];                       // sorties à retirer (identifiants Firestore), avec l'accord de Christian
-  eventImages?: { id: string; page?: string }[]; // visuel officiel (og:image de la page, sinon de l'adresse de la sortie)
+  eventImages?: { id: string; page?: string; clear?: boolean }[]; // visuel officiel (og:image de la page, sinon de l'adresse de la sortie) ; clear : retire le visuel
   radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
   places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
@@ -103,6 +103,15 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 };
 
 export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-11-24-sorties-visuels',
+    sendAt: '2026-11-24T06:20:00.000Z', // visuels vérifiés à l'œil : logo seul (Wine Paris), icône (Japan Expo), affiche de l'édition 2026 (Paris Games Week) retirés
+    eventImages: [
+      { id: 'salon-wine-paris-2027', clear: true },
+      { id: 'salon-japan-expo-2027', clear: true },
+      { id: 'salon-paris-games-week-2027', clear: true },
+    ],
+  },
   {
     id: '2026-11-24-sorties-tri',
     sendAt: '2026-11-24T06:20:00.000Z', // choix de Christian (24/11, 7 h) : ne garder que les sorties où il va ; visuels des organisateurs
@@ -413,10 +422,11 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
         }
         if (a.eventImages) {
           let images = 0;
-          for (const { id, page } of a.eventImages) {
+          for (const { id, page, clear } of a.eventImages) {
             const ref = adminDb.collection('events').doc(id);
             const d = (await ref.get()).data();
             if (!d) continue;
+            if (clear) { await ref.set({ image: '' }, { merge: true }); continue; }
             let img = page ? await pageImage(page) : '';
             if (!img && d.url) img = await pageImage(String(d.url));
             if (!img && d.url) { try { img = await pageImage(new URL(String(d.url)).origin + '/'); } catch { /* adresse invalide */ } }
