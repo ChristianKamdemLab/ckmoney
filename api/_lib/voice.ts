@@ -27,6 +27,10 @@ const FALLBACK_MODEL = 'eleven_multilingual_v2';
 const forModel = (text: string, model: string) =>
   model === 'eleven_multilingual_v2' ? text : text.replace(/\s*<break time="([\d.]+)s" \/>\s*/g, (_, t) => (+t >= 1 ? '…\n\n' : '… '));
 export const VOICE_SETTINGS = { stability: 0.6, similarity_boost: 0.8, style: 0.1, use_speaker_boost: true, speed: 0.88 };
+/** Réglages du « Décryptage du jour » (24/11, Christian : « pas assez claire ») : voix plus proche du
+ *  timbre d'origine et plus nette (similarity_boost), un peu plus vivante (stability, style), débit de
+ *  podcast (speed). */
+export const PODCAST_SETTINGS = { stability: 0.45, similarity_boost: 0.92, style: 0.2, use_speaker_boost: true, speed: 0.97 };
 const pause = (s: number) => ` <break time="${s.toFixed(1)}s" /> `;
 
 // Sigles lus comme des mots (les autres sont épelés : R. D. P. C.)
@@ -141,15 +145,15 @@ const guestVoiceId = async (f: Fetch) => {
 };
 
 const TTS_TIMEOUT_MS = 25_000;
-export const synthesize = async (text: string, f: Fetch = fetch, model = MODEL(), format = 'mp3_44100_64', who: 'host' | 'guest' = 'host'): Promise<Buffer> => {
+export const synthesize = async (text: string, f: Fetch = fetch, model = MODEL(), format = 'mp3_44100_64', who: 'host' | 'guest' = 'host', settings: typeof VOICE_SETTINGS = VOICE_SETTINGS): Promise<Buffer> => {
   const id = who === 'guest' ? await guestVoiceId(f) : await voiceId(f);
   const r = await f(`${API}/text-to-speech/${encodeURIComponent(id)}?output_format=${format}`, {
     method: 'POST', signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
     headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-    body: JSON.stringify({ text: forModel(text, model), model_id: model, language_code: 'fr', voice_settings: VOICE_SETTINGS }),
+    body: JSON.stringify({ text: forModel(text, model), model_id: model, language_code: 'fr', voice_settings: settings }),
   });
   // Modèle refusé (paramètre non pris en charge, modèle indisponible sur le compte) : Multilingual v2
-  if ((r.status === 400 || r.status === 422) && model !== FALLBACK_MODEL) return synthesize(text, f, FALLBACK_MODEL, format, who);
+  if ((r.status === 400 || r.status === 422) && model !== FALLBACK_MODEL) return synthesize(text, f, FALLBACK_MODEL, format, who, settings);
   if (!r.ok) {
     const detail = await r.text().catch(() => '');
     // Crédits épuisés (ou clé refusée) : on met la voix en pause plutôt que de réessayer à chaque passage
