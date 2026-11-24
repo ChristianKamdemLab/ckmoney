@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { C, Icon, dateFr } from './ui';
+import { C, dateFr } from './ui';
 import { fetchDecryptageAudio, DecryptageDay } from '../../services/decryptageService';
 import { frTypo } from '../../utils/articleText';
 
-// « Le décryptage du jour » en tête de la page « L'info du jour » : écouter (l'audio n'est chargé qu'au
-// toucher), les sujets du jour avec leurs liens, et le dialogue à lire.
+// « Le décryptage du jour » en tête de la page « L'info du jour » : à écouter seulement (choix de
+// Christian, 24/11 : ni programme ni dialogue écrit). L'audio n'est chargé qu'au toucher.
 
 const todayIso = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -14,7 +14,6 @@ const DecryptagePlayer: React.FC<{ d: DecryptageDay; autoFocus?: boolean }> = ({
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState({ t: 0, len: d.minutes * 60 });
-  const [showText, setShowText] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
   useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
@@ -64,43 +63,7 @@ const DecryptagePlayer: React.FC<{ d: DecryptageDay; autoFocus?: boolean }> = ({
           onLoadedMetadata={e => { const len = (e.target as HTMLAudioElement).duration; if (Number.isFinite(len)) setPos(p => ({ ...p, len })); }}
           onTimeUpdate={e => setPos(p => ({ ...p, t: (e.target as HTMLAudioElement).currentTime }))} />
       )}
-      {d.subjects.length > 0 && (
-        <div className="px-5 pt-5">
-          <div className="text-[12px] font-bold" style={{ color: C.nightMute }}>Au programme</div>
-          <div className="mt-1.5 flex flex-col">
-            {d.subjects.map((s, i) => {
-              const inner = <><span className="display text-[13px] w-5 shrink-0" style={{ color: C.mango }}>{i + 1}</span><span className="flex-1 text-[15px] font-semibold leading-snug">{frTypo(s.title)}</span>{s.link && <span style={{ color: C.nightMute }}><Icon name="chevron" size={16} /></span>}</>;
-              const cls = 'flex items-start gap-2 py-2.5';
-              const style = { borderTop: i ? '1px solid rgba(255,255,255,.1)' : undefined };
-              return s.link
-                ? <a key={i} href={s.link} {...(s.link.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})} className={cls} style={style}>{inner}</a>
-                : <div key={i} className={cls} style={style}>{inner}</div>;
-            })}
-          </div>
-        </div>
-      )}
-      <div className="px-5 pt-2 pb-4">
-        <button onClick={() => setShowText(v => !v)} className="h-11 w-full rounded-xl text-[14px] font-bold" style={{ background: 'rgba(255,255,255,.08)', color: C.nightText }}>
-          {showText ? 'Masquer le dialogue' : 'Lire le dialogue'}
-        </button>
-        {showText && (
-          <div className="mt-3 flex flex-col gap-3">
-            {d.lines.map((l, i) => (
-              <p key={i} className="text-[15px] leading-[1.6]">
-                <span className="font-extrabold" style={{ color: l.who === 'host' ? C.mango : C.teal }}>{l.name}</span>
-                <span style={{ color: 'rgba(247,243,234,.9)' }}> : {frTypo(l.text)}</span>
-              </p>
-            ))}
-            {d.sources.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {d.sources.map(s => (
-                  <a key={s.link} href={s.link} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: 'rgba(255,255,255,.1)', color: C.nightText }}>{s.title}</a>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <div className="pb-5" />
     </div>
   );
 };
