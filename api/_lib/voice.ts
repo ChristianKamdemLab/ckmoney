@@ -30,7 +30,12 @@ export const VOICE_SETTINGS = { stability: 0.6, similarity_boost: 0.8, style: 0.
 /** Réglages du « Décryptage du jour » (24/11, Christian : « pas assez claire ») : voix plus proche du
  *  timbre d'origine et plus nette (similarity_boost), un peu plus vivante (stability, style), débit de
  *  podcast (speed). */
-export const PODCAST_SETTINGS = { stability: 0.45, similarity_boost: 0.92, style: 0.2, use_speaker_boost: true, speed: 0.97 };
+export const PODCAST_SETTINGS = { stability: 0.72, similarity_boost: 0.7, style: 0, use_speaker_boost: false, speed: 0.93 };
+// Réglages du 24/11 au soir (Christian : « plus suave, rassurante, moins de bruitage derrière la voix ») :
+// stabilité haute et style à 0 pour une voix posée ; similarité et amplification plus basses pour ne plus
+// reproduire le souffle et les bruits de l'enregistrement du clone ; débit un peu plus lent.
+/** La seconde voix du décryptage, choisie par Christian le 24/11 dans la bibliothèque ElevenLabs. */
+export const GUEST_VOICE_NAME = 'Victoria - Warm and calm';
 const pause = (s: number) => ` <break time="${s.toFixed(1)}s" /> `;
 
 // Sigles lus comme des mots (les autres sont épelés : R. D. P. C.)
@@ -128,7 +133,7 @@ const voiceId = async (f: Fetch) => {
  *  parle français dans le compte (sinon la première voix féminine des voix fournies par ElevenLabs). */
 const guestVoiceId = async (f: Fetch) => {
   if (process.env.ELEVENLABS_GUEST_VOICE_ID) return process.env.ELEVENLABS_GUEST_VOICE_ID;
-  const key = `${process.env.ELEVENLABS_API_KEY}|guest`;
+  const key = `${process.env.ELEVENLABS_API_KEY}|guest|${GUEST_VOICE_NAME}`;
   if (cachedVoice.has(key)) return cachedVoice.get(key)!;
   const r = await f(`${API}/voices`, { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY! } });
   if (!r.ok) throw new Error(`voices_${r.status}`);
@@ -136,7 +141,8 @@ const guestVoiceId = async (f: Fetch) => {
   const female = (v: any) => /female|femme/i.test(String(v?.labels?.gender || ''));
   const french = (v: any) => /fr/i.test(String(v?.labels?.language || '')) || /french|fran/i.test(String(v?.labels?.accent || ''))
     || (v?.verified_languages || []).some((l: any) => /^fr/i.test(String(l?.language || '')));
-  const v = voices.find(x => female(x) && french(x) && !/christian/i.test(x.name))
+  const v = voices.find(x => String(x.name || '').startsWith(GUEST_VOICE_NAME))
+    || voices.find(x => female(x) && french(x) && !/christian/i.test(x.name))
     || voices.find(x => female(x) && x.category === 'premade')
     || voices.find(x => female(x) && !/christian/i.test(x.name));
   if (!v) throw new Error('guest_voice_not_found');
