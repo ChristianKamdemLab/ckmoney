@@ -283,3 +283,18 @@ export const generateAudios = async (opts: { budgetMs: number; max?: number; f?:
   void finished;
   return done;
 };
+
+/** Le jingle d'ouverture du « Décryptage du jour » : quelques secondes de musique créées une fois par
+ *  ElevenLabs (effets sonores), sans voix. Changer JINGLE_PROMPT ou JINGLE_VERSION le refait. */
+export const JINGLE_VERSION = 1;
+export const JINGLE_PROMPT = 'Short upbeat news podcast intro jingle, warm Cameroonian makossa groove with a bright saxophone riff and bass, modern, elegant and confident, clean ending, no vocals';
+export const JINGLE_SECONDS = 6;
+export const generateJingle = async (f: Fetch = fetch): Promise<Buffer> => {
+  const r = await f(`${API}/sound-generation?output_format=mp3_44100_64`, {
+    method: 'POST', signal: AbortSignal.timeout(40_000),
+    headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+    body: JSON.stringify({ text: JINGLE_PROMPT, duration_seconds: JINGLE_SECONDS, prompt_influence: 0.6 }),
+  });
+  if (!r.ok) throw new Error(`jingle_${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
+};

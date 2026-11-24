@@ -43,6 +43,10 @@ export const FEEDS: Feed[] = [
   { media: 'Mimi Mefo Info', zone: 'cameroun', url: 'https://mimimefoinfos.com/feed/' },
   { media: 'CRTV', zone: 'cameroun', url: 'https://news.google.com/rss/search?q=site:crtv.cm+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
   { media: 'Cameroon Tribune', zone: 'cameroun', url: 'https://news.google.com/rss/search?q=site:cameroon-tribune.cm+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
+  { media: 'EcoMatin', zone: 'cameroun', url: 'https://news.google.com/rss/search?q=site:ecomatin.net+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
+  { media: "Le Quotidien de l'Économie", zone: 'cameroun', url: 'https://news.google.com/rss/search?q=%22Le+Quotidien+de+l%27Economie%22+Cameroun+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
+  { media: 'Business in Cameroon', zone: 'cameroun', url: 'https://news.google.com/rss/search?q=site:businessincameroon.com+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
+  { media: 'Jeune Afrique Cameroun', zone: 'cameroun', url: 'https://news.google.com/rss/search?q=site:jeuneafrique.com+Cameroun+when:2d&hl=fr&gl=FR&ceid=FR:fr' },
   { media: 'Data Cameroon', zone: 'cameroun', url: 'https://datacameroon.com/feed/' },
 ];
 
