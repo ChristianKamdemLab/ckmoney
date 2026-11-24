@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Screen, TopBar, Card, Note, Skeleton, Icon, Toast, C, dateFr, NightHeader } from './ui';
 import { listInfo } from '../../services/infoService';
+import { listDecryptage, DecryptageDay } from '../../services/decryptageService';
+import DecryptagePlayer from './DecryptagePlayer';
 import { InfoDay, InfoItem, InfoScope, SCOPE_LABEL } from '../../utils/infoDuJour';
 import { frTypo } from '../../utils/articleText';
 
@@ -49,12 +51,14 @@ const Article: React.FC<{ it: InfoItem; date: string; onCopied: () => void }> = 
   );
 };
 
-const InfoScreen: React.FC<{ onBack: () => void; initialScope?: InfoScope }> = ({ onBack, initialScope }) => {
+const InfoScreen: React.FC<{ onBack: () => void; initialScope?: InfoScope | 'decryptage' }> = ({ onBack, initialScope }) => {
   const [days, setDays] = useState<InfoDay[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [sel, setSel] = useState<{ date?: string; scope: InfoScope }>({ scope: initialScope || 'monde' });
+  const [sel, setSel] = useState<{ date?: string; scope: InfoScope }>({ scope: initialScope && initialScope !== 'decryptage' ? initialScope : 'monde' });
   const [toast, setToast] = useState<string | null>(null);
+  const [dec, setDec] = useState<DecryptageDay | null>(null);
   useEffect(() => { window.scrollTo(0, 0); listInfo().then(setDays).catch(() => { setFailed(true); setDays([]); }); }, []);
+  useEffect(() => { listDecryptage().then(d => setDec(d[0] || null)).catch(() => undefined); }, []);
 
   const day = days?.find(d => d.date === sel.date) || days?.[0];
   const item = day?.items.find(i => i.scope === sel.scope) || day?.items[0];
@@ -65,6 +69,7 @@ const InfoScreen: React.FC<{ onBack: () => void; initialScope?: InfoScope }> = (
     <Screen>
       <NightHeader onBack={onBack} title="L’info du jour" accent={C.coral} desc="Le sujet dont le monde parle, et celui du Cameroun et de l’Afrique." />
       <div className="px-5 flex flex-col gap-4 pb-[max(env(safe-area-inset-bottom),28px)]">
+        {dec && <DecryptagePlayer d={dec} autoFocus={initialScope === 'decryptage'} />}
         {!days && <><Skeleton h={44} /><Skeleton h={420} /></>}
         {failed && <Note tone="warn">L’info du jour n’a pas pu être chargée. Vérifie ta connexion.</Note>}
         {days && !failed && !days.length && <Card className="px-5 py-8 text-center"><div className="text-[15px] font-semibold">Première info demain matin</div></Card>}

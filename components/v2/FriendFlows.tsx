@@ -442,7 +442,7 @@ export const BorrowerSpace: React.FC<{
   onOpenLoan: (l: Loan) => void; onRequest: (lenderUid: string, lenderFirstName: string) => void;
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
   onOpenContract: (l: Loan) => void;
-  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: 'monde' | 'afrique') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
+  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: 'monde' | 'afrique' | 'decryptage') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
   onBecomeLender?: () => void;   // « Prêter à mes proches » (absent si déjà prêteur)
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);

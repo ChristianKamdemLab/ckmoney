@@ -65,22 +65,23 @@ const initialLinks = readLinks();
 try {
   const sp = new URLSearchParams(window.location.search);
   const ev = sp.get('evenement'), prep = sp.get('preparer'), list = sp.has('sorties'), art = sp.get('article'), presse = sp.get('presse');
-  const radio = sp.has('radio') ? sp.get('radio') || true : null, mot = sp.has('mot'), info = sp.has('info'), vendredi = sp.has('vendredi'), adresses = sp.has('adresses'), films = sp.has('films');
-  if (ev || prep || list || art || presse || radio || mot || info || vendredi || adresses || films) {
-    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list, art, presse, radio, mot, info, vendredi, adresses, films }));
+  const radio = sp.has('radio') ? sp.get('radio') || true : null, mot = sp.has('mot'), info = sp.has('info'), decryptage = sp.has('decryptage'), vendredi = sp.has('vendredi'), adresses = sp.has('adresses'), films = sp.has('films');
+  if (ev || prep || list || art || presse || radio || mot || info || decryptage || vendredi || adresses || films) {
+    sessionStorage.setItem('ck_ev', JSON.stringify({ id: ev, prep, list, art, presse, radio, mot, info, decryptage, vendredi, adresses, films }));
     window.history.replaceState({}, '', '/');
   }
 } catch { /* ignore */ }
-const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean; article?: string; presse?: Partial<PressInput>; radio?: string | true; mot?: boolean; info?: boolean; vendredi?: boolean; adresses?: boolean; films?: boolean } | null => {
+const takeEventLink = (): { id?: string; prefill?: Partial<EventInput>; list?: boolean; article?: string; presse?: Partial<PressInput>; radio?: string | true; mot?: boolean; info?: boolean; decryptage?: boolean; vendredi?: boolean; adresses?: boolean; films?: boolean } | null => {
   try {
     const raw = sessionStorage.getItem('ck_ev');
     if (!raw) return null;
     sessionStorage.removeItem('ck_ev');
-    const { id, prep, list, art, presse, radio, mot, info, vendredi, adresses, films } = JSON.parse(raw);
+    const { id, prep, list, art, presse, radio, mot, info, decryptage, vendredi, adresses, films } = JSON.parse(raw);
     if (films) return { films: true };
     if (vendredi) return { vendredi: true };
     if (adresses) return { adresses: true };
     if (mot) return { mot: true };
+    if (decryptage) return { decryptage: true };
     if (info) return { info: true };
     if (radio) return { radio: radio === true ? true : String(radio).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || true };
     if (art) return { article: String(art).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) };
@@ -131,7 +132,7 @@ type Overlay =
   | { k: 'events'; back?: Overlay; id?: string; prefill?: Partial<EventInput> }
   | { k: 'radio'; back?: Overlay; id?: string }
   | { k: 'mot'; back?: Overlay }
-  | { k: 'info'; back?: Overlay; scope?: 'monde' | 'afrique' }
+  | { k: 'info'; back?: Overlay; scope?: 'monde' | 'afrique' | 'decryptage' }
   | { k: 'vendredi'; back?: Overlay }
   | { k: 'adresses'; back?: Overlay }
   | { k: 'films'; back?: Overlay };
@@ -237,6 +238,7 @@ const App: React.FC = () => {
     else if (link?.article) setOverlay({ k: 'articles', id: link.article });
     else if (link?.presse) setOverlay({ k: 'articles', prefill: link.presse });
     else if (link?.mot) setOverlay({ k: 'mot' });
+    else if (link?.decryptage) setOverlay({ k: 'info', scope: 'decryptage' });
     else if (link?.info) setOverlay({ k: 'info' });
     else if (link?.vendredi) setOverlay({ k: 'vendredi' });
     else if (link?.adresses) setOverlay({ k: 'adresses' });

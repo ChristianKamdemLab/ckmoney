@@ -36,7 +36,7 @@ interface Props {
   onEvents: () => void;
   onRadio?: () => void;
   onMot?: () => void;
-  onInfo?: (scope?: 'monde' | 'afrique') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
+  onInfo?: (scope?: 'monde' | 'afrique' | 'decryptage') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
   requestLink: string;
 }
 
