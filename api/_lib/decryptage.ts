@@ -8,7 +8,7 @@ import { joinMp3, describe } from './mp3.js';
 // 4 : voix en 96 kb/s au lieu de 64 (24/11, Christian : « pas assez claire »)
 // 6 : voix suave (24/11 au soir) et seconde voix Victoria
 export const AUDIO_VERSION = 7; // 7 : décryptage en solo, virgules sonores entre les sujets
-import { decryptageDate, parseDecryptage, minutesOf, Decryptage } from '../../utils/decryptage.js';
+import { decryptageDate, parseDecryptage, minutesOf, Decryptage, decryptageKeepFrom } from '../../utils/decryptage.js';
 import { synthesize, MODEL, voiceEnabled, PODCAST_SETTINGS, GUEST_VOICE_NAME, generateJingle, JINGLE_VERSION, JINGLE_PROMPT } from './voice.js';
 
 // « Le décryptage du jour » : lu dans le document « Décryptage · AAAA-MM-JJ » du dossier Drive (écrit par
@@ -46,7 +46,8 @@ const lineHash = (who: string, text: string) =>
 
 /** Lit les documents des 3 derniers jours ; un document modifié remet l'audio à refaire. */
 export const syncDecryptage = async (files: DriveFile[], download: (f: DriveFile) => Promise<{ data?: Uint8Array; text?: string }>) => {
-  const docs = files.filter(isDecryptageDoc).sort((a, b) => decryptageDate(b.name)!.localeCompare(decryptageDate(a.name)!)).slice(0, 3);
+  const keep = decryptageKeepFrom();
+  const docs = files.filter(f => isDecryptageDoc(f) && decryptageDate(f.name)! >= keep).sort((a, b) => decryptageDate(b.name)!.localeCompare(decryptageDate(a.name)!)).slice(0, 2);
   const out: Record<string, string> = {};
   for (const f of docs) {
     const date = decryptageDate(f.name)!;
@@ -95,7 +96,7 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
   const snap = await col().orderBy('date', 'desc').limit(3).get();
   for (const doc of snap.docs) {
     const d = doc.data() as Decryptage & { audioReady?: boolean; invalid?: boolean; notifiedAt?: string | null; draftToldAt?: string | null; minutes?: number };
-    if (d.invalid || !d.lines?.length) continue;
+    if (d.invalid || !d.lines?.length || d.date < decryptageKeepFrom(now)) continue;
     // Audio d'une version précédente (64 kb/s) : refait en meilleure qualité
     if (d.audioReady && (d as any).audioVersion !== AUDIO_VERSION) {
       await doc.ref.set({ audioReady: false }, { merge: true });
@@ -159,12 +160,12 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
   return out;
 };
 
-/** Ce que voit l'appli : les 7 derniers jours prêts (et le brouillon pour Christian). */
+/** Ce que voit l'appli : aujourd'hui et la veille, s'ils sont prêts (et le brouillon pour Christian). */
 export const listDecryptage = async (admin: boolean) => {
   const snap = await col().orderBy('date', 'desc').limit(10).get();
   return snap.docs.map((x: any) => x.data())
-    .filter((d: any) => !d.invalid && d.audioReady && (!d.draft || admin))
-    .slice(0, 7)
+    .filter((d: any) => !d.invalid && d.audioReady && (!d.draft || admin) && d.date >= decryptageKeepFrom())
+    .slice(0, 2)
     .map((d: any) => ({ date: d.date, title: d.title, draft: !!d.draft, minutes: d.minutes || minutesOf(d), subjects: d.subjects || [], sources: d.sources || [], lines: d.lines || [] }));
 };
 
@@ -197,4 +198,22 @@ export const diagnoseDecryptage = async () => {
   const audio = date ? await loadDecryptageAudio(date) : null;
   const j = (await audioCol().doc('_jingle').get()).data();
   return { date, audio: audio ? describe(audio) : null, jingle: j?.data ? describe(Buffer.from(j.data)) : null };
+};
+
+/** Efface l'audio des décryptages plus anciens que la veille (environ 3 Mo par jour) ; le texte reste
+ *  dans Drive. Renvoie le nombre de jours effacés. */
+export const purgeDecryptage = async (now = Date.now()) => {
+  const keep = decryptageKeepFrom(now);
+  let n = 0;
+  for (const ref of await audioCol().listDocuments()) {
+    if (ref.id.startsWith('_') || ref.id >= keep) continue;
+    for (const sub of ['chunks', 'parts']) {
+      const s = await ref.collection(sub).get();
+      for (const d of s.docs) await d.ref.delete();
+    }
+    await ref.delete();
+    await col().doc(ref.id).set({ audioReady: false, purgedAt: new Date(now).toISOString() }, { merge: true }).catch(() => undefined);
+    n++;
+  }
+  return n;
 };

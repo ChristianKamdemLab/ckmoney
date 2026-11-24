@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDecryptage, decryptageDate, minutesOf } from '../utils/decryptage';
+import { parseDecryptage, decryptageDate, minutesOf, decryptageKeepFrom } from '../utils/decryptage';
 
 const doc = [
   'Titre : Un dirigeant rappelé, une COP sans accord',
@@ -52,5 +52,10 @@ describe('décryptage du jour', () => {
   });
   it('refuse un texte trop court', () => {
     expect(parseDecryptage('Titre : X\nCHRISTIAN : Bonjour.\n[VIRGULE]\nCHRISTIAN : Au revoir.', '2026-11-24')).toBeNull();
+  });
+  it('ne garde que la veille et le jour même (heure de Paris)', () => {
+    expect(decryptageKeepFrom(Date.parse('2026-11-24T17:00:00Z'))).toBe('2026-11-23');
+    expect(decryptageKeepFrom(Date.parse('2026-11-24T23:30:00Z'))).toBe('2026-11-24'); // déjà le 25 à Paris
+    expect(decryptageKeepFrom(Date.parse('2026-03-01T10:00:00Z'))).toBe('2026-02-28');
   });
 });
