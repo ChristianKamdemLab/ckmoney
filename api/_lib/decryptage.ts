@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import { adminDb, adminAuth, authorEmail, pushToUser } from './admin.js';
 import type { DriveFile } from './drive.js';
-import { joinMp3, describe } from './mp3.js';
+import { joinMp3, describe, dominantOnly } from './mp3.js';
 
 // 2 : MP3 recollé proprement (sans les trames d'information des morceaux) avec la vraie durée en tête
-export const AUDIO_VERSION = 2;
+// 3 : le jingle (stéréo) n'est plus collé aux voix (mono) : le lecteur le joue juste avant
+export const AUDIO_VERSION = 3;
 import { decryptageDate, parseDecryptage, minutesOf, Decryptage } from '../../utils/decryptage.js';
 import { synthesize, MODEL, voiceEnabled, VOICE_SETTINGS, generateJingle, JINGLE_VERSION, JINGLE_PROMPT } from './voice.js';
 
@@ -55,7 +56,7 @@ const parisHM = (now: number) => {
 const parisDay = (now: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(now));
 
 /** Le jingle, créé une fois (puis gardé) ; null si ElevenLabs refuse : le décryptage part sans. */
-const jingle = async (): Promise<Buffer | null> => {
+export const jingle = async (): Promise<Buffer | null> => {
   const ref = audioCol().doc('_jingle');
   const key = `${JINGLE_VERSION}|${JINGLE_PROMPT}`;
   const d = (await ref.get()).data();
@@ -81,7 +82,7 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
     if (d.audioReady && (d as any).audioVersion !== AUDIO_VERSION && left() > 5000) {
       const old = await loadDecryptageAudio(d.date);
       if (old) {
-        const mp3 = joinMp3([old]);
+        const mp3 = dominantOnly(old);
         await saveDecryptageAudio(d.date, mp3, now);
         await doc.ref.set({ audioVersion: AUDIO_VERSION, audioBytes: mp3.length }, { merge: true });
         out[d.date] = 'audio réparé';
@@ -109,8 +110,8 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
       await Promise.all([worker(), worker(), worker()]);
       const ready = keys.filter(k => have.has(k)).length;
       if (ready < keys.length) { out[d.date] = error ? `audio : ${error}` : `audio en cours (${ready}/${keys.length})`; continue; }
-      const intro = await jingle();
-      const mp3 = joinMp3([...(intro ? [intro] : []), ...keys.map(k => have.get(k)!)]);
+      await jingle(); // créé une fois et servi à part (action decryptage.audio, part jingle)
+      const mp3 = joinMp3(keys.map(k => have.get(k)!));
       await saveDecryptageAudio(d.date, mp3, now);
       for (const k of new Set(keys)) await parts.doc(k).delete().catch(() => 0);
       await doc.ref.set({ audioReady: true, audioBytes: mp3.length, audioVersion: AUDIO_VERSION }, { merge: true });

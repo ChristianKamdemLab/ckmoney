@@ -3,7 +3,7 @@ import { notifyNewArticle } from './_lib/articleSync.js';
 import { excerptOf, readMinutes } from '../utils/articleText.js';
 import { articlePage, isShareable } from './_lib/articlePage.js';
 import { veille } from './_lib/veille.js';
-import { listDecryptage, loadDecryptageAudio } from './_lib/decryptage.js';
+import { listDecryptage, loadDecryptageAudio, jingle } from './_lib/decryptage.js';
 
 // POST /api/articles — l'auteur (compte prêteur autorisé, e-mail vérifié) écrit ses articles.
 //   { action: 'save', article: { id?, title, body, status, publishedAt? } }
@@ -84,7 +84,7 @@ export default async function handler(req: any, res: any) {
     if (raw.action === 'decryptage') { res.setHeader('Cache-Control', 'private, max-age=120'); return res.status(200).json({ days }); }
     const date = String(raw.date || '');
     if (!days.some((d: any) => d.date === date)) return res.status(404).json({ error: 'not_found' });
-    const mp3 = await loadDecryptageAudio(date);
+    const mp3 = raw.part === 'jingle' ? await jingle() : await loadDecryptageAudio(date);
     if (!mp3) return res.status(404).json({ error: 'no_audio' });
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'private, max-age=86400');
