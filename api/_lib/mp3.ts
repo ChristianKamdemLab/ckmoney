@@ -84,3 +84,23 @@ export const cleanStream = (b: Buffer): Buffer => {
   }
   return Buffer.concat(out);
 };
+
+/** Ce que contient un MP3, par suite de trames de même format : version, fréquence, canaux, débit, durée. */
+export const describe = (b: Buffer) => {
+  const runs: { fmt: string; frames: number; seconds: number }[] = [];
+  let i = 0, junk = 0;
+  while (i < b.length - 4) {
+    const len = frameLength(b, i);
+    if (!len) { i++; junk++; continue; }
+    const v = (b[i + 1] >> 3) & 3;
+    const sr = ({ 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] } as any)[v][(b[i + 2] >> 2) & 3];
+    const br = (b[i + 2] >> 4) & 15;
+    const mono = ((b[i + 3] >> 6) & 3) === 3;
+    const fmt = `${v === 3 ? 'm1' : 'm2'} ${sr} ${mono ? 'mono' : 'stereo'} br${br}`;
+    const last = runs[runs.length - 1];
+    const sec = (v === 3 ? 1152 : 576) / sr;
+    if (last && last.fmt === fmt) { last.frames++; last.seconds += sec; } else runs.push({ fmt, frames: 1, seconds: sec });
+    i += len;
+  }
+  return { bytes: b.length, junk, runs: runs.slice(0, 12).map(r => ({ ...r, seconds: Math.round(r.seconds * 10) / 10 })), nbRuns: runs.length };
+};
