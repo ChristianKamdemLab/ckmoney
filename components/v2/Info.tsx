@@ -56,20 +56,33 @@ const InfoScreen: React.FC<{ onBack: () => void; initialScope?: InfoScope | 'dec
   const [failed, setFailed] = useState(false);
   const [sel, setSel] = useState<{ date?: string; scope: InfoScope }>({ scope: initialScope && initialScope !== 'decryptage' ? initialScope : 'monde' });
   const [toast, setToast] = useState<string | null>(null);
-  const [dec, setDec] = useState<DecryptageDay | null>(null);
+  const [decs, setDecs] = useState<DecryptageDay[]>([]);
+  const [decIdx, setDecIdx] = useState(0);
   useEffect(() => { window.scrollTo(0, 0); listInfo().then(setDays).catch(() => { setFailed(true); setDays([]); }); }, []);
-  useEffect(() => { listDecryptage().then(d => setDec(d[0] || null)).catch(() => undefined); }, []);
+  useEffect(() => { listDecryptage().then(d => setDecs(d.slice(0, 2))).catch(() => undefined); }, []);
+  const dec = decs[decIdx] || null;
+  const otherDec = decs.length > 1 ? decs[1 - decIdx] : null;
 
   const day = days?.find(d => d.date === sel.date) || days?.[0];
   const item = day?.items.find(i => i.scope === sel.scope) || day?.items[0];
-  const older = (days || []).filter(d => d !== day);
+  // Les 2 jours précédents seulement (choix de Christian, 24/11)
+  const older = (days || []).filter(d => d !== day && d.date !== day?.date).slice(0, 2);
   const open = (date: string, scope: InfoScope) => { setSel({ date, scope }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   return (
     <Screen>
       <NightHeader onBack={onBack} title="L’info du jour" accent={C.coral} desc="Le sujet dont le monde parle, et celui du Cameroun et de l’Afrique." />
       <div className="px-5 flex flex-col gap-4 pb-[max(env(safe-area-inset-bottom),28px)]">
-        {dec && <DecryptagePlayer d={dec} autoFocus={initialScope === 'decryptage'} />}
+        {dec && <DecryptagePlayer key={dec.date} d={dec} autoFocus={initialScope === 'decryptage' && decIdx === 0} />}
+        {otherDec && (
+          <button onClick={() => setDecIdx(1 - decIdx)} className="-mt-2 w-full text-left px-4 py-3 rounded-xl flex items-center gap-3" style={{ background: C.soft }}>
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.ochreText }}>{decIdx === 0 ? 'Le décryptage de la veille' : 'Revenir au décryptage du jour'} · {otherDec.minutes} min</div>
+              <div className="text-[14px] font-semibold leading-snug mt-0.5 line-clamp-1">{frTypo(otherDec.title)}</div>
+            </div>
+            <span style={{ color: C.mute }}><Icon name="chevron" size={18} /></span>
+          </button>
+        )}
         {!days && <><Skeleton h={44} /><Skeleton h={420} /></>}
         {failed && <Note tone="warn">L’info du jour n’a pas pu être chargée. Vérifie ta connexion.</Note>}
         {days && !failed && !days.length && <Card className="px-5 py-8 text-center"><div className="text-[15px] font-semibold">Première info demain matin</div></Card>}

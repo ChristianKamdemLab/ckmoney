@@ -88,3 +88,10 @@ export const parseDecryptage = (raw: string, date: string): Decryptage | null =>
 /** Durée approximative de la lecture (environ 14 caractères par seconde, voix posée). */
 export const minutesOf = (d: Pick<Decryptage, 'lines'>) =>
   Math.max(1, Math.round(d.lines.reduce((n, l) => n + l.text.length, 0) / 14 / 60));
+
+/** Le décryptage n'est gardé que pour aujourd'hui et la veille (choix de Christian, 24/11) : la date
+ *  la plus ancienne gardée, à Paris. */
+export const decryptageKeepFrom = (now = Date.now()) => {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(now));
+  return new Date(Date.parse(`${today}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+};
