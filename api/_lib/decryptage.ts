@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { adminDb, adminAuth, authorEmail, pushToUser } from './admin.js';
 import type { DriveFile } from './drive.js';
 import { decryptageDate, parseDecryptage, minutesOf, Decryptage } from '../../utils/decryptage.js';
-import { synthesize, MODEL, voiceEnabled, VOICE_SETTINGS } from './voice.js';
+import { synthesize, MODEL, voiceEnabled, VOICE_SETTINGS, generateJingle, JINGLE_VERSION, JINGLE_PROMPT } from './voice.js';
 
 // « Le décryptage du jour » : lu dans le document « Décryptage · AAAA-MM-JJ » du dossier Drive (écrit par
 // l'agent du matin), mis en voix réplique par réplique (Christian et la seconde voix, ElevenLabs) au fil
@@ -50,6 +50,19 @@ const parisHM = (now: number) => {
 };
 const parisDay = (now: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(now));
 
+/** Le jingle, créé une fois (puis gardé) ; null si ElevenLabs refuse : le décryptage part sans. */
+const jingle = async (): Promise<Buffer | null> => {
+  const ref = audioCol().doc('_jingle');
+  const key = `${JINGLE_VERSION}|${JINGLE_PROMPT}`;
+  const d = (await ref.get()).data();
+  if (d?.key === key && d.data) return Buffer.from(d.data);
+  try {
+    const mp3 = await generateJingle();
+    if (mp3.length < 900_000) await ref.set({ key, data: mp3, at: new Date().toISOString() });
+    return mp3;
+  } catch { return null; }
+};
+
 /** Met en voix ce qui manque, dans le temps donné, puis prévient (Christian pour un brouillon, tout le monde après 9 h 30). */
 export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) => {
   const t0 = Date.now();
@@ -82,7 +95,8 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
       await Promise.all([worker(), worker(), worker()]);
       const ready = keys.filter(k => have.has(k)).length;
       if (ready < keys.length) { out[d.date] = error ? `audio : ${error}` : `audio en cours (${ready}/${keys.length})`; continue; }
-      const mp3 = Buffer.concat(keys.map(k => have.get(k)!));
+      const intro = await jingle();
+      const mp3 = Buffer.concat([...(intro ? [intro] : []), ...keys.map(k => have.get(k)!)]);
       const aref = audioCol().doc(d.date);
       const n = Math.ceil(mp3.length / CHUNK);
       for (let i = 0; i < n; i++) await aref.collection('chunks').doc(String(i)).set({ data: mp3.subarray(i * CHUNK, (i + 1) * CHUNK) });
