@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { adminDb, adminAuth, authorEmail, pushToUser } from './admin.js';
 import type { DriveFile } from './drive.js';
-import { joinMp3 } from './mp3.js';
+import { joinMp3, describe } from './mp3.js';
 
 // 2 : MP3 recollé proprement (sans les trames d'information des morceaux) avec la vraie durée en tête
 export const AUDIO_VERSION = 2;
@@ -173,4 +173,13 @@ export const loadDecryptageAudio = async (date: string): Promise<Buffer | null> 
     parts.push(Buffer.from(d.data));
   }
   return Buffer.concat(parts);
+};
+
+/** Diagnostic (sans contenu) de l'audio et du jingle : formats et durées des trames. */
+export const diagnoseDecryptage = async () => {
+  const snap = await col().orderBy('date', 'desc').limit(1).get();
+  const date = snap.docs[0]?.id;
+  const audio = date ? await loadDecryptageAudio(date) : null;
+  const j = (await audioCol().doc('_jingle').get()).data();
+  return { date, audio: audio ? describe(audio) : null, jingle: j?.data ? describe(Buffer.from(j.data)) : null };
 };

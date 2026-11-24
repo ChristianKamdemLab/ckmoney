@@ -1,6 +1,6 @@
 import { syncArticles } from './_lib/articleSync.js';
 import { listFolder, downloadFile } from './_lib/drive.js';
-import { syncDecryptage, voiceDecryptage } from './_lib/decryptage.js';
+import { syncDecryptage, voiceDecryptage, diagnoseDecryptage } from './_lib/decryptage.js';
 import { syncInfo } from './_lib/infoSync.js';
 import { syncAllowed } from './_lib/syncSecret.js';
 import { adminDb } from './_lib/admin.js';
@@ -32,6 +32,7 @@ export default async function handler(req: any, res: any) {
       const txt = await syncDecryptage(files, downloadFile).catch(e => ({ erreur: String(e?.message || e).slice(0, 60) }));
       const voice = await voiceDecryptage({ budgetMs: Math.max(0, 42_000 - (Date.now() - t0)) }).catch(e => ({ erreur: String(e?.message || e).slice(0, 60) }));
       out.decryptage = { ...txt, ...voice };
+      out.diag = await diagnoseDecryptage().catch(e => ({ erreur: String(e?.message || e).slice(0, 60) }));
     }
     await lockRef.set({ until: Date.now() + 45_000 }, { merge: true }).catch(() => undefined);
     // Jamais de noms de fichiers ni de titres dans la réponse : seulement des comptes
