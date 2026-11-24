@@ -31,6 +31,7 @@ const base = (id: string, d: any): AppEvent => {
     theme: d.theme || '', drinks: d.drinks || '', capacity, allDay: kind === 'event' && !!d.allDay,
     placesLeft: capacity ? Math.max(0, capacity - (d.goingCount || 0)) : null,
     status: d.status === 'published' ? 'published' : 'draft', updatedAt: d.updatedAt || '', by: d.authorName || '',
+    ...(typeof d.image === 'string' && /^https:\/\//.test(d.image) ? { image: d.image } : {}),
   };
   // Un spot terminé ne dit plus où l'auteur était
   if (kind === 'spot' && !isUpcoming(e)) Object.assign(e, { venue: '', address: '', description: '' });
@@ -70,9 +71,8 @@ const ogTags = (origin: string, id: string, e: AppEvent | null) => {
     `<meta property="og:title" content="${escapeHtml(title)}">`,
     `<meta property="og:description" content="${escapeHtml(desc)}">`,
     `<meta property="og:url" content="${escapeHtml(`${origin}/e/${id}`)}">`,
-    `<meta property="og:image" content="${escapeHtml(`${origin}/og/evenement.png`)}">`,
-    '<meta property="og:image:width" content="1200">',
-    '<meta property="og:image:height" content="630">',
+    `<meta property="og:image" content="${escapeHtml(e?.image || `${origin}/og/evenement.png`)}">`,
+    ...(e?.image ? [] : ['<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">']),
     '<meta name="twitter:card" content="summary_large_image">',
   ].join('\n    ');
 };

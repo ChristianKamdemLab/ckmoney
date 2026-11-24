@@ -4,6 +4,7 @@ import { FILMS_2026_11_21 } from './filmsSeed.js';
 import type { Place } from '../../utils/vendredi.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
+import { pageImage } from './radioMeta.js';
 import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, RADIO_2026_11_20_ARTE, RADIO_2026_11_21_MEDIAS, LOGEMENT_POURQUOI, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
@@ -30,6 +31,8 @@ export interface Announcement {
   email?: NewsEmail;
   emailTo?: 'all' | 'no-push' | 'author' | 'others'; // 'author' : essai à Christian seul ; 'others' : tous sauf lui
   events?: SeedEvent[]; // sorties à publier (voir salons.ts)
+  eventsRemove?: string[];                       // sorties à retirer (identifiants Firestore), avec l'accord de Christian
+  eventImages?: { id: string; page?: string }[]; // visuel officiel (og:image de la page, sinon de l'adresse de la sortie)
   radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
   places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
@@ -100,6 +103,44 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 };
 
 export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-11-24-sorties-tri',
+    sendAt: '2026-11-24T06:20:00.000Z', // choix de Christian (24/11, 7 h) : ne garder que les sorties où il va ; visuels des organisateurs
+    eventsRemove: [
+      'salon-ambition-africa-2026',
+      'salon-ocde-forum-afrique-2026',
+      'salon-africa-infrastructure-forum-2026',
+      'salon-msgbc-2026',
+      'salon-entrepreneurship-forum-2026',
+      'salon-akili-energy-2026',
+      'salon-fitb-2027',
+      'salon-retromobile-2027',
+      'salon-nigeria-energy-summit-2027',
+      'salon-vignerons-independants-2027',
+      'salon-ecowas-investment-forum-2027',
+      'salon-avca-2027',
+      'salon-africa-ceo-forum-2027',
+      'salon-invest-african-energy-2027',
+      'salon-congo-energy-forum-2027',
+      'salon-simppar-2027',
+      'salon-wampex-2027',
+      'salon-drc-mining-week-2027',
+      'salon-nog-energy-week-2027',
+      'salon-propak-west-africa-2027',
+      'salon-s2ia-2027',
+      'salon-sim-senegal-2027',
+    ],
+    eventImages: [
+      { id: 'salon-wine-paris-2027', page: 'https://wineparis.com/' },
+      { id: 'salon-paris-perfume-week-2027', page: 'https://www.perfume-week.com/' },
+      { id: 'salon-rhum-fest-paris-2027', page: 'https://www.rhumfestparis.com/' },
+      { id: 'salon-japan-expo-2027', page: 'https://paris.japan-expo.com/fr' },
+      { id: 'salon-whisky-live-paris-2027', page: 'https://www.whiskylive.fr/' },
+      { id: 'salon-equip-auto-2027', page: 'https://paris.equipauto.com/' },
+      { id: 'salon-paris-games-week-2027', page: 'https://www.parisgamesweek.com/fr' },
+      { id: 'IMSCRSS0te2cEjY65nTm' },
+    ],
+  },
   {
     id: '2026-11-23-article-immorenovv-renvoi-christian',
     sendAt: '2026-11-23T10:05:00.000Z', // l'avis du 23/11 à 9 h 58 a manqué Christian (jeton renouvelé à 9 h 59) : renvoi à lui seul
@@ -356,10 +397,33 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
-    if (a.events || a.radio || a.radioComments || a.places || a.films) {
+    if (a.events || a.eventsRemove || a.eventImages || a.radio || a.radioComments || a.places || a.films) {
       // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie (avant toute notification)
       try {
         if (a.events) Object.assign(result, await importEvents(a.events, now));
+        if (a.eventsRemove) {
+          let removed = 0;
+          for (const id of a.eventsRemove) {
+            const ref = adminDb.collection('events').doc(id);
+            if (!(await ref.get()).exists) continue;
+            await ref.delete();
+            removed++;
+          }
+          result.eventsRemoved = removed;
+        }
+        if (a.eventImages) {
+          let images = 0;
+          for (const { id, page } of a.eventImages) {
+            const ref = adminDb.collection('events').doc(id);
+            const d = (await ref.get()).data();
+            if (!d) continue;
+            let img = page ? await pageImage(page) : '';
+            if (!img && d.url) img = await pageImage(String(d.url));
+            if (!img && d.url) { try { img = await pageImage(new URL(String(d.url)).origin + '/'); } catch { /* adresse invalide */ } }
+            if (img) { await ref.set({ image: img }, { merge: true }); images++; }
+          }
+          result.eventImages = images;
+        }
         if (a.radio) { const r = await importRadio(a.radio, now); Object.assign(result, { radioAdded: r.added, radioAlready: r.already, radioInvalid: r.invalid }); }
         if (a.radioComments) Object.assign(result, await fillRadioComments(a.radioComments));
         if (a.places) {
@@ -410,7 +474,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
       result.emails = emails;
     }
     await ref.set({ sentAt: new Date().toISOString(), ...result }, { merge: true });
-    out[a.id] = a.pushTo ? { people: result.people, devices: result.devices } : a.push && !a.email && !a.events && !a.radio && !a.radioComments && !a.places && !a.films ? result.people : result;
+    out[a.id] = a.pushTo ? { people: result.people, devices: result.devices } : a.push && !a.email && !a.events && !a.eventsRemove && !a.eventImages && !a.radio && !a.radioComments && !a.places && !a.films ? result.people : result;
   }
   return out;
 };
