@@ -35,6 +35,12 @@
       "schedule": "0 8 * * *"
     }
   ],
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true
+    }
+  },
   "github": {
     "silent": true
   },

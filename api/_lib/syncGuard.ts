@@ -25,7 +25,7 @@ export const summarize = (out: any) => {
     articles: count(out?.done),
     info: out?.info && typeof out.info === 'object' ? Object.keys(out.info).length : 0,
     // Le décryptage : date → état (« audio en cours (12/24) », « publié… ») ; jamais de titre
-    diag: out?.diag,
+    effacés: out?.effacés,
     decryptage: out?.decryptage && typeof out.decryptage === 'object' ? out.decryptage : undefined,
     audio: out?.audio && typeof out.audio === 'object' ? (out.audio.voix ? { voix: out.audio.voix } : count(out.audio.done || out.audio)) : undefined,
   };
