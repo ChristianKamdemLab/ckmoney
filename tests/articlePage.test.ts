@@ -22,6 +22,7 @@ describe('page publique d’un article', () => {
     expect(fiche).toContain('Revue de presse · Le Monde');
     expect(fiche).toContain('<p>Second paragraphe.</p>');
     expect(fiche).toContain('Lire sur lemonde.fr');
+    expect(fiche).toContain('href="/?article=p1"');
     expect(isShareable({ ...art, status: 'draft' })).toBe(false);
     expect(articlePage('https://x.test', 'abc', null)).toContain('Article introuvable');
   });
