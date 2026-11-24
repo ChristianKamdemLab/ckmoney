@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
 import { adminDb, adminAuth, authorEmail, pushToUser } from './admin.js';
 import type { DriveFile } from './drive.js';
-import { joinMp3, describe, dominantOnly } from './mp3.js';
+import { joinMp3, describe } from './mp3.js';
 
 // 2 : MP3 recollé proprement (sans les trames d'information des morceaux) avec la vraie durée en tête
 // 3 : le jingle (stéréo) n'est plus collé aux voix (mono) : le lecteur le joue juste avant
-export const AUDIO_VERSION = 3;
+// 4 : voix en 96 kb/s au lieu de 64 (24/11, Christian : « pas assez claire »)
+export const AUDIO_VERSION = 4;
 import { decryptageDate, parseDecryptage, minutesOf, Decryptage } from '../../utils/decryptage.js';
 import { synthesize, MODEL, voiceEnabled, VOICE_SETTINGS, generateJingle, JINGLE_VERSION, JINGLE_PROMPT } from './voice.js';
 
@@ -19,12 +20,12 @@ import { synthesize, MODEL, voiceEnabled, VOICE_SETTINGS, generateJingle, JINGLE
 const col = () => adminDb.collection('decryptage');
 const audioCol = () => adminDb.collection('decryptageAudio');
 const CHUNK = 900_000;
-const FORMAT = 'mp3_44100_64';
+const FORMAT = 'mp3_44100_96';
 
 export const isDecryptageDoc = (f: DriveFile) => !!decryptageDate(f.name) && f.mimeType !== 'application/pdf';
 
 const lineHash = (who: string, text: string) =>
-  createHash('sha1').update(`${MODEL()}|${JSON.stringify(VOICE_SETTINGS)}|${who}|${text}`).digest('hex').slice(0, 16);
+  createHash('sha1').update(`${FORMAT}|${MODEL()}|${JSON.stringify(VOICE_SETTINGS)}|${who}|${text}`).digest('hex').slice(0, 16);
 
 /** Lit les documents des 3 derniers jours ; un document modifié remet l'audio à refaire. */
 export const syncDecryptage = async (files: DriveFile[], download: (f: DriveFile) => Promise<{ data?: Uint8Array; text?: string }>) => {
@@ -78,15 +79,10 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
   for (const doc of snap.docs) {
     const d = doc.data() as Decryptage & { audioReady?: boolean; invalid?: boolean; notifiedAt?: string | null; draftToldAt?: string | null; minutes?: number };
     if (d.invalid || !d.lines?.length) continue;
-    // Réparation d'un audio recollé avant la version 2 (le lecteur s'arrêtait après le jingle)
-    if (d.audioReady && (d as any).audioVersion !== AUDIO_VERSION && left() > 5000) {
-      const old = await loadDecryptageAudio(d.date);
-      if (old) {
-        const mp3 = dominantOnly(old);
-        await saveDecryptageAudio(d.date, mp3, now);
-        await doc.ref.set({ audioVersion: AUDIO_VERSION, audioBytes: mp3.length }, { merge: true });
-        out[d.date] = 'audio réparé';
-      }
+    // Audio d'une version précédente (64 kb/s) : refait en meilleure qualité
+    if (d.audioReady && (d as any).audioVersion !== AUDIO_VERSION) {
+      await doc.ref.set({ audioReady: false }, { merge: true });
+      d.audioReady = false;
     }
     if (!d.audioReady) {
       if (!voiceEnabled() || left() <= 0) { out[d.date] = 'audio en attente'; continue; }
