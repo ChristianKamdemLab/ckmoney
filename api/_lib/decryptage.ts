@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 import { adminDb, adminAuth, authorEmail, pushToUser } from './admin.js';
 import type { DriveFile } from './drive.js';
+import { joinMp3 } from './mp3.js';
+
+// 2 : MP3 recollé proprement (sans les trames d'information des morceaux) avec la vraie durée en tête
+export const AUDIO_VERSION = 2;
 import { decryptageDate, parseDecryptage, minutesOf, Decryptage } from '../../utils/decryptage.js';
 import { synthesize, MODEL, voiceEnabled, VOICE_SETTINGS, generateJingle, JINGLE_VERSION, JINGLE_PROMPT } from './voice.js';
 
@@ -73,6 +77,16 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
   for (const doc of snap.docs) {
     const d = doc.data() as Decryptage & { audioReady?: boolean; invalid?: boolean; notifiedAt?: string | null; draftToldAt?: string | null; minutes?: number };
     if (d.invalid || !d.lines?.length) continue;
+    // Réparation d'un audio recollé avant la version 2 (le lecteur s'arrêtait après le jingle)
+    if (d.audioReady && (d as any).audioVersion !== AUDIO_VERSION && left() > 5000) {
+      const old = await loadDecryptageAudio(d.date);
+      if (old) {
+        const mp3 = joinMp3([old]);
+        await saveDecryptageAudio(d.date, mp3, now);
+        await doc.ref.set({ audioVersion: AUDIO_VERSION, audioBytes: mp3.length }, { merge: true });
+        out[d.date] = 'audio réparé';
+      }
+    }
     if (!d.audioReady) {
       if (!voiceEnabled() || left() <= 0) { out[d.date] = 'audio en attente'; continue; }
       const parts = audioCol().doc(d.date).collection('parts');
@@ -96,13 +110,10 @@ export const voiceDecryptage = async (opts: { budgetMs: number; now?: number }) 
       const ready = keys.filter(k => have.has(k)).length;
       if (ready < keys.length) { out[d.date] = error ? `audio : ${error}` : `audio en cours (${ready}/${keys.length})`; continue; }
       const intro = await jingle();
-      const mp3 = Buffer.concat([...(intro ? [intro] : []), ...keys.map(k => have.get(k)!)]);
-      const aref = audioCol().doc(d.date);
-      const n = Math.ceil(mp3.length / CHUNK);
-      for (let i = 0; i < n; i++) await aref.collection('chunks').doc(String(i)).set({ data: mp3.subarray(i * CHUNK, (i + 1) * CHUNK) });
-      await aref.set({ chunks: n, bytes: mp3.length, at: new Date(now).toISOString() });
+      const mp3 = joinMp3([...(intro ? [intro] : []), ...keys.map(k => have.get(k)!)]);
+      await saveDecryptageAudio(d.date, mp3, now);
       for (const k of new Set(keys)) await parts.doc(k).delete().catch(() => 0);
-      await doc.ref.set({ audioReady: true, audioBytes: mp3.length }, { merge: true });
+      await doc.ref.set({ audioReady: true, audioBytes: mp3.length, audioVersion: AUDIO_VERSION }, { merge: true });
       d.audioReady = true;
       out[d.date] = 'audio prêt';
     }
@@ -140,6 +151,15 @@ export const listDecryptage = async (admin: boolean) => {
     .filter((d: any) => !d.invalid && d.audioReady && (!d.draft || admin))
     .slice(0, 7)
     .map((d: any) => ({ date: d.date, title: d.title, draft: !!d.draft, minutes: d.minutes || minutesOf(d), subjects: d.subjects || [], sources: d.sources || [], lines: d.lines || [] }));
+};
+
+const saveDecryptageAudio = async (date: string, mp3: Buffer, now: number) => {
+  const aref = audioCol().doc(date);
+  const prev = (await aref.get()).data();
+  const n = Math.ceil(mp3.length / CHUNK);
+  for (let i = 0; i < n; i++) await aref.collection('chunks').doc(String(i)).set({ data: mp3.subarray(i * CHUNK, (i + 1) * CHUNK) });
+  for (let i = n; i < (prev?.chunks || 0); i++) await aref.collection('chunks').doc(String(i)).delete().catch(() => 0);
+  await aref.set({ chunks: n, bytes: mp3.length, at: new Date(now).toISOString() });
 };
 
 export const loadDecryptageAudio = async (date: string): Promise<Buffer | null> => {
