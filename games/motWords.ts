@@ -1,7 +1,8 @@
 // Mots à trouver du « Mot du jour ». Mots courants en français la plupart des jours, et un jour sur
 // trois un mot du 237 : cuisine, camfranglais, villes, musique, figures du foot.
-// Pour en ajouter : 5 à 8 lettres, sans espace ni trait d'union. Ne jamais retirer ni réordonner un
-// mot déjà passé (ça changerait les mots des jours suivants) : ajouter à la fin.
+// Pour en ajouter : 5 à 8 lettres, sans espace ni trait d'union, présents dans public/mots/frN.txt.
+// Ne jamais retirer ni réordonner un mot : ajouter à la fin, par paquets complets de 20 mots français
+// et de 10 mots du 237 (voir FR_CHUNK et LOCAL_CHUNK dans mot.ts), sinon l'ordre des jours changerait.
 
 export const FR_WORDS: string[] = [
   "ARBRE", "AVION", "BALLE", "BARBE", "BATEAU", "BIJOU", "BLAGUE", "BOUCHE", "BOUGIE", "BOUTON", "BROSSE", "BUREAU",
