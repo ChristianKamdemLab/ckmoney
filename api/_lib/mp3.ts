@@ -104,3 +104,12 @@ export const describe = (b: Buffer) => {
   }
   return { bytes: b.length, junk, runs: runs.slice(0, 12).map(r => ({ ...r, seconds: Math.round(r.seconds * 10) / 10 })), nbRuns: runs.length };
 };
+
+/** Ne garde que les trames du format le plus présent (mêmes canaux) : un lecteur s'arrête quand on
+ *  passe de stéréo (jingle) à mono (voix) dans un même fichier. */
+export const dominantOnly = (b: Buffer): Buffer => {
+  const frames: { i: number; len: number; mono: boolean }[] = [];
+  for (let i = 0; i < b.length - 4;) { const len = frameLength(b, i); if (!len) { i++; continue; } frames.push({ i, len, mono: ((b[i + 3] >> 6) & 3) === 3 }); i += len; }
+  const mono = frames.filter(f => f.mono).length >= frames.length / 2;
+  return withXing(Buffer.concat(frames.filter(f => f.mono === mono && !/Xing|Info|VBRI/.test(b.toString('latin1', f.i + 4, f.i + Math.min(f.len, 48)))).map(f => b.subarray(f.i, f.i + f.len))));
+};

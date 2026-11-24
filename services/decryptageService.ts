@@ -19,10 +19,10 @@ export const listDecryptage = (): Promise<DecryptageDay[]> => {
 };
 
 /** L'audio d'un jour : un lien local (à libérer avec URL.revokeObjectURL). */
-export const fetchDecryptageAudio = async (date: string): Promise<string> => {
+export const fetchDecryptageAudio = async (date: string, part?: 'jingle'): Promise<string> => {
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error('auth');
-  const r = await fetch('/api/articles', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` }, body: JSON.stringify({ action: 'decryptage.audio', date }) });
+  const r = await fetch('/api/articles', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` }, body: JSON.stringify({ action: 'decryptage.audio', date, part }) });
   if (!r.ok) throw new Error(`http_${r.status}`);
   return URL.createObjectURL(await r.blob());
 };
