@@ -33,7 +33,7 @@ export const parseInfo = (raw: string): InfoItem[] => {
     if (!cur) return;
     const title = (cur.head.titre || '').slice(0, 160);
     const summary = cur.lines.join('\n\n').slice(0, MAX_SUMMARY).trim();
-    const sources = cur.sources.filter((s, i, a) => a.findIndex(x => x.url === s.url) === i).slice(0, 4);
+    const sources = cur.sources.filter((s, i, a) => a.findIndex(x => x.url === s.url) === i).slice(0, 6);
     if (title && summary.length >= 80 && sources.length >= 2 && !items.some(x => x.scope === cur!.scope))
       items.push({ scope: cur.scope, title, why: (cur.head['pourquoi on en parle'] || '').slice(0, 200), summary, sources });
     cur = null;
