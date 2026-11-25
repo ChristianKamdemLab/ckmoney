@@ -1,5 +1,6 @@
 import { parseBody, frTypo, Block, shareUrl } from '../../utils/articleText.js';
 import { escapeHtml } from '../../utils/events.js';
+import { OPEN_APP_HINT } from './openAppHint.js';
 
 // Page publique d'un article CKLabs (/a/ID) : ce qu'on partage par lien. L'article en entier, lisible
 // sans connexion (choix de Christian, 23/11 : un lien s'ouvre dans le navigateur ou dans WhatsApp, jamais
@@ -96,7 +97,7 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><b>CK<i>·</i>MONEY</b><a href="${ok ? e(`/?article=${encodeURIComponent(id)}`) : '/'}">Ouvrir l'appli</a></div>
+  <div class="brand"><b>CK<i>·</i>MONEY</b><a id="open-app" href="${ok ? e(`/?article=${encodeURIComponent(id)}`) : '/'}">Ouvrir l'appli</a></div>
   <div class="kicker">${press ? `Revue de presse · ${e(String(d.source || ''))}` : 'CKLabs'}</div>
   <h1>${e(title)}</h1>
   ${!ok ? `<div class="by">${e(desc)}</div>`
@@ -113,6 +114,7 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
     <div class="note">Gratuit · connexion avec Google ou un e-mail</div>
   </div>
 </div>
+${OPEN_APP_HINT('l’article t’attend dans la page Articles')}
 </body>
 </html>`;
 };
