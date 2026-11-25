@@ -87,14 +87,52 @@ const useShare = (a: Article, pdf: () => PdfArticle) => {
     } catch (e: any) { if (e?.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(url); setToast('Lien copié'); } catch { setToast(url); }
   };
-  return { busy, open, setOpen, toast, setToast, sharePdf, shareLink };
+  const waText = `${isPress(a) ? `${frTypo(a.title)} (revue de presse CKMoney · ${a.source})` : `${frTypo(a.title)} · un article CKLabs`}\n${window.location.origin}/a/${a.id}`;
+  const waHref = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+  return { busy, open, setOpen, toast, setToast, sharePdf, shareLink, waHref };
 };
 type Share = ReturnType<typeof useShare>;
 
-const ShareButtons: React.FC<{ s: Share }> = ({ s }) => (
-  <div className="flex flex-col gap-2.5">
-    <Button onClick={s.shareLink}><span className="inline-flex items-center gap-2"><Icon name="share" size={19} />Envoyer le lien</span></Button>
-    <Button variant="secondary" busy={s.busy} onClick={s.sharePdf}><span className="inline-flex items-center gap-2"><Icon name="file" size={19} />Envoyer en PDF</span></Button>
+/** Les trois façons de partager, en pastilles rondes : WhatsApp (le plus utilisé par les proches), le
+ *  lien (feuille de partage du téléphone, sinon copié) et le PDF. */
+const ShareTiles: React.FC<{ s: Share; dark?: boolean }> = ({ s, dark }) => {
+  const label = dark ? C.nightText : C.ink;
+  const tile = (key: string, name: string, icon: React.ReactNode, bg: string, fg: string, onClick: () => void, busy?: boolean, href?: string) => {
+    const inner = (
+      <>
+        <span className="w-14 h-14 rounded-full flex items-center justify-center transition-transform group-active:scale-95" style={{ background: bg, color: fg }}>
+          {busy ? <span className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: `${fg}55`, borderTopColor: fg }} /> : icon}
+        </span>
+        <span className="text-[13px] font-bold" style={{ color: label }}>{name}</span>
+      </>
+    );
+    const cls = 'group flex flex-col items-center gap-2 py-1 rounded-2xl';
+    return href
+      ? <a key={key} href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls}>{inner}</a>
+      : <button key={key} onClick={onClick} disabled={busy} className={cls}>{inner}</button>;
+  };
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {tile('wa', 'WhatsApp', <svg width="25" height="25" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></svg>,
+        '#25D366', '#fff', () => s.setOpen(false), false, s.waHref)}
+      {tile('link', 'Le lien', <Icon name="share" size={23} />, dark ? C.mango : C.ink, dark ? C.ink : '#fff', s.shareLink)}
+      {tile('pdf', 'En PDF', <Icon name="file" size={23} />, dark ? 'rgba(255,255,255,.12)' : C.soft, dark ? C.nightText : C.ink, s.sharePdf, s.busy)}
+    </div>
+  );
+};
+
+/** Bas de fiche : une carte « nuit » aux couleurs de l'appli (le cercle mangue de l'accueil). */
+const ShareCard: React.FC<{ s: Share; press?: boolean }> = ({ s, press }) => (
+  <div className="relative overflow-hidden rounded-[22px] mt-9 px-5 pt-5 pb-5" style={{ background: C.night, color: C.nightText }}>
+    <span aria-hidden="true" className="absolute rounded-full" style={{ width: 120, height: 120, background: C.mango, top: -64, right: -40 }} />
+    <div className="relative">
+      <div className="text-[11.5px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>Partager</div>
+      <div className="text-[19px] font-extrabold leading-snug mt-1 pr-20">{press ? 'Fais-la lire autour de toi' : 'Fais-le lire autour de toi'}</div>
+      <div className="text-[13.5px] leading-relaxed mt-1.5 mb-5 pr-6" style={{ color: C.nightMute }}>
+        {press ? 'Le lien s’ouvre sans compte pendant 7 jours, avec la source du journal.' : 'Le lien s’ouvre sans compte, avec une invitation à rejoindre CKMoney.'}
+      </div>
+      <ShareTiles s={s} dark />
+    </div>
   </div>
 );
 const ShareIcon: React.FC<{ s: Share }> = ({ s }) => (
@@ -109,7 +147,7 @@ const ShareSheet: React.FC<{ s: Share; press?: boolean }> = ({ s, press }) => (
         {press ? "Le lien ouvre la fiche sans connexion (pendant 7 jours), avec le lien vers l'article du journal et une invitation à rejoindre CKMoney. Le PDF, lui, s'enregistre et s'imprime."
           : "Le lien ouvre l'article en entier, sans connexion, avec une invitation à rejoindre CKMoney. Le PDF, lui, s'enregistre et s'imprime."}
       </p>
-      <ShareButtons s={s} />
+      <ShareTiles s={s} />
     </Sheet>
     <Toast text={s.toast} onDone={() => s.setToast(null)} />
   </>
@@ -152,12 +190,7 @@ const PressReader: React.FC<{ article: Article; isAuthor: boolean; onBack: () =>
           Source : {a.source}{a.sourceSection ? `, « ${a.sourceSection} »` : ''}, {day(a)}. Synthèse rédigée pour CKMoney et partagée par {a.authorName.split(' ')[0] || 'Christian'} ; l'article complet est sur le site du journal.
           {a.sourceUrl && <> <a href={a.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{host || 'Voir la source'}</a></>}
         </div>
-        {canShare && (
-          <div className="mt-8 flex flex-col gap-2.5">
-            <div className="text-[13px] font-semibold mb-0.5" style={{ color: C.mute }}>Partager la fiche</div>
-            <ShareButtons s={share} />
-          </div>
-        )}
+        {canShare && <ShareCard s={share} press />}
       </article>
       <ShareSheet s={share} press />
     </Screen>
@@ -251,12 +284,7 @@ const Reader: React.FC<{ article: Article; next?: Article; isAuthor: boolean; on
         </div>
         <div className="pt-7"><Blocks blocks={blocks} /></div>
         <div className="flex justify-center pt-4" aria-hidden="true"><div className="w-10 h-[3px] rounded-full" style={{ background: C.ochre }} /></div>
-        {canPdf && (
-          <div className="mt-8 flex flex-col gap-2.5">
-            <div className="text-[13px] font-semibold mb-0.5" style={{ color: C.mute }}>Partager l'article</div>
-            <ShareButtons s={share} />
-          </div>
-        )}
+        {canPdf && <ShareCard s={share} />}
       </article>
       <ShareSheet s={share} />
       {next && (
