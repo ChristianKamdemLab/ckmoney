@@ -3,6 +3,7 @@ import { notifyNewArticle } from './_lib/articleSync.js';
 import { excerptOf, readMinutes } from '../utils/articleText.js';
 import { articlePage, isShareable } from './_lib/articlePage.js';
 import { veille } from './_lib/veille.js';
+import { decryptagePage } from './_lib/decryptagePage.js';
 import { FieldPath } from 'firebase-admin/firestore';
 import { SHORT_LEN } from '../utils/articleText.js';
 import { listDecryptage, loadDecryptageAudio, jingle } from './_lib/decryptage.js';
@@ -47,6 +48,25 @@ const cleanPress = (a: any) => {
 
 const originOf = (req: any) => `https://${String(req.headers['x-forwarded-host'] || req.headers.host || 'ck-money.vercel.app').split(',')[0].trim()}`;
 
+/** Un MP3 avec les requêtes partielles (Range) : Safari sur iPhone n'en lit pas sans. */
+const sendAudio = (req: any, res: any, mp3: Buffer) => {
+  res.setHeader('Content-Type', 'audio/mpeg');
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=600');
+  const m = String(req.headers.range || '').match(/^bytes=(\d*)-(\d*)$/);
+  if (m && (m[1] || m[2])) {
+    let start = m[1] ? Number(m[1]) : mp3.length - Number(m[2]);
+    let end = m[1] && m[2] ? Number(m[2]) : mp3.length - 1;
+    start = Math.max(0, start); end = Math.min(mp3.length - 1, end);
+    if (start > end) { res.setHeader('Content-Range', `bytes */${mp3.length}`); return res.status(416).send(''); }
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${mp3.length}`);
+    res.setHeader('Content-Length', String(end - start + 1));
+    return res.status(206).send(mp3.subarray(start, end + 1));
+  }
+  res.setHeader('Content-Length', String(mp3.length));
+  return res.status(200).send(mp3);
+};
+
 export default async function handler(req: any, res: any) {
   // GET ?page=ID : la page publique /a/ID d'un article CKLabs (voir vercel.json et _lib/articlePage.ts)
   if ((req.method === 'GET' || req.method === 'HEAD') && req.query?.page !== undefined) {
@@ -62,6 +82,20 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
     return res.status(ok ? 200 : 404).send(articlePage(originOf(req), id, ok ? d : null));
+  }
+  // GET ?ecoute=AAAA-MM-JJ : la page publique /d/DATE d'un décryptage partagé ; &audio=jingle|voix : l'audio
+  if ((req.method === 'GET' || req.method === 'HEAD') && req.query?.ecoute !== undefined) {
+    const date = String(req.query.ecoute).slice(0, 10);
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(date) ? (await listDecryptage(false)).find((x: any) => x.date === date && !x.draft) : undefined;
+    const part = String(req.query.audio || '');
+    if (part === 'jingle' || part === 'voix') {
+      const mp3 = d ? (part === 'jingle' ? await jingle() : await loadDecryptageAudio(date)) : null;
+      if (!mp3) return res.status(404).send('');
+      return sendAudio(req, res, mp3);
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
+    return res.status(d ? 200 : 404).send(decryptagePage(originOf(req), date, d ? { date, title: d.title, minutes: d.minutes, subjects: d.subjects || [] } : null));
   }
   // GET ?veille=1 : titres des médias reconnus des 36 dernières heures, pour les agents (voir _lib/veille.ts)
   if (req.method === 'GET' && req.query?.veille !== undefined) {
