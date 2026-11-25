@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { C, dateFr } from './ui';
+import { C, dateFr, Icon } from './ui';
 import { fetchDecryptageAudio, DecryptageDay } from '../../services/decryptageService';
 import { frTypo } from '../../utils/articleText';
 
@@ -37,14 +37,28 @@ const DecryptagePlayer: React.FC<{ d: DecryptageDay; autoFocus?: boolean }> = ({
 
   const guest = d.lines.find(l => l.who === 'guest')?.name;
   const label = d.date === todayIso() ? 'Le décryptage du jour' : `Le décryptage du ${dateFr(d.date, { day: 'numeric', month: 'long' })}`;
+  // Partage discret (25/11) : le lien /d/DATE ouvre une page publique avec le lecteur, sans compte
+  const [shared, setShared] = useState('');
+  const share = async () => {
+    const url = `${window.location.origin}/d/${d.date}`;
+    try { if (navigator.share) { await navigator.share({ url }); return; } }
+    catch (e: any) { if (e?.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); setShared('Lien copié'); } catch { setShared(url); }
+    setTimeout(() => setShared(''), 2500);
+  };
   const pct = pos.len ? Math.min(100, (pos.t / pos.len) * 100) : 0;
 
   return (
     <div ref={box} className="rounded-[14px] overflow-hidden" style={{ background: C.night, color: C.nightText }}>
       <div className="px-5 pt-5">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           <span className="text-[11.5px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>{label}</span>
           {d.draft && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: C.coral, color: '#fff' }}>Brouillon · toi seul</span>}
+          {!d.draft && (
+            <button onClick={share} aria-label="Partager le décryptage" className="ml-auto -mr-1.5 h-8 px-2 flex items-center gap-1.5 rounded-full text-[12px] font-semibold" style={{ color: C.nightMute }}>
+              <Icon name="share" size={15} />{shared || 'Partager'}
+            </button>
+          )}
         </div>
         <h2 className="text-[21px] font-extrabold leading-[1.25] mt-1.5">{frTypo(d.title)}</h2>
         <div className="text-[13px] mt-1" style={{ color: C.nightMute }}>{d.minutes} min · {guest ? `Christian et ${guest}` : 'par Christian · CKLabs'}</div>

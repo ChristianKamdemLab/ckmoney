@@ -17,6 +17,10 @@
       "destination": "/api/articles?page=:id"
     },
     {
+      "source": "/d/:date",
+      "destination": "/api/articles?ecoute=:date"
+    },
+    {
       "source": "/e/:id",
       "destination": "/api/events?page=:id"
     },
