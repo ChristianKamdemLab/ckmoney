@@ -81,14 +81,12 @@ const useShare = (a: Article, pdf: () => PdfArticle) => {
   const shareLink = async () => {
     const url = `${window.location.origin}/a/${a.id}`;
     setOpen(false);
-    const text = isPress(a) ? `${frTypo(a.title)} · la revue de presse CKMoney (${a.source})` : `${frTypo(a.title)} · un article CKLabs`;
     try {
-      if (navigator.share) { await navigator.share({ title: a.title, text, url }); return; }
+      if (navigator.share) { await navigator.share({ url }); // le lien seul : l'aperçu (titre, accroche, image) suffit, 25/11 return; }
     } catch (e: any) { if (e?.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(url); setToast('Lien copié'); } catch { setToast(url); }
   };
-  const waText = `${isPress(a) ? `${frTypo(a.title)} (revue de presse CKMoney · ${a.source})` : `${frTypo(a.title)} · un article CKLabs`}\n${window.location.origin}/a/${a.id}`;
-  const waHref = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+  const waHref = `https://wa.me/?text=${encodeURIComponent(`${window.location.origin}/a/${a.id}`)}`;
   return { busy, open, setOpen, toast, setToast, sharePdf, shareLink, waHref };
 };
 type Share = ReturnType<typeof useShare>;
