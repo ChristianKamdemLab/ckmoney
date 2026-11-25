@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Article, User } from '../../types';
 import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill, NightHeader } from './ui';
 import { listArticles, saveArticle, importArticles, deleteArticle, savePress, ArticleInput, PressInput } from '../../services/articleService';
-import { parseBody, blocksToBody, readMinutes, frTypo, Block } from '../../utils/articleText';
+import { parseBody, blocksToBody, readMinutes, frTypo, Block, shareUrl } from '../../utils/articleText';
 import { seenAt, markSeen, isNewSince } from '../../utils/seen';
 import { shareArticlePdf, PdfArticle } from '../../utils/articlePdf';
 
@@ -79,14 +79,14 @@ const useShare = (a: Article, pdf: () => PdfArticle) => {
     finally { setBusy(false); }
   };
   const shareLink = async () => {
-    const url = `${window.location.origin}/a/${a.id}`;
+    const url = shareUrl(window.location.origin, a.id);
     setOpen(false);
     try {
       if (navigator.share) { await navigator.share({ url }); return; } // le lien seul : l’aperçu (titre, accroche, image) suffit (25/11)
     } catch (e: any) { if (e?.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(url); setToast('Lien copié'); } catch { setToast(url); }
   };
-  const waHref = `https://wa.me/?text=${encodeURIComponent(`${window.location.origin}/a/${a.id}`)}`;
+  const waHref = `https://wa.me/?text=${encodeURIComponent(shareUrl(window.location.origin, a.id))}`;
   return { busy, open, setOpen, toast, setToast, sharePdf, shareLink, waHref };
 };
 type Share = ReturnType<typeof useShare>;
