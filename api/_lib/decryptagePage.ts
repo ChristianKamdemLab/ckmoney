@@ -1,5 +1,6 @@
 import { frTypo } from '../../utils/articleText.js';
 import { escapeHtml } from '../../utils/events.js';
+import { OPEN_APP_HINT } from './openAppHint.js';
 
 // Page publique d'un décryptage partagé (/d/AAAA-MM-JJ, 25/11) : le titre, un lecteur (jingle puis
 // voix, servis par /api/articles?ecoute=DATE&audio=jingle|voix), les sujets, et l'invitation à
@@ -68,7 +69,7 @@ export const decryptagePage = (origin: string, date: string, d: PublicDecryptage
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><b>CK<i>·</i>MONEY</b><a href="${ok ? `/?decryptage=${e(date)}` : '/'}">Ouvrir l'appli</a></div>
+  <div class="brand"><b>CK<i>·</i>MONEY</b><a id="open-app" href="${ok ? `/?decryptage=${e(date)}` : '/'}">Ouvrir l'appli</a></div>
   <div class="player">
     <span class="sun" aria-hidden="true"></span>
     <div class="kick">Le décryptage${ok ? ` · ${e(dayFr(date))}` : ''}</div>
@@ -101,6 +102,7 @@ ${ok ? `<script>
   a.ontimeupdate=function(){ if(phase!=='voix')return; t.textContent=fmt(a.currentTime); if(a.duration)fill.style.width=(100*a.currentTime/a.duration)+'%'; };
 })();
 </script>` : ''}
+${OPEN_APP_HINT('le décryptage du jour est en haut de l’info du jour')}
 </body>
 </html>`;
 };
