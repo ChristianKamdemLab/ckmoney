@@ -1,4 +1,4 @@
-import { parseBody, frTypo, Block } from '../../utils/articleText.js';
+import { parseBody, frTypo, Block, shareUrl } from '../../utils/articleText.js';
 import { escapeHtml } from '../../utils/events.js';
 
 // Page publique d'un article CKLabs (/a/ID) : ce qu'on partage par lien. L'article en entier, lisible
@@ -53,7 +53,7 @@ export const articlePage = (origin: string, id: string, d: any | null): string =
 <meta property="og:locale" content="fr_FR">
 <meta property="og:title" content="${e(title)}">
 <meta property="og:description" content="${e(desc)}">
-<meta property="og:url" content="${e(`${origin}/a/${id}`)}">
+<meta property="og:url" content="${e(shareUrl(origin, id))}">
 <meta property="og:image" content="${e(`${origin}/og/evenement.png`)}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">

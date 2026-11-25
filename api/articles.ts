@@ -3,6 +3,8 @@ import { notifyNewArticle } from './_lib/articleSync.js';
 import { excerptOf, readMinutes } from '../utils/articleText.js';
 import { articlePage, isShareable } from './_lib/articlePage.js';
 import { veille } from './_lib/veille.js';
+import { FieldPath } from 'firebase-admin/firestore';
+import { SHORT_LEN } from '../utils/articleText.js';
 import { listDecryptage, loadDecryptageAudio, jingle } from './_lib/decryptage.js';
 
 // POST /api/articles — l'auteur (compte prêteur autorisé, e-mail vérifié) écrit ses articles.
@@ -48,8 +50,14 @@ const originOf = (req: any) => `https://${String(req.headers['x-forwarded-host']
 export default async function handler(req: any, res: any) {
   // GET ?page=ID : la page publique /a/ID d'un article CKLabs (voir vercel.json et _lib/articlePage.ts)
   if ((req.method === 'GET' || req.method === 'HEAD') && req.query?.page !== undefined) {
-    const id = String(req.query.page).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
-    const d = id ? (await adminDb.collection('articles').doc(id).get()).data() : null;
+    let id = String(req.query.page).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
+    let d = id ? (await adminDb.collection('articles').doc(id).get()).data() : null;
+    // Lien court (25/11) : /a/ + les 6 premiers caractères de l'identifiant. Retrouvé par un intervalle
+    // sur les identifiants (rien à stocker) ; ambigu (deux articles) ou inconnu : « introuvable ».
+    if (!d && id.length >= SHORT_LEN && id.length < 20) {
+      const snap = await adminDb.collection('articles').where(FieldPath.documentId(), '>=', id).where(FieldPath.documentId(), '<', `${id}\uf8ff`).limit(2).get();
+      if (snap.size === 1) { id = snap.docs[0].id; d = snap.docs[0].data(); }
+    }
     const ok = isShareable(d);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');

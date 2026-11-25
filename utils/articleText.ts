@@ -118,3 +118,7 @@ export const frTypo = (s: string) => s
   .replace(/«\s*/g, '« ')
   .replace(/\s*»/g, ' »')
   .replace(/\s+([:;?!])/g, ' $1');
+
+/** Lien court d'un article partagé : /a/ + les 6 premiers caractères de son identifiant (25/11). */
+export const SHORT_LEN = 6;
+export const shareUrl = (origin: string, id: string) => `${origin}/a/${id.slice(0, SHORT_LEN)}`;
