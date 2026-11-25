@@ -82,7 +82,7 @@ const useShare = (a: Article, pdf: () => PdfArticle) => {
     const url = `${window.location.origin}/a/${a.id}`;
     setOpen(false);
     try {
-      if (navigator.share) { await navigator.share({ url }); // le lien seul : l'aperçu (titre, accroche, image) suffit, 25/11 return; }
+      if (navigator.share) { await navigator.share({ url }); return; } // le lien seul : l’aperçu (titre, accroche, image) suffit (25/11)
     } catch (e: any) { if (e?.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(url); setToast('Lien copié'); } catch { setToast(url); }
   };
