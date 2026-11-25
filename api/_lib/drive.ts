@@ -6,6 +6,11 @@ import crypto from 'node:crypto';
 
 export const ARTICLES_FOLDER_ID = '11dNakz1LBWisZdH9y5Wx55lhpMS9ECGa';
 
+// Dossier « CKMoney – Agents » (25/11, choix de Christian) : les agents y déposent « Info du jour · … »
+// et « Décryptage · … », pour que « Articles à publier » ne serve plus qu'à ses articles. Il doit être
+// partagé en lecture avec le même compte technique. Les deux dossiers sont lus pendant la transition.
+export const AGENTS_FOLDER_ID = '1scMXVSkjp4NxFlQmuknRJpLCSShp9MAp';
+
 export interface DriveFile { id: string; name: string; mimeType: string; modifiedTime: string; size?: string }
 
 let cached: { token: string; exp: number } | null = null;
