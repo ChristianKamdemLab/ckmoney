@@ -104,6 +104,22 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: '2026-11-26-expo-ndop',
+    sendAt: '2026-11-26T18:05:00.000Z', // demandé par Christian à 19 h 59 : à ajouter aux événements, avec notification
+    events: [{
+      id: 'expo-ndop-maison-gacha', title: 'Ndop, filer le bleu pour raconter un monde', start: '2026-10-21', end: '2027-02-27',
+      venue: 'Maison Gacha', address: '5 rue des Épinettes, 75017 Paris', price: 'Entrée libre',
+      url: 'https://www.arts-in-the-city.com/275516-exposition-ndop-filer-le-bleu-pour-raconter-un-monde-a-la-maison-gacha', organizer: 'Maison Gacha',
+      description: "Exposition consacrée au ndop, le textile teint à l'indigo des chefferies de l'Ouest du Cameroun, présenté avec des œuvres contemporaines : tentures de cérémonie, costume de société secrète, ateliers pour les familles et les adultes.\nDu mardi au samedi, de 11 h à 18 h. Métro Guy Môquet (ligne 13).",
+    }],
+    eventImages: [{ id: 'salon-expo-ndop-maison-gacha', page: 'https://www.arts-in-the-city.com/275516-exposition-ndop-filer-le-bleu-pour-raconter-un-monde-a-la-maison-gacha' }],
+    push: {
+      title: 'Nouvel événement',
+      body: "« Ndop, filer le bleu pour raconter un monde » : le textile des rois de l'Ouest du Cameroun à la Maison Gacha (Paris 17e), jusqu'au 27 février. Entrée libre.",
+      url: '/?evenement=salon-expo-ndop-maison-gacha',
+    },
+  },
+  {
     id: '2026-11-24-sorties-visuels',
     sendAt: '2026-11-24T06:20:00.000Z', // visuels vérifiés à l'œil : logo seul (Wine Paris), icône (Japan Expo), affiche de l'édition 2026 (Paris Games Week) retirés
     eventImages: [
