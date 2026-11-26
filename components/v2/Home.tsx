@@ -228,7 +228,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
 
       {upcoming.length > 0 && (
         <>
-          <Section title="Les sorties" action="Agenda" onAction={() => nav.onTab('amis')} />
+          <Section title="Événements à venir" action="Agenda" onAction={() => nav.onTab('amis')} />
           <Rail>
             {upcoming.map(e => (
               <button key={e.id} onClick={() => nav.onEvents(e.id)} className="shrink-0 w-[108px] text-left">
@@ -409,7 +409,7 @@ export const AmisTab: React.FC<{ nav: Nav }> = ({ nav }) => {
         ))}
       </div>
 
-      <Section title="L'agenda des sorties" action="Tout voir" onAction={() => nav.onEvents()} />
+      <Section title="Événements à venir" action="Tout voir" onAction={() => nav.onEvents()} />
       <div className="px-5">
         {next.length ? (
           <Card>
