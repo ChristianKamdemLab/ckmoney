@@ -17,6 +17,7 @@ import { AppEvent, sortUpcoming, isLive, dayBlock } from '../../utils/events';
 import { Film, trailerImage, KIND_LABEL as FILM_KIND } from '../../utils/films';
 import { InfoDay, InfoScope } from '../../utils/infoDuJour';
 import { frTypo } from '../../utils/articleText';
+import type { Zone as RZone } from '../../utils/rubrique';
 import { dayNumber, puzzleFor, isOver, isWon, MAX_TRIES } from '../../games/mot';
 import { computeSituation } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
@@ -148,7 +149,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
             <span aria-hidden="true" className="absolute rounded-full" style={{ width: 150, height: 150, background: C.mango, top: -84, right: -56 }} />
             <span aria-hidden="true" className="absolute rounded-full box-border" style={{ width: 52, height: 52, border: `9px solid ${C.coral}`, bottom: -18, right: 30 }} />
             <button onClick={() => nav.onInfo('decryptage')} className="relative block text-left w-full">
-              <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ background: C.coral }} /><span className="text-[11.5px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>À la une · {dec.date === parisDay() ? 'Le décryptage du jour' : "Le décryptage d'hier"}</span></span>
+              <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ background: C.coral }} /><span className="relative z-[1] text-[11.5px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>À la une · {dec.date === parisDay() ? 'Le décryptage' : "Le décryptage d'hier"}</span></span>
               <span className="relative z-[1] block mt-2.5 mr-14 text-[20px] leading-[1.28] font-extrabold">{frTypo(dec.title)}</span>
               <span className="block mt-1.5 text-[13px]" style={{ color: C.nightMute }}>{dec.minutes} min · par Christian · CKLabs</span>
             </button>
@@ -167,13 +168,13 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
         ) : null}
 
         <div className="grid grid-cols-2 gap-2.5 mt-3">
-          <button onClick={nav.onMot} className="rounded-2xl px-3.5 py-3 flex items-center gap-2.5 text-left" style={{ background: C.card }}>
-            <span className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center display text-[13px]" style={{ background: C.ochreSoft, color: C.ochreText }}>M</span>
-            <span className="min-w-0"><span className="block text-[12px] font-bold" style={{ color: C.mute }}>Le mot du jour</span><span className="block text-[14px] font-extrabold truncate">{motLine()}</span></span>
+          <button onClick={nav.onMot} className="rounded-2xl px-3 py-3 flex items-center gap-2.5 text-left" style={{ background: C.card }}>
+            <span className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center display text-[12px]" style={{ background: C.ochreSoft, color: C.ochreText }}>M</span>
+            <span className="min-w-0"><span className="block text-[12px] font-bold whitespace-nowrap" style={{ color: C.mute }}>Le mot du jour</span><span className="block text-[13.5px] font-extrabold leading-snug">{motLine()}</span></span>
           </button>
-          <button onClick={() => nav.onInfo()} className="rounded-2xl px-3.5 py-3 flex items-center gap-2.5 text-left" style={{ background: C.card }}>
-            <span className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center" style={{ background: C.greenSoft, color: C.green }}><Icon name="news" size={18} /></span>
-            <span className="min-w-0"><span className="block text-[12px] font-bold" style={{ color: C.mute }}>L'info du jour</span><span className="block text-[14px] font-extrabold truncate">{day ? `${day.items.length} sujet${day.items.length > 1 ? 's' : ''}` : 'Bientôt'}</span></span>
+          <button onClick={() => nav.onInfo()} className="rounded-2xl px-3 py-3 flex items-center gap-2.5 text-left" style={{ background: C.card }}>
+            <span className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center" style={{ background: C.greenSoft, color: C.green }}><Icon name="news" size={17} /></span>
+            <span className="min-w-0"><span className="block text-[12px] font-bold whitespace-nowrap" style={{ color: C.mute }}>L'info du jour</span><span className="block text-[13.5px] font-extrabold leading-snug">{day ? `${day.items.length} sujet${day.items.length > 1 ? 's' : ''}` : 'Bientôt'}</span></span>
           </button>
         </div>
       </div>
@@ -269,7 +270,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
 
 // ───────────────────────── Actu ─────────────────────────
 
-type Zone = 'cameroun' | 'afrique' | 'monde' | 'eco' | 'cklabs';
+type Zone = RZone | 'cklabs';
 const ZONES: [Zone | 'tout', string][] = [['tout', 'Tout'], ['cameroun', 'Cameroun'], ['afrique', 'Afrique'], ['monde', 'Monde'], ['eco', 'Éco'], ['cklabs', 'CKLabs']];
 const CM_RE = /camer|yaound|douala|biya|rdpc|elecam|bamenda|garoua|bafoussam/i;
 const AF_RE = /afri|sénégal|senegal|nigeria|côte d.ivoire|rdc|congo|gabon|tchad|maroc|algérie|tunisie|kenya|mali\b|burkina|niger\b|ghana|éthiopie|soudan|libye|can 20/i;
@@ -309,12 +310,12 @@ export const ActuTab: React.FC<{ user: User; nav: Nav }> = ({ user, nav }) => {
     const recent = new Date(Date.now() - 36 * 3600_000).toISOString();
     for (const d of decs) out.push({ key: `d-${d.date}`, at: `${d.date}T08:15`, kind: 'Décryptage', source: `${d.minutes} min`, title: d.title, zones: ['cameroun', 'afrique', 'monde'], top: true, open: () => nav.onInfo('decryptage'), dec: d });
     for (const day of info) for (const it of day.items) {
-      out.push({ key: `i-${day.date}-${it.scope}`, at: `${day.date}T07:45`, kind: 'Info du jour', source: `${it.sources.length} sources`, title: it.title, zones: it.scope === 'monde' ? zonesOf(it.title + ' ' + it.summary).filter(z => z !== 'afrique' && z !== 'cameroun').concat('monde') : zonesOf(`${it.title} ${it.summary} afrique`), top: true, open: () => nav.onInfo(it.scope) });
+      out.push({ key: `i-${day.date}-${it.scope}`, at: `${day.date}T07:45`, kind: 'Info du jour', source: `${it.sources.length} sources`, title: it.title, zones: it.zones?.length ? it.zones : it.scope === 'monde' ? zonesOf(it.title + ' ' + it.summary).filter(z => z !== 'afrique' && z !== 'cameroun').concat('monde') : zonesOf(`${it.title} ${it.summary} afrique`), top: true, open: () => nav.onInfo(it.scope) });
     }
     for (const a of articles) {
       if (a.status !== 'published') continue;
       const at = a.publishedAt || a.updatedAt;
-      if (a.kind === 'press') out.push({ key: a.id, at, kind: 'Revue de presse', source: a.source || '', title: a.title, zones: zonesOf(`${a.title} ${a.sourceSection || ''} ${a.excerpt}`, a.source), top: at >= recent, open: () => nav.onArticles(a.id) });
+      if (a.kind === 'press') out.push({ key: a.id, at, kind: 'Revue de presse', source: a.source || '', title: a.title, zones: a.zones?.length ? a.zones : zonesOf(`${a.title} ${a.sourceSection || ''} ${a.excerpt}`, a.source), top: at >= recent, open: () => nav.onArticles(a.id) });
       else out.push({ key: a.id, at, kind: 'CKLabs', source: 'Christian', title: a.title, zones: ['cklabs', ...zonesOf(`${a.title} ${a.excerpt}`).filter(z => z === 'eco')], top: true, open: () => nav.onArticles(a.id) });
     }
     return out.sort((a, b) => b.at.localeCompare(a.at));

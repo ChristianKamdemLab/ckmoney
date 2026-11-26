@@ -1,3 +1,4 @@
+import { parseRubrique, Zone } from './rubrique.js';
 // « L'info du jour » : chaque matin, le sujet le plus suivi dans le monde, et un sujet Cameroun ou
 // Afrique, résumés avec nos mots. Écrits par la tâche planifiée « Info du jour CKMoney » dans un
 // document Google du dossier Drive des articles, nommé « Info du jour · AAAA-MM-JJ » :
@@ -14,7 +15,7 @@
 
 export type InfoScope = 'monde' | 'afrique';
 export interface InfoSource { name: string; url: string }
-export interface InfoItem { scope: InfoScope; title: string; why: string; summary: string; sources: InfoSource[] }
+export interface InfoItem { scope: InfoScope; title: string; why: string; summary: string; sources: InfoSource[]; zones?: Zone[] }
 export interface InfoDay { date: string; items: InfoItem[]; updatedAt?: string }
 
 export const INFO_RE = /^(?:ckmoney\s*[·•|-]\s*)?info du jour\s*[·•|_-]\s*(\d{4}-\d{2}-\d{2})\s*(?:\.(?:txt|docx?))?$/i;
@@ -35,7 +36,7 @@ export const parseInfo = (raw: string): InfoItem[] => {
     const summary = cur.lines.join('\n\n').slice(0, MAX_SUMMARY).trim();
     const sources = cur.sources.filter((s, i, a) => a.findIndex(x => x.url === s.url) === i).slice(0, 6);
     if (title && summary.length >= 80 && sources.length >= 2 && !items.some(x => x.scope === cur!.scope))
-      items.push({ scope: cur.scope, title, why: (cur.head['pourquoi on en parle'] || '').slice(0, 200), summary, sources });
+      items.push({ scope: cur.scope, title, why: (cur.head['pourquoi on en parle'] || '').slice(0, 200), summary, sources, ...(cur.head.rubrique ? { zones: parseRubrique(cur.head.rubrique) } : {}) });
     cur = null;
   };
   for (const rawLine of raw.replace(/^﻿/, '').split(/\r?\n/)) {
@@ -51,7 +52,7 @@ export const parseInfo = (raw: string): InfoItem[] => {
     if (!cur) continue;
     const src = line.match(/^sources?\s*:\s*(.+?)\s*\|\s*(https:\/\/\S+)$/i);
     if (src) { cur.sources.push({ name: src[1].slice(0, 60), url: src[2].slice(0, 500) }); continue; }
-    const h = line.match(/^(titre|pourquoi on en parle)\s*:\s*(.*)$/i);
+    const h = line.match(/^(titre|pourquoi on en parle|rubrique)\s*:\s*(.*)$/i);
     if (h && !cur.lines.length) { cur.head[h[1].toLowerCase()] = h[2]; continue; }
     cur.lines.push(line);
   }
