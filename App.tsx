@@ -243,7 +243,7 @@ const App: React.FC = () => {
     else if (link?.mot) setOverlay({ k: 'mot' });
     else if (link?.decryptage) setOverlay({ k: 'info', scope: 'decryptage' });
     else if (link?.info) setOverlay({ k: 'info' });
-    else if (link?.vendredi) setOverlay({ k: 'vendredi' });
+    else if (link?.vendredi) setTab('amis'); // Vendredi Show (26/11) : en tête de l'onglet Entre amis
     else if (link?.adresses) setOverlay({ k: 'adresses' });
     else if (link?.films) setOverlay({ k: 'films' });
     else if (link?.radio) setOverlay({ k: 'radio', id: link.radio === true ? undefined : link.radio });

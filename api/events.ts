@@ -1,5 +1,6 @@
 import { adminAuth, adminDb, isAdmin, pushToUser } from './_lib/admin.js';
 import { fridayActions } from './_lib/vendredi.js';
+import { showActions } from './_lib/vendrediShow.js';
 import { filmActions } from './_lib/films.js';
 import { cleanEvent, cleanName, escapeHtml, icsFor, isUpcoming, summary, AppEvent, KIND_LABEL } from '../utils/events.js';
 
@@ -195,6 +196,10 @@ export default async function handler(req: any, res: any) {
     // Mes adresses et Mon vendredi soir (voir _lib/vendredi.ts)
     if (/^films\./.test(String(body.action))) {
       const r = await filmActions(body, admin);
+      return res.status(r.status).json(r.json);
+    }
+    if (/^show\./.test(String(body.action))) {
+      const r = await showActions(body, who, admin);
       return res.status(r.status).json(r.json);
     }
     if (/^(places|friday)\./.test(String(body.action))) {
