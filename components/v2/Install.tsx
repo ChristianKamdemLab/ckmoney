@@ -160,7 +160,7 @@ const readInstall = () => {
 
 /** Invitation à installer l'appli. En haut de l'accueil tant qu'on ne l'a pas repoussée ; après un
  *  « Plus tard », plus discrète en bas de l'accueil (et un second « Plus tard » la cache 30 jours). */
-export const InstallCard: React.FC<{ slot?: 'top' | 'bottom' }> = ({ slot = 'top' }) => {
+export const InstallCard: React.FC<{ slot?: 'top' | 'bottom' | 'end' }> = ({ slot = 'top' }) => {
   const installable = useInstallable();
   const [open, setOpen] = useState(false);
   const [st, setSt] = useState(readInstall);
@@ -169,7 +169,8 @@ export const InstallCard: React.FC<{ slot?: 'top' | 'bottom' }> = ({ slot = 'top
     window.addEventListener('ck-install', h);
     return () => window.removeEventListener('ck-install', h);
   }, []);
-  if (!installable || (slot === 'top' ? st.moved : !st.moved || st.snoozed)) return null;
+  // « end » (nouvel accueil, 26/11) : toujours en bas de page, discrète ; « Plus tard » la cache 30 jours
+  if (!installable || (slot === 'end' ? st.snoozed : slot === 'top' ? st.moved : !st.moved || st.snoozed)) return null;
   const later = () => {
     try {
       if (slot === 'top') localStorage.setItem(MOVED, '1');
@@ -177,7 +178,7 @@ export const InstallCard: React.FC<{ slot?: 'top' | 'bottom' }> = ({ slot = 'top
     } catch { /* ignore */ }
     window.dispatchEvent(new Event('ck-install'));
   };
-  if (slot === 'bottom') return (
+  if (slot === 'bottom' || slot === 'end') return (
     <div className="px-5 pt-7 no-print">
       <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: C.card }}>
         <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-[12px] shrink-0" style={{ background: C.ochre, color: C.ink }}>CK</div>
