@@ -170,11 +170,11 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
         <div className="grid grid-cols-2 gap-2.5 mt-3">
           <button onClick={nav.onMot} className="rounded-2xl px-3 py-3 flex items-center gap-2.5 text-left" style={{ background: C.card }}>
             <span className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center display text-[12px]" style={{ background: C.ochreSoft, color: C.ochreText }}>M</span>
-            <span className="min-w-0"><span className="block text-[12px] font-bold whitespace-nowrap" style={{ color: C.mute }}>Le mot du jour</span><span className="block text-[13.5px] font-extrabold leading-snug">{motLine()}</span></span>
+            <span className="min-w-0"><span className="block text-[12.5px] whitespace-nowrap" style={{ color: C.mute }}>Le mot du jour</span><span className="block text-[14px] font-extrabold leading-[1.3]">{motLine()}</span></span>
           </button>
           <button onClick={() => nav.onInfo()} className="rounded-2xl px-3 py-3 flex items-center gap-2.5 text-left" style={{ background: C.card }}>
             <span className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center" style={{ background: C.greenSoft, color: C.green }}><Icon name="news" size={17} /></span>
-            <span className="min-w-0"><span className="block text-[12px] font-bold whitespace-nowrap" style={{ color: C.mute }}>L'info du jour</span><span className="block text-[13.5px] font-extrabold leading-snug">{day ? `${day.items.length} sujet${day.items.length > 1 ? 's' : ''}` : 'Bientôt'}</span></span>
+            <span className="min-w-0"><span className="block text-[12.5px] whitespace-nowrap" style={{ color: C.mute }}>L'info du jour</span><span className="block text-[14px] font-extrabold leading-[1.3]">{day ? `${day.items.length} sujet${day.items.length > 1 ? 's' : ''}` : 'Bientôt'}</span></span>
           </button>
         </div>
       </div>
@@ -188,13 +188,13 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
             {own.map((a, i) => {
               const c = COVERS[i % COVERS.length];
               return (
-                <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[124px] text-left">
-                  <span className="relative overflow-hidden block h-[124px] rounded-2xl p-[11px]" style={{ background: c.bg, color: c.fg }}>
+                <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[136px] text-left">
+                  <span className="relative overflow-hidden block h-[136px] rounded-2xl p-3" style={{ background: c.bg, color: c.fg }}>
                     {c.deco}
-                    <span className="absolute top-[11px] left-[11px] text-[9.5px] font-extrabold tracking-[.08em]" style={{ color: c.tag }}>CKLABS</span>
-                    <span className="absolute left-[11px] right-[11px] bottom-[11px] display text-[12px] leading-[1.25] line-clamp-4">{frTypo(a.title)}</span>
+                    <span className="absolute top-3 left-3 text-[10.5px] font-extrabold tracking-[.08em]" style={{ color: c.tag }}>CKLABS</span>
+                    <span className="absolute left-3 right-3 bottom-3 text-[14px] font-extrabold leading-[1.3] line-clamp-3">{frTypo(a.title)}</span>
                   </span>
-                  <span className="block text-[12px] mt-1.5" style={{ color: C.mute }}>{a.readMinutes} min de lecture</span>
+                  <span className="block text-[12.5px] mt-1.5" style={{ color: C.mute }}>{a.readMinutes} min de lecture</span>
                 </button>
               );
             })}
@@ -217,8 +217,8 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
                       {String(f.rating).replace('.', ',')}
                     </span>
                   </span>
-                  <span className="block text-[12.5px] font-extrabold mt-1.5 line-clamp-1">{f.title}</span>
-                  <span className="block text-[12px]" style={{ color: C.mute }}>{FILM_KIND[f.kind]}</span>
+                  <span className="block text-[14px] font-extrabold leading-[1.3] mt-1.5 line-clamp-1">{f.title}</span>
+                  <span className="block text-[12.5px]" style={{ color: C.mute }}>{FILM_KIND[f.kind]}</span>
                 </button>
               );
             })}
@@ -238,8 +238,8 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
                     : <span className="absolute inset-0 flex flex-col items-center justify-center leading-none"><span className="display text-[26px]">{dayBlock(e.startsAt).day}</span><span className="text-[11px] font-extrabold uppercase mt-1" style={{ color: C.mango }}>{dayBlock(e.startsAt).month}</span></span>}
                   {isLive(e) && <span className="absolute top-1.5 left-1.5 px-2 py-[2px] rounded-full text-[10.5px] font-extrabold" style={{ background: C.coral, color: '#fff' }}>En cours</span>}
                 </span>
-                <span className="block text-[12.5px] font-extrabold mt-1.5 line-clamp-1">{e.title}</span>
-                <span className="block text-[12px]" style={{ color: C.mute }}>{isLive(e) ? 'En ce moment' : `${dayBlock(e.startsAt).weekday} ${dayBlock(e.startsAt).day} ${dayBlock(e.startsAt).month}`}</span>
+                <span className="block text-[14px] font-extrabold leading-[1.3] mt-1.5 line-clamp-1">{e.title}</span>
+                <span className="block text-[12.5px]" style={{ color: C.mute }}>{isLive(e) ? 'En ce moment' : `${dayBlock(e.startsAt).weekday} ${dayBlock(e.startsAt).day} ${dayBlock(e.startsAt).month}`}</span>
               </button>
             ))}
           </Rail>
@@ -256,7 +256,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
         ] as const).map(([l, label, bg, fg, fn]) => (
           <button key={label} onClick={fn} className="flex flex-col items-center gap-2">
             <span className="w-[62px] h-[62px] rounded-full flex items-center justify-center display text-[18px]" style={{ background: bg, color: fg }}>{l}</span>
-            <span className="text-[12.5px] font-bold text-center">{label}</span>
+            <span className="text-[14px] font-extrabold leading-[1.3] text-center">{label}</span>
           </button>
         ))}
       </div>
