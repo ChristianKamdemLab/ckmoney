@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { player, usePlayer } from '../../services/player';
 import { C, dateFr, Icon } from './ui';
-import { fetchDecryptageAudio, DecryptageDay } from '../../services/decryptageService';
+import { DecryptageDay, playDecryptage, decryptageTrackId } from '../../services/decryptageService';
 import { frTypo } from '../../utils/articleText';
 
 // « Le décryptage du jour » en tête de la page « L'info du jour » : à écouter seulement (choix de
@@ -10,30 +11,16 @@ const todayIso = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Pari
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 const DecryptagePlayer: React.FC<{ d: DecryptageDay; autoFocus?: boolean }> = ({ d, autoFocus }) => {
-  const [src, setSrc] = useState('');
-  // Le jingle (stéréo) est joué d'abord, puis les voix (mono) dans le même lecteur : collés dans un seul
-  // fichier, le téléphone s'arrêtait au changement de format (24/11).
-  const [jingleSrc, setJingleSrc] = useState('');
-  const [phase, setPhase] = useState<'jingle' | 'main'>('main');
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [playing, setPlaying] = useState(false);
-  const [pos, setPos] = useState({ t: 0, len: d.minutes * 60 });
-  const audio = useRef<HTMLAudioElement | null>(null);
+  // L'audio est joué par le lecteur de l'appli (services/player.ts) : il continue quand on quitte l'écran,
+  // avec le mini-lecteur au-dessus du menu (26/11).
+  const ps = usePlayer();
+  const mine = ps.track?.id === decryptageTrackId(d.date);
+  const playing = mine && ps.playing;
+  const state: 'idle' | 'loading' | 'error' = mine && ps.loading ? 'loading' : mine && ps.error ? 'error' : 'idle';
+  const pos = { t: mine ? ps.t : 0, len: mine && ps.len ? ps.len : d.minutes * 60 };
   const box = useRef<HTMLDivElement | null>(null);
-  useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
-  useEffect(() => () => { if (jingleSrc) URL.revokeObjectURL(jingleSrc); }, [jingleSrc]);
   useEffect(() => { if (autoFocus) box.current?.scrollIntoView({ block: 'start' }); }, [autoFocus]);
-
-  const toggle = async () => {
-    if (audio.current && src) { if (audio.current.paused) void audio.current.play(); else audio.current.pause(); return; }
-    setState('loading');
-    try {
-      const [main, j] = await Promise.all([fetchDecryptageAudio(d.date), fetchDecryptageAudio(d.date, 'jingle').catch(() => '')]);
-      setJingleSrc(j); setPhase(j ? 'jingle' : 'main'); setSrc(main); setState('idle');
-    } catch { setState('error'); }
-  };
-  const current = phase === 'jingle' && jingleSrc ? jingleSrc : src;
-  useEffect(() => { if (current && audio.current) void audio.current.play().catch(() => undefined); }, [current]);
+  const toggle = () => { void playDecryptage(d); };
 
   const guest = d.lines.find(l => l.who === 'guest')?.name;
   const label = d.date === todayIso() ? 'Le décryptage du jour' : `Le décryptage du ${dateFr(d.date, { day: 'numeric', month: 'long' })}`;
@@ -72,7 +59,7 @@ const DecryptagePlayer: React.FC<{ d: DecryptageDay; autoFocus?: boolean }> = ({
         </button>
         <div className="flex-1 min-w-0">
           <div className="h-[5px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.16)' }}
-            onClick={e => { if (!audio.current || !pos.len || phase !== 'main') return; const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect(); audio.current.currentTime = ((e.clientX - r.left) / r.width) * pos.len; }}>
+            onClick={e => { if (!mine) return; const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect(); player.seek((e.clientX - r.left) / r.width); }}>
             <div className="h-full rounded-full" style={{ width: `${pct}%`, background: C.mango }} />
           </div>
           <div className="flex justify-between text-[12px] mt-1.5" style={{ color: C.nightMute }}>
@@ -80,13 +67,6 @@ const DecryptagePlayer: React.FC<{ d: DecryptageDay; autoFocus?: boolean }> = ({
           </div>
         </div>
       </div>
-      {src && (
-        <audio ref={audio} src={current} preload="auto" className="hidden"
-          onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
-          onEnded={() => { if (phase === 'jingle') setPhase('main'); else setPlaying(false); }}
-          onLoadedMetadata={e => { const len = (e.target as HTMLAudioElement).duration; if (phase === 'main' && Number.isFinite(len)) setPos(p => ({ ...p, len })); }}
-          onTimeUpdate={e => { if (phase === 'main') setPos(p => ({ ...p, t: (e.target as HTMLAudioElement).currentTime })); }} />
-      )}
       <div className="pb-5" />
     </div>
   );

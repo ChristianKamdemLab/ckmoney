@@ -444,6 +444,7 @@ export const BorrowerSpace: React.FC<{
   onOpenContract: (l: Loan) => void;
   onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: 'monde' | 'afrique' | 'decryptage') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
   onBecomeLender?: () => void;   // « Prêter à mes proches » (absent si déjà prêteur)
+  embedded?: boolean;            // onglet « Prêts » de la nouvelle interface (26/11) : seulement les emprunts
 }> = (p) => {
   const mine = p.loans.filter(l => l.borrowerUid === p.user.id);
   const open = mine.filter(l => ['active', 'delay_requested', 'pending_borrower', 'requested'].includes(l.status));
@@ -495,17 +496,17 @@ export const BorrowerSpace: React.FC<{
 
   // Rien en cours : pas de gros « 0,00 € », on met en avant ce qui change chaque jour
   const quiet = !p.loading && open.length === 0;
-  const today = p.onEvents ? <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} /> : null;
+  const today = p.onEvents && !p.embedded ? <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} /> : null;
 
   return (
-    <Screen>
+    <Screen bottomPad={p.embedded}>
       <NightHero>
         <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
-          {p.onBack ? <button onClick={p.onBack} aria-label="Retour" className="w-10 h-10 -ml-2 flex items-center justify-center"><Icon name="back" /></button> : <CKLogo size="sm" tone="light" />}
-          <button onClick={() => setMenu(true)} aria-label="Mon compte" className="rounded-full" style={{ boxShadow: `0 0 0 2px ${C.night}` }}><Avatar name={p.profile?.fullName || p.user.name} size={36} /></button>
+          {p.onBack ? <button onClick={p.onBack} aria-label="Retour" className="w-10 h-10 -ml-2 flex items-center justify-center"><Icon name="back" /></button> : p.embedded ? <span /> : <CKLogo size="sm" tone="light" />}
+          {!p.embedded && <button onClick={() => setMenu(true)} aria-label="Mon compte" className="rounded-full" style={{ boxShadow: `0 0 0 2px ${C.night}` }}><Avatar name={p.profile?.fullName || p.user.name} size={36} /></button>}
         </div>
-        <div className="px-5 pt-14">
-          <h1 className="display text-[30px] leading-[1.05]">Bonjour<br />{firstName(p.profile?.fullName || p.user.name)}.</h1>
+        <div className={p.embedded ? 'px-5 pt-2' : 'px-5 pt-14'}>
+          {p.embedded ? <h1 className="display text-[22px]">Mes emprunts</h1> : <h1 className="display text-[30px] leading-[1.05]">Bonjour<br />{firstName(p.profile?.fullName || p.user.name)}.</h1>}
           {quiet ? (
             <div className="text-[14px] mt-3 font-semibold" style={{ color: C.nightMute }}>Rien en cours. Tu ne dois rien{targets.length === 1 && cards[targets[0]]?.firstName ? ` à ${cards[targets[0]]!.firstName}` : ''}.</div>
           ) : !p.loading && !open.some(l => l.status === 'active' || l.status === 'delay_requested') ? (
@@ -541,7 +542,7 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      <InstallCard />
+      {!p.embedded && <InstallCard />}
       <div className="px-5 pt-4"><PushCard uid={p.user.id} text="On te rappelle la veille de chaque échéance, et tu sais tout de suite quand ta demande est acceptée." /></div>
       {notifs.length > 0 && (
         <div className="px-5 pt-4 flex flex-col gap-2">
@@ -621,10 +622,10 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      {p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />}
-      <InviteCard />
+      {!p.embedded && p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />}
+      {!p.embedded && <InviteCard />}
 
-      <InstallCard slot="bottom" />
+      {!p.embedded && <InstallCard slot="bottom" />}
       {closed.length > 0 && (
         <>
           <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Terminés</div>
