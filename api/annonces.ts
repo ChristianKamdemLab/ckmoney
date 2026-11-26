@@ -11,7 +11,7 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).end();
   if (!syncAllowed(req)) return res.status(401).json({ error: 'unauthorized' });
   try {
-    // Relances de retard : quatre créneaux par jour (8 h, 12 h, 16 h, 19 h), une fois chacun
+    // Relance de retard : une par jour, au premier passage après 8 h
     const relances = await sendOverdueRounds().catch(e => { console.error('relances', e?.message); return { error: true }; });
     return res.status(200).json({ sent: await sendDueAnnouncements(), relances });
   } catch (e: any) {

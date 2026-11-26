@@ -34,17 +34,16 @@ export const notify = async (userId: string, loanId: string, type: string, title
 };
 
 
-/** Le créneau de relance du moment (heure de Paris) : 8 h, 12 h, 16 h et 19 h ; aucun la nuit. */
+/** Le créneau de relance du jour (heure de Paris) : une relance par jour, au premier passage entre 8 h
+ *  et 21 h ; aucune la nuit. (26/11 au soir : Christian est revenu de quatre à une par jour.) */
 export const overdueSlot = (now = new Date()) => {
   const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hourCycle: 'h23' }).format(now));
-  const slot = h >= 19 && h < 21 ? 3 : h >= 16 && h < 19 ? 2 : h >= 12 ? (h < 16 ? 1 : -1) : h >= 8 ? 0 : -1;
-  return slot < 0 ? null : `${parisToday()}-${slot}`;
+  return h >= 8 && h < 21 ? `${parisToday()}-0` : null;
 };
 
-/** Relances de retard (26/11, demande de Christian) : quatre par jour (8 h, 12 h, 16 h, 19 h) dès le
- *  premier jour de retard, tant que le proche n'a ni payé ni déclaré son paiement ni demandé un délai.
- *  Une notification à chaque créneau ; l'e-mail une seule fois par jour (le premier créneau), pour ne
- *  pas finir dans les indésirables. Le créneau envoyé est noté sur le prêt (overdueSlot). */
+/** Relances de retard : une par jour dès le premier jour de retard (notification et e-mail), tant que
+ *  le proche n'a ni payé ni déclaré son paiement ni demandé un délai. Le jour envoyé est noté sur le
+ *  prêt (overdueSlot), si bien que les passages suivants de la journée ne renvoient rien. */
 export const sendOverdueRounds = async (now = new Date()) => {
   const slot = overdueSlot(now);
   if (!slot) return { slot: null, sent: 0 };
