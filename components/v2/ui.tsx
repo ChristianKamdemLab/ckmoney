@@ -26,7 +26,7 @@ export const ndopShadow = (color = C.ink) => `4px 4px 0 ${color}`;
 
 export const Screen: React.FC<{ children: React.ReactNode; bottomPad?: boolean }> = ({ children, bottomPad }) => (
   <div className="min-h-[100dvh] w-full flex justify-center" style={{ background: C.bg, color: C.ink }}>
-    <div className={`w-full max-w-[480px] flex flex-col min-h-[100dvh] ${bottomPad ? 'pb-24' : ''}`}>{children}</div>
+    <div className={`w-full max-w-[480px] flex flex-col min-h-[100dvh] ${bottomPad ? 'pb-40' : ''}`}>{children}</div>
   </div>
 );
 
@@ -254,7 +254,7 @@ export const SlideToConfirm: React.FC<{ label: string; onConfirm: () => void; di
 };
 
 export type IconName = 'back' | 'close' | 'plus' | 'check' | 'refresh' | 'bell' | 'home' | 'list' | 'activity' | 'user' | 'search'
-  | 'chevron' | 'file' | 'chat' | 'dots' | 'info' | 'lock' | 'arrow' | 'phone' | 'calendar' | 'clock' | 'alert' | 'copy' | 'logout' | 'pin' | 'share' | 'ticket' | 'glass' | 'users';
+  | 'chevron' | 'file' | 'chat' | 'dots' | 'info' | 'lock' | 'arrow' | 'phone' | 'calendar' | 'clock' | 'alert' | 'copy' | 'logout' | 'pin' | 'share' | 'ticket' | 'glass' | 'users' | 'news' | 'wallet';
 
 export const Icon: React.FC<{ name: IconName; size?: number }> = ({ name, size = 22 }) => {
   const p: Record<IconName, React.ReactNode> = {
@@ -276,6 +276,8 @@ export const Icon: React.FC<{ name: IconName; size?: number }> = ({ name, size =
     share: <><path d="M12 15V3" /><path d="m7 8 5-5 5 5" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" /></>,
     ticket: <><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z" /><path d="M14.5 7v2M14.5 11v2M14.5 15v2" /></>,
     glass: <><path d="M6 3h12l-1.5 8a4.5 4.5 0 0 1-9 0z" /><path d="M12 15.5V21M8.5 21h7M6.6 7h10.8" /></>,
+    news: <><path d="M4 5h13a3 3 0 0 1 3 3v11H7a3 3 0 0 1-3-3z" /><path d="M8 9h8M8 13h8M8 17h5" /></>,
+    wallet: <><rect x="3" y="6" width="18" height="13" rx="2.5" /><path d="M3 10h18M7 15h4" /></>,
     users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 20a6.5 6.5 0 0 0-3-5.5" /></>,
   };
   return (
@@ -283,25 +285,28 @@ export const Icon: React.FC<{ name: IconName; size?: number }> = ({ name, size =
   );
 };
 
-/** Barre d'onglets du prêteur. */
-export const TabBar: React.FC<{ tab: string; onTab: (t: 'home' | 'loans' | 'activity' | 'profile') => void; onCreate: () => void; badge?: number }> = ({ tab, onTab, onCreate, badge }) => {
-  const item = (id: 'home' | 'loans' | 'activity' | 'profile', label: string, icon: IconName) => (
-    <button onClick={() => onTab(id)} className="relative flex flex-col items-center gap-1 py-1.5 text-[11px]" style={{ color: tab === id ? C.ink : C.mute, fontWeight: tab === id ? 700 : 600 }}
-      aria-current={tab === id ? 'page' : undefined}>
-      <Icon name={icon} />
-      {label}
-      {id === 'activity' && !!badge && <span className="absolute top-0 right-[30%] w-2 h-2 rounded-full" style={{ background: C.red }} />}
-    </button>
-  );
+/** Barre d'onglets de toute l'appli (26/11) : Accueil · Actu · Prêts · Entre amis · Profil. */
+export type MainTab = 'home' | 'actu' | 'loans' | 'amis' | 'profile';
+export const TabBar: React.FC<{ tab: MainTab; onTab: (t: MainTab) => void; badge?: number }> = ({ tab, onTab, badge }) => {
+  const item = (id: MainTab, label: string, icon: IconName) => {
+    const on = tab === id;
+    return (
+      <button onClick={() => onTab(id)} className="relative flex flex-col items-center gap-[3px] pt-1.5 pb-1 text-[11px]" style={{ color: on ? C.ink : C.mute, fontWeight: on ? 800 : 600 }}
+        aria-current={on ? 'page' : undefined}>
+        <Icon name={icon} size={23} />
+        {label}
+        <span className="w-[18px] h-[3px] rounded-full" style={{ background: on ? C.ochre : 'transparent' }} />
+        {id === 'loans' && !!badge && <span className="absolute top-0.5 right-[28%] min-w-[16px] h-4 px-1 rounded-full text-[10px] font-extrabold flex items-center justify-center" style={{ background: C.red, color: '#fff' }}>{badge}</span>}
+      </button>
+    );
+  };
   return (
     <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-40 flex justify-center no-print" style={{ background: C.card, borderTop: `1px solid ${C.line}` }}>
-      <div className="w-full max-w-[480px] grid grid-cols-5 items-center px-3 pt-2 pb-[max(env(safe-area-inset-bottom),12px)]">
+      <div className="w-full max-w-[480px] grid grid-cols-5 items-end px-1 pt-1 pb-[max(env(safe-area-inset-bottom),10px)]">
         {item('home', 'Accueil', 'home')}
-        {item('loans', 'Prêts', 'list')}
-        <button onClick={onCreate} aria-label="Nouveau prêt" className="justify-self-center w-[52px] h-[52px] rounded-full flex items-center justify-center" style={{ background: C.ochre, color: C.ink }}>
-          <Icon name="plus" size={24} />
-        </button>
-        {item('activity', 'Activité', 'activity')}
+        {item('actu', 'Actu', 'news')}
+        {item('loans', 'Prêts', 'wallet')}
+        {item('amis', 'Entre amis', 'users')}
         {item('profile', 'Profil', 'user')}
       </div>
     </nav>

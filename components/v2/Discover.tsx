@@ -19,7 +19,7 @@ import { listDecryptage, DecryptageDay } from '../../services/decryptageService'
 // comme sur l'espace des proches.
 
 /** Grande case des sorties : un spot en cours d'abord, sinon la prochaine sortie. */
-const EventsTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+export const EventsTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const [next, setNext] = useState<AppEvent | null | undefined>(undefined);
   useEffect(() => {
     let on = true;
@@ -48,7 +48,7 @@ const EventsTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
 };
 
 /** Case « Radio CK » de « À découvrir » : la dernière reco. */
-const RadioTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+export const RadioTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const [last, setLast] = useState<RadioItem | null | undefined>(undefined);
   useEffect(() => { let on = true; listRadio().then(r => on && setLast(r.items[0] || null)).catch(() => on && setLast(null)); return () => { on = false; }; }, []);
   return (
@@ -67,7 +67,7 @@ const RadioTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
 };
 
 /** Case « Le mot du jour » : où on en est aujourd'hui, et la série. */
-const MotTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+export const MotTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const n = dayNumber(), p = puzzleFor(n);
   let h: Record<string, string[]> = {};
   try { h = JSON.parse(localStorage.getItem('ck_mot') || '{}').h || {}; } catch { /* stockage indisponible */ }
@@ -127,7 +127,7 @@ const InfoTile: React.FC<{ onClick: (scope?: InfoScope | 'decryptage') => void }
 };
 
 /** Case « Mon vendredi soir » : visible du lundi au samedi quand Christian a proposé ses options. */
-const FridayTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+export const FridayTile: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const [f, setF] = useState<Friday | null>(null);
   useEffect(() => { let on = true; getFriday().then(d => on && setF(d.friday)).catch(() => undefined); return () => { on = false; }; }, []);
   if (!f) return null;

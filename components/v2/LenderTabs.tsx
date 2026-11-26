@@ -1,20 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Loan, Notification, Profile, User } from '../../types';
-import { NightHero, Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, euro2, firstName, relDays, dateFr, Note } from './ui';
-import CKLogo from '../brand/CKLogo';
-import FiscalPanel from '../FiscalPanel';
-import PushCard from './PushCard';
-import Discover, { Today, InviteCard } from './Discover';
-import { InstallCard, InstallButton } from './Install';
+import { Loan, Profile, User } from '../../types';
+import { Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, euro2, firstName, relDays, dateFr, Note } from './ui';
+import { InstallButton } from './Install';
 import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
 import { reopenRequest } from '../../services/loanService';
 import { computeSituation } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
 import { fetchExchangeRate } from '../../services/exchangeRate';
-import { getUserNotifications, markNotificationAsRead } from '../../services/notificationService';
 
-type Tab = 'home' | 'loans' | 'activity' | 'profile';
+type Tab = 'loans' | 'profile';
 
 interface Props {
   tab: Tab;
@@ -82,7 +77,6 @@ const LenderTabs: React.FC<Props> = (p) => {
   const mine = p.loans.filter(l => l.lenderUid === p.user.id && l.status !== 'declined');
   const open = mine.filter(l => !['paid'].includes(l.status) && !computeSituation(l, LEGAL_INTEREST_RATE).isFullyPaid || l.status === 'pending_borrower' || l.status === 'requested');
   const [owed, setOwed] = useState<number | null>(null);
-  const [notifs, setNotifs] = useState<Notification[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [reopening, setReopening] = useState<string | null>(null);
@@ -94,15 +88,11 @@ const LenderTabs: React.FC<Props> = (p) => {
       .then(v => { if (alive) setOwed(v.reduce((a, b) => a + b, 0)); });
     return () => { alive = false; };
   }, [p.loans]);
-  useEffect(() => { if (p.tab === 'activity') getUserNotifications(p.user.id).then(setNotifs); }, [p.tab, p.user.id]);
 
   const sorted = open.slice().sort((a, b) => priority(a) - priority(b));
   const overdueCount = open.filter(l => ['active', 'delay_requested'].includes(l.status) && computeSituation(l, LEGAL_INTEREST_RATE).isOverdue).length;
   const requests = open.filter(l => l.status === 'requested').length;
   const running = open.length - requests;
-  const greeting = firstName(p.profile?.fullName || p.user.name);
-  // Aucun prêt en cours : « Aujourd'hui » remonte juste sous les boutons
-  const quiet = !p.loading && sorted.length === 0;
 
 
   const shareText = `Salut ! Pour tes demandes de dépannage, passe désormais par CKMoney : tu choisis le montant et la date de remboursement, je reçois la demande et je te réponds vite. Tout est au même endroit, même le lien pour me rembourser. ${p.requestLink}`;
@@ -125,57 +115,6 @@ const LenderTabs: React.FC<Props> = (p) => {
     </>
   );
 
-  if (p.tab === 'home') return (
-    <Screen bottomPad>
-      <NightHero>
-        <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] flex items-center justify-between">
-          <CKLogo size="sm" tone="light" />
-        </div>
-        <div className="px-5 pt-14">
-          <h1 className="display text-[30px] leading-[1.05]">Bonjour<br />{greeting}.</h1>
-          <div className="mt-4 text-[13px] font-semibold" style={{ color: C.nightMute }}>On te doit</div>
-          {owed === null ? <Skeleton h={44} className="w-40 mt-1 opacity-20" /> : <div className="display text-[36px] leading-none mt-1 tabular-nums">{euro2(owed)}</div>}
-          <div className="text-[13px] mt-2 font-semibold" style={{ color: C.nightMute }}>
-            {running ? `${running} prêt${running > 1 ? 's' : ''} en cours${overdueCount ? ` · ${overdueCount} en retard` : ''}` : 'Aucun prêt en cours'}{requests ? ` · ${requests} demande${requests > 1 ? 's' : ''}` : ''}
-          </div>
-          <button onClick={p.onCreate} className="w-full mt-6 h-14 rounded-xl flex items-center justify-center gap-2.5 text-base font-extrabold" style={{ background: C.mango, color: C.ink }}>
-            <Icon name="plus" /> Prêter à un proche
-          </button>
-          <button onClick={() => setShareOpen(true)} className="w-full mt-2.5 h-12 rounded-xl flex items-center justify-center gap-2 text-[15px] font-bold" style={{ background: 'transparent', color: C.nightText, border: `1.5px solid rgba(247,243,234,.35)` }}>
-            <Icon name="chat" size={20} /> Partager mon lien de demande de prêt
-          </button>
-        </div>
-      </NightHero>
-      {quiet && <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} />}
-      <InstallCard />
-      {ratesOutdated() && (
-        <div className="px-5 pt-4"><Note tone="warn">Les taux légaux enregistrés dans l'appli datent d'avant le {dateFr(RATES_VALID_UNTIL, { day: 'numeric', month: 'long', year: 'numeric' })}. La mise à jour préparée par l'agent de veille attend ta validation sur GitHub.</Note></div>
-      )}
-      <div className="px-5 pt-4"><PushCard uid={p.user.id} text="Reçois les demandes de tes proches et leurs paiements dès qu'ils arrivent." /></div>
-      {!quiet && (
-        <>
-          <div className="px-5 pt-7 pb-3 flex justify-between items-baseline">
-            <div className="text-[17px] font-bold">{sorted.some(l => priority(l) < 3) ? 'À traiter' : 'À venir'}</div>
-          </div>
-          <div className="px-5">
-            {p.loading ? (
-              <div className="flex flex-col gap-2"><Skeleton /><Skeleton /><Skeleton /></div>
-            ) : (
-              <Card>{sorted.slice(0, 6).map((l, i) => <LoanRow key={l.id} loan={l} onOpen={p.onOpenLoan} first={i === 0} />)}</Card>
-            )}
-          </div>
-        </>
-      )}
-      {p.onBorrowerSpace && (
-        <div className="px-5 pt-4"><Button variant="secondary" onClick={p.onBorrowerSpace}>Voir ce que je dois</Button></div>
-      )}
-      <Discover today={!quiet} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />
-      <InviteCard />
-      <InstallCard slot="bottom" />
-      {shareSheet}
-    </Screen>
-  );
-
   if (p.tab === 'loans') {
     const done = mine.filter(l => !open.includes(l));
     // Demandes classées depuis moins de 30 jours, sans contre-proposition envoyée : on peut y revenir
@@ -184,11 +123,39 @@ const LenderTabs: React.FC<Props> = (p) => {
       && (l.createdAt || '') > since && !p.loans.some(x => x.counterOf === l.id));
     return (
       <Screen bottomPad>
-        <div className="px-5 pt-[max(env(safe-area-inset-top),20px)]"><h1 className="text-[26px] font-bold pt-3">Mes prêts</h1></div>
-        <div className="px-5 pt-5">
+        {/* Bandeau façon relevé (26/11) : le montant passe au premier plan, les ronds du wax restent dans les coins */}
+        <div className="relative overflow-hidden px-5 pt-[max(env(safe-area-inset-top),22px)] pb-6 rounded-b-[28px]" style={{ background: C.night, color: C.nightText }}>
+          <span aria-hidden="true" className="absolute rounded-full" style={{ width: 140, height: 140, background: C.mango, top: -92, right: -56 }} />
+          <span aria-hidden="true" className="absolute rounded-full box-border" style={{ width: 76, height: 76, border: `12px solid ${C.coral}`, bottom: -30, right: -18 }} />
+          <div className="relative z-[1]">
+            <h1 className="display text-[22px]">Mes prêts</h1>
+            <div className="mt-4 text-[13px] font-semibold" style={{ color: C.nightMute }}>On te doit</div>
+            {owed === null ? <Skeleton h={40} className="w-40 mt-1 opacity-20" /> : <div className="display text-[34px] leading-none mt-1.5 tabular-nums whitespace-nowrap">{euro2(owed)}</div>}
+            <div className="text-[13px] mt-2 font-semibold" style={{ color: C.nightMute }}>
+              {running ? `${running} prêt${running > 1 ? 's' : ''} en cours${overdueCount ? ` · ${overdueCount} en retard` : ''}` : 'Aucun prêt en cours'}{requests ? ` · ${requests} demande${requests > 1 ? 's' : ''}` : ''}
+            </div>
+            <div className="flex gap-2.5 mt-5">
+              <button onClick={p.onCreate} className="h-12 pl-4 pr-5 rounded-full flex items-center gap-2 text-[15px] font-extrabold" style={{ background: C.mango, color: C.ink }}><Icon name="plus" size={19} /> Prêter</button>
+              <button onClick={() => setShareOpen(true)} className="h-12 px-4 rounded-full flex items-center gap-2 text-[14.5px] font-bold" style={{ color: C.nightText, border: '1.5px solid rgba(247,243,234,.3)' }}><Icon name="chat" size={18} /> Mon lien de demande</button>
+            </div>
+          </div>
+        </div>
+        {ratesOutdated() && (
+          <div className="px-5 pt-4"><Note tone="warn">Les taux légaux enregistrés dans l'appli datent d'avant le {dateFr(RATES_VALID_UNTIL, { day: 'numeric', month: 'long', year: 'numeric' })}. La mise à jour préparée par l'agent de veille attend ta validation sur GitHub.</Note></div>
+        )}
+        {overdueCount > 0 && (
+          <div className="px-5 pt-4">
+            <div className="rounded-2xl px-4 py-3 flex gap-3 items-start text-[14px] leading-snug" style={{ background: C.redSoft, color: C.red }}>
+              <Icon name="alert" size={20} /><span><b>{overdueCount} remboursement{overdueCount > 1 ? 's' : ''} en retard.</b> Les relances partent seules ; tu peux aussi relancer depuis le prêt.</span>
+            </div>
+          </div>
+        )}
+        <div className="px-5 pt-6 pb-3 text-[17px] font-bold">En cours</div>
+        <div className="px-5">
           {open.length ? <Card>{sorted.map((l, i) => <LoanRow key={l.id} loan={l} onOpen={p.onOpenLoan} first={i === 0} />)}</Card>
             : <div className="text-sm" style={{ color: C.mute }}>Aucun prêt en cours.</div>}
         </div>
+        {p.onBorrowerSpace && <div className="px-5 pt-4"><Button variant="secondary" onClick={p.onBorrowerSpace}>Voir ce que je dois</Button></div>}
         {done.length > 0 && (
           <>
             <div className="px-5 pt-7 pb-3 text-[17px] font-bold">Remboursés</div>
@@ -216,35 +183,10 @@ const LenderTabs: React.FC<Props> = (p) => {
             </div>
           </>
         )}
-        <Toast text={toast} onDone={() => setToast(null)} />
+        {shareSheet}
       </Screen>
     );
   }
-
-  if (p.tab === 'activity') return (
-    <Screen bottomPad>
-      <div className="px-5 pt-[max(env(safe-area-inset-top),20px)]"><h1 className="text-[26px] font-bold pt-3">Activité</h1></div>
-      <div className="px-5 pt-5">
-        {notifs.length ? (
-          <Card>
-            {notifs.slice(0, 30).map((n, i) => (
-              <button key={n.id} onClick={() => { markNotificationAsRead(n.id); const l = p.loans.find(x => x.id === n.loanId); if (l) p.onOpenLoan(l); }}
-                className="w-full text-left flex gap-3 px-4 py-3.5" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
-                <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: n.read ? 'transparent' : C.ochre }} />
-                <div className="flex-1">
-                  <div className="text-[15px] font-semibold">{n.title}</div>
-                  <div className="text-[13px]" style={{ color: C.mute }}>{n.message}</div>
-                </div>
-                <div className="text-xs shrink-0" style={{ color: C.mute }}>{dateFr(n.date, { day: 'numeric', month: 'short' })}</div>
-              </button>
-            ))}
-          </Card>
-        ) : <div className="text-sm" style={{ color: C.mute }}>Rien de nouveau pour l'instant.</div>}
-      </div>
-      <div className="px-5 pt-8 pb-3 text-[17px] font-bold">Impôts et obligations</div>
-      <div className="px-5"><FiscalPanel loans={p.loans} lenderUid={p.user.id} /></div>
-    </Screen>
-  );
 
   // Profil
   return (

@@ -9,7 +9,9 @@ import {
 import { checkAutomaticNotifications } from './services/notificationService';
 import { refreshPushToken } from './services/push';
 import { isAdminEmail } from './config/legal';
-import { Screen, TabBar, Button, Note, Toast, C, euro2, dateFr } from './components/v2/ui';
+import { Screen, TabBar, MainTab, Button, Note, Toast, C, euro2, dateFr } from './components/v2/ui';
+import { HomeTab, ActuTab, AmisTab, ActivityScreen, FriendProfile, Nav } from './components/v2/Home';
+import MiniPlayer from './components/v2/MiniPlayer';
 import LenderTabs from './components/v2/LenderTabs';
 import NewLoanFlow from './components/v2/NewLoanFlow';
 import LoanDetail from './components/v2/LoanDetail';
@@ -135,7 +137,8 @@ type Overlay =
   | { k: 'info'; back?: Overlay; scope?: 'monde' | 'afrique' | 'decryptage' }
   | { k: 'vendredi'; back?: Overlay }
   | { k: 'adresses'; back?: Overlay }
-  | { k: 'films'; back?: Overlay };
+  | { k: 'films'; back?: Overlay }
+  | { k: 'activity' };
 
 const Splash = () => (
   <Screen><div className="flex-1 flex items-center justify-center"><div className="animate-pulse"><CKLogo size="lg" /></div></div></Screen>
@@ -154,7 +157,7 @@ const App: React.FC = () => {
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'home' | 'loans' | 'activity' | 'profile'>('home');
+  const [tab, setTab] = useState<MainTab>('home');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   // Au retour sur l'accueil, on retrouve l'endroit où on était (pas le haut de la page)
   const homeY = useRef(0);
@@ -355,6 +358,7 @@ const App: React.FC = () => {
     const content = (() => {
       switch (overlay.k) {
         case 'legal': return <LegalDocs view={overlay.v} onClose={close} />;
+        case 'activity': return <ActivityScreen user={user} loans={loans} isLender={isLender} onBack={close} onOpenLoan={openLoan} />;
         case 'articles': return <Suspense fallback={<Splash />}><ArticlesScreen user={user} isAuthor={isAdmin} initialId={overlay.id} prefill={overlay.prefill} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'jambo': return <Suspense fallback={<Splash />}><Jambo playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
@@ -415,32 +419,49 @@ const App: React.FC = () => {
             onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} onRadio={() => setOverlay({ k: 'radio', back: { k: 'borrower' } })} onMot={() => setOverlay({ k: 'mot', back: { k: 'borrower' } })} onInfo={scope => setOverlay({ k: 'info', scope, back: { k: 'borrower' } })} onVendredi={() => setOverlay({ k: 'vendredi', back: { k: 'borrower' } })} onAdresses={() => setOverlay({ k: 'adresses', back: { k: 'borrower' } })} onFilms={() => setOverlay({ k: 'films', back: { k: 'borrower' } })} />;
       }
     })();
-    return <ErrorBoundary>{content}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
+    // Mini-lecteur (26/11) : sur les écrans de lecture seulement (pas sur un formulaire, un jeu ou l'info, qui a son lecteur)
+    const withMini = ['articles', 'films', 'adresses', 'events', 'vendredi', 'activity'].includes(overlay.k);
+    return <ErrorBoundary>{content}{withMini && <MiniPlayer withTabs={false} />}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
   }
 
-  // ---------- Ami (pas prêteur) : son espace
-  if (!isLender) return (
-    <ErrorBoundary>
-      <BorrowerSpace user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
-        onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
-        onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={scope => setOverlay({ k: 'info', scope })} onVendredi={() => setOverlay({ k: 'vendredi' })} onAdresses={() => setOverlay({ k: 'adresses' })} onFilms={() => setOverlay({ k: 'films' })}
-        onBecomeLender={() => setOverlay({ k: 'lend' })} />
-      <Toast text={toast} onDone={() => setToast(null)} />
-    </ErrorBoundary>
-  );
-
-  // ---------- Prêteur
-  const toHandle = loans.filter(l => l.lenderUid === user.id && (l.status === 'requested' || l.status === 'delay_requested' || (l.payments || []).some(p => p.status === 'declared'))).length;
+  // ---------- Nouvelle interface (26/11) : les mêmes cinq onglets pour tout le monde
+  const toHandle = loans.filter(l => l.lenderUid === user.id && (l.status === 'requested' || l.status === 'delay_requested' || (l.payments || []).some(p => p.status === 'declared'))).length
+    + loans.filter(l => l.borrowerUid === user.id && l.status === 'pending_borrower').length;
   const hasBorrowerSide = loans.some(l => l.borrowerUid === user.id);
+  const goTab = (t: MainTab) => { setTab(t); window.scrollTo(0, 0); };
+  const nav: Nav = {
+    onTab: goTab, onActivity: () => setOverlay({ k: 'activity' }),
+    onArticles: id => setOverlay({ k: 'articles', id }), onInfo: scope => setOverlay({ k: 'info', scope }),
+    onEvents: id => setOverlay({ k: 'events', id }), onMot: () => setOverlay({ k: 'mot' }),
+    onJambo: () => setOverlay({ k: 'jambo' }), onBac: () => setOverlay({ k: 'bac' }), onWiseman: () => setOverlay({ k: 'wiseman' }),
+    onRadio: () => setOverlay({ k: 'radio' }), onVendredi: () => setOverlay({ k: 'vendredi' }), onAdresses: () => setOverlay({ k: 'adresses' }), onFilms: () => setOverlay({ k: 'films' }),
+  };
+  const lenderProps = {
+    user, profile, loans, loading, onOpenLoan: openLoan,
+    onCreate: () => setOverlay({ k: 'new' }), onEditProfile: () => setOverlay({ k: 'profile' }), onLogout: logout,
+    onLegal: (v: 'cgu' | 'privacy') => setOverlay({ k: 'legal', v }), requestLink: requestLinkFor(handle || user.id),
+    onBorrowerSpace: hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined, onBorrowerArea: () => setOverlay({ k: 'borrower' }),
+    onArticles: () => nav.onArticles(), onJambo: nav.onJambo, onBac: nav.onBac, onWiseman: nav.onWiseman, onEvents: () => nav.onEvents(),
+    onRadio: nav.onRadio, onMot: nav.onMot, onInfo: nav.onInfo, onVendredi: nav.onVendredi, onAdresses: nav.onAdresses, onFilms: nav.onFilms,
+  };
   return (
     <ErrorBoundary>
-      <LenderTabs tab={tab} user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
-        onCreate={() => setOverlay({ k: 'new' })} onEditProfile={() => setOverlay({ k: 'profile' })} onLogout={logout}
-        onLegal={v => setOverlay({ k: 'legal', v })} requestLink={requestLinkFor(handle || user.id)}
-        onBorrowerSpace={hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined} onBorrowerArea={() => setOverlay({ k: 'borrower' })}
-        onArticles={() => setOverlay({ k: 'articles' })} onJambo={() => setOverlay({ k: 'jambo' })} onBac={() => setOverlay({ k: 'bac' })} onWiseman={() => setOverlay({ k: 'wiseman' })} onEvents={() => setOverlay({ k: 'events' })} onRadio={() => setOverlay({ k: 'radio' })} onMot={() => setOverlay({ k: 'mot' })} onInfo={scope => setOverlay({ k: 'info', scope })} onVendredi={() => setOverlay({ k: 'vendredi' })} onAdresses={() => setOverlay({ k: 'adresses' })} onFilms={() => setOverlay({ k: 'films' })} />
-      <TabBar tab={tab} onTab={t => { setTab(t); window.scrollTo(0, 0); }} onCreate={() => setOverlay({ k: 'new' })} badge={toHandle} />
+      {tab === 'home' && <HomeTab user={user} profile={profile} loans={loans} isLender={isLender} nav={nav} />}
+      {tab === 'actu' && <ActuTab user={user} nav={nav} />}
+      {tab === 'amis' && <AmisTab nav={nav} />}
+      {tab === 'loans' && (isLender
+        ? <LenderTabs tab="loans" {...lenderProps} />
+        : <BorrowerSpace embedded user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}
+            onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
+            onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
+            onBecomeLender={() => setOverlay({ k: 'lend' })} />)}
+      {tab === 'profile' && (isLender
+        ? <LenderTabs tab="profile" {...lenderProps} />
+        : <FriendProfile user={user} profile={profile} loans={loans} nav={nav} onEditIdentity={() => setOverlay({ k: 'identity' })}
+            onOpenContract={l => setOverlay({ k: 'contract', id: l.id })} onBecomeLender={() => setOverlay({ k: 'lend' })}
+            onLegal={v => setOverlay({ k: 'legal', v })} onLogout={logout} />)}
+      <MiniPlayer withTabs />
+      <TabBar tab={tab} onTab={goTab} badge={toHandle} />
       <Toast text={toast} onDone={() => setToast(null)} />
     </ErrorBoundary>
   );
