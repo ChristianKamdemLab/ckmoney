@@ -5,12 +5,10 @@ import { overdueSlot } from '../api/_lib/reminders';
 
 // 26/11 : heure de Paris = UTC + 1
 const at = (h: number, m = 0) => new Date(Date.UTC(2026, 10, 26, h - 1, m));
-describe('relances de retard : quatre créneaux par jour', () => {
-  it('8 h, 12 h, 16 h, 19 h', () => {
-    expect(overdueSlot(at(8, 5))?.endsWith('-0')).toBe(true);
-    expect(overdueSlot(at(13))?.endsWith('-1')).toBe(true);
-    expect(overdueSlot(at(17, 30))?.endsWith('-2')).toBe(true);
-    expect(overdueSlot(at(19, 40))?.endsWith('-3')).toBe(true);
+describe('relances de retard : une par jour', () => {
+  it('le même créneau toute la journée, de 8 h à 21 h', () => {
+    expect(overdueSlot(at(8, 5))).toBe('2026-11-26-0');
+    expect(overdueSlot(at(13))).toBe(overdueSlot(at(19, 40)));
   });
   it('jamais la nuit', () => {
     expect(overdueSlot(at(7, 59))).toBeNull();

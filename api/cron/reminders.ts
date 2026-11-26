@@ -7,7 +7,7 @@ import { computeSituation, daysBetween } from '../../utils/schedule.js';
 import { LEGAL_INTEREST_RATE } from '../../config/legal.js';
 
 // Tâche quotidienne (Vercel Cron, gratuit) : rappels d'échéance et de retard.
-// Proche : la veille et le jour J ; en retard, quatre relances par jour (api/_lib/reminders.ts,
+// Proche : la veille et le jour J ; en retard, une relance par jour (api/_lib/reminders.ts,
 // sendOverdueRounds) tant qu'il n'a ni payé ni proposé de nouvelle date (une demande de délai les suspend).
 // Prêteur : prévenu au premier jour de retard.
 
@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
     const toBorrower = (amount: number) => ({ to: borrowerMail, replyTo: lenderMail, fromName: lender || 'CKMoney', payUrl: payUrl(lenderLink, amount, loan.currency) });
 
     if (s.isOverdue && loan.status === 'active' && s.pendingDeclared < s.overdueAmount) {
-      // Le proche est relancé quatre fois par jour par sendOverdueRounds ; ici, seulement le prêteur
+      // Le proche est relancé une fois par jour par sendOverdueRounds ; ici, seulement le prêteur
       const late = s.daysLate;
       if (late === 1 && loan.lenderUid) {
         sent += await notify(loan.lenderUid, loan.id, 'warning', `${borrower} est en retard`,
@@ -52,7 +52,7 @@ export default async function handler(req: any, res: any) {
       }
     }
   }
-  // Relance de retard du créneau de 8 h (les autres partent avec /api/annonces)
+  // Relance de retard du jour (sinon au premier passage de /api/annonces après 8 h)
   const rounds = await sendOverdueRounds().catch(e => { console.error('relances', e?.message); return null; });
   // Le 1er du mois : bilan et sauvegarde envoyés à chaque prêteur
   const monthly = today.endsWith('-01') ? await runMonthly(today).catch(e => { console.error('monthly', e?.message); return 0; }) : 0;
