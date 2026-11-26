@@ -179,7 +179,6 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
         </div>
       </div>
 
-      <InstallCard />
       <div className="px-5 pt-3"><PushCard uid={user.id} text={isLender ? "Reçois les demandes de tes proches, leurs paiements et le décryptage du jour." : "Le décryptage du jour, le mot du jour et tes rappels d'échéance, dès qu'ils arrivent."} /></div>
 
       {own.length > 0 && (
@@ -263,7 +262,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
       </div>
 
       <InviteCard />
-      <InstallCard slot="bottom" />
+      <InstallCard slot="end" />
     </Screen>
   );
 };
