@@ -77,7 +77,7 @@ export const showActions = async (body: any, who: { uid: string; name?: string }
     });
     // Seul l'hôte d'un chill à domicile est prévenu, une fois par venue
     if (target?.kind === 'home' && target.hostUid && target.hostUid !== who.uid && prev !== id) {
-      await pushToUser(target.hostUid, { title: 'Vendredi Show', body: `${me} vient chill chez toi vendredi soir.`, url: '/?vendrediShow', tag: `show-${show.date}-${who.uid}` }).catch(() => 0);
+      await pushToUser(target.hostUid, { title: 'Vendredi Show', body: `${me} vient chill chez toi vendredi soir.`, url: '/?vendredi', tag: `show-${show.date}-${who.uid}` }).catch(() => 0);
     }
     return { status: 200, json: { show: (await build(who.uid, admin)).show } };
   }
@@ -113,7 +113,7 @@ export const showActions = async (body: any, who: { uid: string; name?: string }
     went.forEach(u => delete picks[u]);
     await ref.set({ choices: (d.choices || []).filter((x: any) => x.id !== id), picks, updatedAt: now }, { merge: true });
     if (c.kind === 'home') {
-      await Promise.all(went.filter(u => u !== who.uid).map(u => pushToUser(u, { title: 'Vendredi Show', body: `${c.name} est annulé. Choisis un autre plan pour vendredi.`, url: '/?vendrediShow', tag: `show-${show.date}-off` }).catch(() => 0)));
+      await Promise.all(went.filter(u => u !== who.uid).map(u => pushToUser(u, { title: 'Vendredi Show', body: `${c.name} est annulé. Choisis un autre plan pour vendredi.`, url: '/?vendredi', tag: `show-${show.date}-off` }).catch(() => 0)));
     }
     return { status: 200, json: { show: (await build(who.uid, admin)).show } };
   }

@@ -5,7 +5,8 @@ import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
 import FiscalPanel from '../FiscalPanel';
 import { InstallCard, InstallButton } from './Install';
-import { InviteCard, RadioTile, MotTile, FridayTile } from './Discover';
+import { InviteCard, RadioTile, MotTile } from './Discover';
+import VendrediShow from './VendrediShow';
 import { listArticles } from '../../services/articleService';
 import { listInfo } from '../../services/infoService';
 import { listDecryptage, DecryptageDay, playDecryptage, decryptageTrackId } from '../../services/decryptageService';
@@ -109,14 +110,12 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
   const info = useLoad(listInfo, [] as InfoDay[]);
   const articles = useLoad(() => listArticles(user.id, false), [] as Article[]);
   const films = useLoad(() => listFilms().then(r => r.films), [] as Film[]);
-  const events = useLoad(() => listEvents(), [] as AppEvent[]);
   const ps = usePlayer();
 
   const dec = decs.find(d => d.date >= yesterday()) || null;
   const day = info[0];
   const own = articles.filter(a => a.kind !== 'press' && a.status === 'published').slice(0, 8);
   const recos = films.slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 10);
-  const upcoming = sortUpcoming(events).slice(0, 8);
   const alert = loanAlert(loans, user.id, isLender);
   const name = firstName(profile?.fullName || user.name);
   const decPlaying = !!dec && ps.track?.id === decryptageTrackId(dec.date) && (ps.playing || ps.loading);
@@ -217,7 +216,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
                       {String(f.rating).replace('.', ',')}
                     </span>
                   </span>
-                  <span className="block text-[14px] font-extrabold leading-[1.3] mt-1.5 line-clamp-1">{f.title}</span>
+                  <span className="text-[14px] font-extrabold leading-[1.3] mt-1.5 line-clamp-1">{f.title}</span>
                   <span className="block text-[12.5px]" style={{ color: C.mute }}>{FILM_KIND[f.kind]}</span>
                 </button>
               );
@@ -226,25 +225,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
         </>
       )}
 
-      {upcoming.length > 0 && (
-        <>
-          <Section title="Événements à venir" action="Agenda" onAction={() => nav.onTab('amis')} />
-          <Rail>
-            {upcoming.map(e => (
-              <button key={e.id} onClick={() => nav.onEvents(e.id)} className="shrink-0 w-[108px] text-left">
-                <span className="relative overflow-hidden block h-[144px] rounded-[14px]" style={{ background: C.nightCard, color: C.nightText }}>
-                  {e.image
-                    ? <img src={e.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" />
-                    : <span className="absolute inset-0 flex flex-col items-center justify-center leading-none"><span className="display text-[26px]">{dayBlock(e.startsAt).day}</span><span className="text-[11px] font-extrabold uppercase mt-1" style={{ color: C.mango }}>{dayBlock(e.startsAt).month}</span></span>}
-                  {isLive(e) && <span className="absolute top-1.5 left-1.5 px-2 py-[2px] rounded-full text-[10.5px] font-extrabold" style={{ background: C.coral, color: '#fff' }}>En cours</span>}
-                </span>
-                <span className="block text-[14px] font-extrabold leading-[1.3] mt-1.5 line-clamp-1">{e.title}</span>
-                <span className="block text-[12.5px]" style={{ color: C.mute }}>{isLive(e) ? 'En ce moment' : `${dayBlock(e.startsAt).weekday} ${dayBlock(e.startsAt).day} ${dayBlock(e.startsAt).month}`}</span>
-              </button>
-            ))}
-          </Rail>
-        </>
-      )}
+      <VendrediShow />
 
       <Section title="Jouer entre amis" action="Tout" onAction={() => nav.onTab('amis')} />
       <div className="grid grid-cols-4 gap-2 px-5">
@@ -393,8 +374,8 @@ export const AmisTab: React.FC<{ nav: Nav }> = ({ nav }) => {
         <h1 className="display text-[26px]">Entre amis</h1>
         <div className="text-[14px] mt-1" style={{ color: C.mute }}>Jouer, sortir, écouter ensemble</div>
       </div>
-      <div className="px-5 grid grid-cols-2 gap-2.5">
-        <FridayTile onClick={nav.onVendredi} />
+      <VendrediShow standalone />
+      <div className="px-5 pt-4 grid grid-cols-2 gap-2.5">
         <RadioTile onClick={nav.onRadio} />
       </div>
 
