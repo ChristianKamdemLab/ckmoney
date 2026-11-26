@@ -1,3 +1,4 @@
+import { parseRubrique } from '../../utils/rubrique.js';
 import { adminAuth, adminDb, authorEmail, pushToUser } from './admin.js';
 import { infoDate } from '../../utils/infoDuJour.js';
 import { DriveFile } from './drive.js';
@@ -94,7 +95,7 @@ export const parseEssentiel = (raw: string) => {
   const lines = raw.replace(/^\ufeff/, '').split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const head: Record<string, string> = {};
   while (lines.length) {
-    const m = lines[0].match(/^(accroche|source|journal|titre|date|auteur|lien|alerte)\s*:\s*(.*)$/i);
+    const m = lines[0].match(/^(accroche|source|journal|titre|date|auteur|lien|alerte|rubrique|rubriques)\s*:\s*(.*)$/i);
     if (!m) break;
     head[m[1].toLowerCase()] = m[2].replace(/[<>]/g, '').trim();
     lines.shift();
@@ -109,6 +110,8 @@ export const parseEssentiel = (raw: string) => {
     link,
     // « Alerte : Breaking News » : titre de la notification à la place de « Revue de presse · … »
     alert: (head.alerte || '').slice(0, 40),
+    // « Rubrique : Cameroun, Éco » : la rubrique du fil Actu, choisie par l'agent (26/11)
+    zones: parseRubrique(head.rubrique || head.rubriques || ''),
     summary: lines.join('\n\n').replace(/[<>]/g, '').slice(0, MAX_SUMMARY).trim(),
   };
 };
@@ -242,6 +245,7 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
         await ref.set({
           ...base, kind: 'press', title: r.title, body: '', excerpt: e?.teaser || r.excerpt, readMinutes: 1, status: live ? 'published' : 'draft',
           ...(e?.summary ? { summary: e.summary } : {}),
+          ...(e?.zones?.length ? { zones: e.zones } : {}),
           // La date d'une fiche est celle du journal quand on la connaît (elle ne change pas d'une lecture à l'autre)
           source: r.source, sourceUrl: r.sourceUrl, sourceSection: r.section || '', sourceAuthor: r.author || '', publishedAt: r.publishedAt || kept || iso,
         }, { merge: true });

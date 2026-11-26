@@ -188,7 +188,8 @@ describe('agent Articles : relecture et garde-fous', () => {
 
 describe('agent Articles : le document « L’essentiel » peut donner la source et le titre', () => {
   it('lit les lignes d’en-tête (Accroche, Source, Titre, Date, Auteur, Lien), même séparées par des lignes vides', () => {
-    expect(parseEssentiel("\ufeffAccroche : Une accroche.\r\n\r\nSource : Reuters\r\nTitre : Un titre d'essai\r\nDate : 12/11/2026\r\nAuteur : Awa Test\r\nLien : https://www.reuters.com/x\r\n\r\nPremier paragraphe.\r\n\r\nSecond.")).toEqual({
+    expect(parseEssentiel("\ufeffAccroche : Une accroche.\r\n\r\nSource : Reuters\r\nTitre : Un titre d'essai\r\nDate : 12/11/2026\r\nAuteur : Awa Test\r\nLien : https://www.reuters.com/x\r\nRubrique : Monde, Éco\r\n\r\nPremier paragraphe.\r\n\r\nSecond.")).toEqual({
+      zones: ['monde', 'eco'],
       teaser: 'Une accroche.', source: 'Reuters', title: "Un titre d'essai", date: '2026-11-12T09:00:00.000Z', author: 'Awa Test',
       link: 'https://www.reuters.com/x', alert: '', summary: 'Premier paragraphe.\n\nSecond.',
     });

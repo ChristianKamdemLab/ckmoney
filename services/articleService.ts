@@ -8,7 +8,7 @@ const fromDoc = (id: string, d: any): Article => ({
   id, title: d.title || '', body: d.body || '', excerpt: d.excerpt || '', readMinutes: d.readMinutes || 1,
   status: d.status === 'draft' ? 'draft' : 'published', publishedAt: d.publishedAt || undefined,
   updatedAt: d.updatedAt || '', authorUid: d.authorUid || '', authorName: d.authorName || 'CKLabs',
-  kind: d.kind === 'press' ? 'press' : 'own', source: d.source || '', sourceUrl: d.sourceUrl || '', sourceAuthor: d.sourceAuthor || '', sourceSection: d.sourceSection || '', summary: d.summary || '', audio: !!d.audioHash,
+  kind: d.kind === 'press' ? 'press' : 'own', source: d.source || '', sourceUrl: d.sourceUrl || '', sourceAuthor: d.sourceAuthor || '', sourceSection: d.sourceSection || '', summary: d.summary || '', audio: !!d.audioHash, zones: Array.isArray(d.zones) ? d.zones : undefined,
 });
 
 /** Articles publiés (+ brouillons de l'auteur), du plus récent au plus ancien ; brouillons en tête. */

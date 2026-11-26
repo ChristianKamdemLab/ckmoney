@@ -229,4 +229,5 @@ export interface Article {
   sourceSection?: string;  // rubrique (« Grande enquête », « Cameroun · Énergies »…)
   summary?: string;        // presse : « L'essentiel », synthèse écrite avec nos mots (jamais le texte du journal)
   audio?: boolean;         // presse : « L'essentiel » lu (voix de Christian, ElevenLabs)
+  zones?: ('cameroun' | 'afrique' | 'monde' | 'eco')[]; // presse : rubriques du fil Actu, écrites par l'agent
 }
