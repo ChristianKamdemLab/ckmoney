@@ -31,14 +31,16 @@ const Ring: React.FC<{ done: number; total: number }> = ({ done, total }) => {
   );
 };
 
-const Action: React.FC<{ icon: IconName; label: string; primary?: boolean; onClick: () => void; href?: string }> = ({ icon, label, primary, onClick, href }) => {
+const Action: React.FC<{ icon: IconName; label: string; tone?: 'mango' | 'green' | 'plain'; onClick: () => void; href?: string }> = ({ icon, label, tone = 'plain', onClick, href }) => {
+  const bg = tone === 'mango' ? C.mango : tone === 'green' ? '#25D366' : C.card;
+  const fg = tone === 'green' ? '#fff' : C.ink;
   const inner = (
     <>
-      <span className="w-[52px] h-[52px] rounded-full flex items-center justify-center" style={{ background: primary ? C.ink : C.card, color: primary ? '#fff' : C.ink }}><Icon name={icon} /></span>
-      {label}
+      <span className="w-[54px] h-[54px] rounded-full flex items-center justify-center" style={{ background: bg, color: fg }}><Icon name={icon} /></span>
+      <span className="text-center leading-tight">{label}</span>
     </>
   );
-  const cls = 'flex flex-col items-center gap-1.5 text-xs font-semibold';
+  const cls = 'flex flex-col items-center gap-[7px] text-[12.5px] font-bold';
   return href
     ? <a href={href} target="_blank" rel="noopener noreferrer" className={cls} onClick={onClick}>{inner}</a>
     : <button className={cls} onClick={onClick}>{inner}</button>;
@@ -150,26 +152,53 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
 
   return (
     <Screen>
-      <TopBar onBack={onBack} title={isLender ? `Prêt à ${other}` : `Prêt de ${other}`} />
-
-      {loan.status === 'requested' || loan.status === 'declined' ? null : pending ? (
-        <div className="px-6 pt-3 flex items-center gap-4">
-          <Avatar name={other} size={56} />
-          <div>
-            <div className="text-sm" style={{ color: C.mute }}>En attente de signature</div>
-            <Amount size={34}>{euro2(loan.amount, loan.currency)}</Amount>
+      {loan.status === 'requested' || loan.status === 'declined' ? (
+        <TopBar onBack={onBack} title={isLender ? `Prêt à ${other}` : `Prêt de ${other}`} />
+      ) : (() => {
+        // Bandeau façon relevé (26/11, maquette validée) : le montant au premier plan, les ronds dans les coins
+        const scheduled = s.schedule.reduce((a, i) => a + i.amount, 0);
+        const repaid = s.schedule.reduce((a, i) => a + (i.amount - Math.max(0, i.outstanding)), 0);
+        const pct = scheduled ? Math.max(0, Math.min(100, Math.round(repaid / scheduled * 100))) : 0;
+        const done = loan.status === 'paid' || s.isFullyPaid;
+        const pill: [string, string, string] = pending ? [isLender ? 'En attente de signature' : 'À signer', C.mango, C.ink]
+          : done ? ['Remboursé', C.green, '#fff']
+          : loan.status === 'delay_requested' ? ['Délai demandé', C.mango, C.ink]
+          : declared.length ? ['Paiement à confirmer', C.mango, C.ink]
+          : s.isOverdue ? [`En retard de ${s.daysLate} jour${s.daysLate > 1 ? 's' : ''}`, C.coral, '#fff']
+          : s.nextInstallment ? [`Prochaine échéance ${relDays(s.nextInstallment.dueDate)}`, 'rgba(255,255,255,.14)', C.nightText] : ['En cours', 'rgba(255,255,255,.14)', C.nightText];
+        return (
+          <div className="relative overflow-hidden px-5 pt-[max(env(safe-area-inset-top),10px)] pb-6 rounded-b-[28px]" style={{ background: C.night, color: C.nightText }}>
+            <span aria-hidden="true" className="absolute rounded-full" style={{ width: 140, height: 140, background: C.mango, top: -92, right: -56 }} />
+            <span aria-hidden="true" className="absolute rounded-full box-border" style={{ width: 76, height: 76, border: `12px solid ${C.coral}`, bottom: -30, right: -18 }} />
+            <div className="relative z-[1] flex items-center justify-between min-h-[52px]">
+              <button onClick={onBack} aria-label="Retour" className="w-11 h-11 -ml-2.5 flex items-center justify-center rounded-full active:bg-white/10"><Icon name="back" /></button>
+            </div>
+            <div className="relative z-[1] flex items-center gap-3 mt-1">
+              <Avatar name={other} size={44} />
+              <div className="min-w-0">
+                <div className="text-[17px] font-extrabold truncate">{isLender ? other : `Prêt de ${other}`}</div>
+                <span className="inline-block mt-1 text-[12px] font-extrabold px-2.5 py-[3px] rounded-full" style={{ background: pill[1], color: pill[2] }}>{pill[0]}</span>
+              </div>
+            </div>
+            {pending ? (
+              <>
+                <div className="relative z-[1] mt-5 text-[13px] font-bold" style={{ color: C.nightMute }}>Montant du prêt</div>
+                <div className="relative z-[1] display text-[34px] leading-none mt-1.5 tabular-nums whitespace-nowrap">{euro2(loan.amount, loan.currency)}</div>
+              </>
+            ) : (
+              <>
+                <div className="relative z-[1] mt-5 text-[13px] font-bold" style={{ color: C.nightMute }}>{isLender ? 'Reste à recevoir' : 'Reste à rembourser'}</div>
+                <div className="relative z-[1] display text-[34px] leading-none mt-1.5 tabular-nums whitespace-nowrap">{euro2(s.totalDueNow, loan.currency)}</div>
+                <div className="relative z-[1] text-[13px] mt-1.5 mr-12" style={{ color: C.nightMute }}>
+                  sur {euro2(loan.amount, loan.currency)} {isLender ? 'prêtés' : 'reçus'} le {dateFr(loan.loanDate, { day: 'numeric', month: 'short' })}{lateFees > 0.004 && !loan.lateFeesWaivedAt ? ` · dont ${euro2(lateFees, loan.currency)} de frais de retard` : ''}
+                </div>
+                <div aria-hidden="true" className="relative z-[1] mt-3.5 h-1.5 rounded-full overflow-hidden mr-12" style={{ background: 'rgba(255,255,255,.14)' }}><span className="block h-full rounded-full" style={{ width: `${pct}%`, background: C.mango }} /></div>
+                <div className="relative z-[1] text-[12px] mt-1.5" style={{ color: C.nightMute }}>{pct} % remboursés · {s.schedule.filter(i => i.outstanding <= 0.004).length}/{s.schedule.length} échéance{s.schedule.length > 1 ? 's' : ''}</div>
+              </>
+            )}
           </div>
-        </div>
-      ) : (
-        <div className="px-6 pt-3 flex items-center gap-5">
-          <Ring done={s.schedule.filter(i => i.outstanding <= 0.004).length} total={s.schedule.length} />
-          <div className="min-w-0">
-            <div className="text-sm" style={{ color: C.mute }}>{isLender ? 'Reste à recevoir' : 'Reste à rembourser'}</div>
-            <Amount size={34}>{euro2(s.totalDueNow, loan.currency)}</Amount>
-            <div className="text-[13px] mt-0.5" style={{ color: C.mute }}>sur {euro2(loan.amount, loan.currency)} {isLender ? 'prêtés' : 'reçus'} le {dateFr(loan.loanDate, { day: 'numeric', month: 'short' })}</div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {!isLender && (loan.status === 'requested' || loan.status === 'declined') ? (
         <div className="px-5 pt-2 flex flex-col gap-3">
@@ -193,21 +222,21 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
         </div>
       ) : (<>
       {/* Actions */}
-      <div className={`px-6 pt-6 grid ${isLender && pending ? "grid-cols-3" : "grid-cols-4"} gap-2`}>
+      <div className={`px-4 pt-5 grid ${isLender && pending ? "grid-cols-3" : "grid-cols-4"} gap-1.5`}>
         {isLender ? (
           <>
-            {!pending && <Action icon="check" label="Encaisser" primary onClick={() => setSheet('pay')} />}
-            {pending ? <Action icon="chat" label="Relancer" href={wa} onClick={() => undefined} />
-              : <Action icon="chat" label="Relancer" onClick={() => setSheet('remind')} />}
+            {pending ? <Action icon="chat" label="Relancer" tone="green" href={wa} onClick={() => undefined} />
+              : <Action icon="chat" label="Relancer" tone="green" onClick={() => setSheet('remind')} />}
+            {!pending && <Action icon="check" label="Paiement reçu" tone="mango" onClick={() => setSheet('pay')} />}
             <Action icon="file" label="Contrat" onClick={() => setShowContract(true)} />
             <Action icon="dots" label="Plus" onClick={() => setSheet('more')} />
           </>
         ) : (
           <>
-            <Action icon="check" label="J'ai payé" primary onClick={() => setSheet('pay')} />
+            <Action icon="check" label="J'ai payé" tone="mango" onClick={() => setSheet('pay')} />
             <Action icon="calendar" label="Délai" onClick={() => setSheet('delay')} />
             <Action icon="file" label="Contrat" onClick={() => setShowContract(true)} />
-            {payLink ? <Action icon="arrow" label="Payer" href={payLink} onClick={() => undefined} /> : <div />}
+            {payLink ? <Action icon="arrow" label="Payer" tone="green" href={payLink} onClick={() => undefined} /> : <div />}
           </>
         )}
       </div>
@@ -300,8 +329,9 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
           </Card>
         )}
         {declared.map((p: Payment) => (
-          <Card key={p.id} className="p-4">
-            <div className="text-[15px] font-semibold">{isLender ? `${other} dit avoir payé ${euro2(p.amount, loan.currency)}` : `Paiement de ${euro2(p.amount, loan.currency)} en attente`}</div>
+          <div key={p.id} className="rounded-[18px] p-4" style={{ background: C.ochreSoft }}>
+            <div className="text-[12px] font-extrabold uppercase tracking-wide" style={{ color: C.ochreText }}>À confirmer</div>
+            <div className="text-[15px] font-bold mt-1">{isLender ? `${other} dit avoir payé ${euro2(p.amount, loan.currency)}` : `Paiement de ${euro2(p.amount, loan.currency)} en attente`}</div>
             <div className="text-sm mt-1" style={{ color: C.mute }}>{dateFr(p.date)} · {p.method}{isLender ? '' : ` · ${other} doit confirmer l'avoir reçu`}</div>
             {isLender && (
               <div className="grid grid-cols-2 gap-2 mt-3">
@@ -309,28 +339,35 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
                 <Button variant="danger" busy={busy === p.id + 'x'} onClick={() => run(p.id + 'x', () => reviewPayment(loan.id, p.id, false), 'Marqué non reçu')}>Pas reçu</Button>
               </div>
             )}
-          </Card>
+          </div>
         ))}
         {isLender && s.isFullyPaid && loan.status !== 'paid' && !pending && (
           <Button variant="secondary" busy={busy === 'close'} onClick={() => run('close', () => markLoanPaid(loan.id), 'Prêt soldé')}>Clôturer le prêt (tout est remboursé)</Button>
         )}
       </div>
 
-      <div className="px-6 pt-6 pb-2.5 text-[17px] font-bold">Échéances</div>
+      <div className="px-6 pt-7 pb-2.5 flex items-baseline justify-between"><span className="text-[18px] font-extrabold">Échéancier</span><span className="text-[13px] font-bold" style={{ color: C.mute }}>{s.schedule.length} échéance{s.schedule.length > 1 ? 's' : ''}</span></div>
       <div className="mx-5">
         <Card>
           {s.schedule.map((i, idx) => {
             const paid = i.outstanding <= 0.004;
-            const dot = paid ? C.green : i.isOverdue ? C.red : idx === s.schedule.findIndex(x => x.outstanding > 0.004) ? C.ochre : '#D9D2C3';
+            const last = idx === s.schedule.length - 1;
             const note = paid ? 'Payée' : i.isOverdue ? `En retard de ${i.daysLate} j` : relDays(i.dueDate);
             return (
-              <div key={i.index} className="flex items-center gap-3 px-4 py-3" style={{ borderTop: idx ? `1px solid ${C.line}` : undefined }}>
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: dot }} />
-                <div className="flex-1">
-                  <div className="text-[15px] font-semibold">{dateFr(i.dueDate, { day: 'numeric', month: 'long' })}</div>
-                  <div className="text-[13px]" style={{ color: paid ? C.green : i.isOverdue ? C.red : C.mute }}>{note}</div>
+              <div key={i.index} className="flex gap-3.5 px-4" style={{ borderTop: idx ? `1px solid ${C.line}` : undefined }}>
+                <div className="flex flex-col items-center pt-3">
+                  {paid ? <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center" style={{ background: C.greenSoft, color: C.green }}><Icon name="check" size={14} /></span>
+                    : i.isOverdue ? <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[15px] font-black" style={{ background: C.redSoft, color: C.red }}>!</span>
+                    : <span className="w-[26px] h-[26px] rounded-full box-border" style={{ border: `2px solid ${C.border}` }} />}
+                  {!last && <span className="flex-1 w-[2px] mt-1" style={{ background: C.line }} />}
                 </div>
-                <div className="text-[15px] font-semibold tabular-nums">{euro2(i.amount, loan.currency)}</div>
+                <div className="flex-1 flex justify-between gap-3 py-3">
+                  <div>
+                    <div className="text-[15px] font-extrabold">{dateFr(i.dueDate, { day: 'numeric', month: 'long' })}</div>
+                    <div className="text-[13px] font-semibold" style={{ color: paid ? C.green : i.isOverdue ? C.red : C.mute }}>{note}</div>
+                  </div>
+                  <div className="text-[15px] font-extrabold tabular-nums" style={{ color: paid || i.isOverdue ? C.ink : C.mute }}>{euro2(i.amount, loan.currency)}</div>
+                </div>
               </div>
             );
           })}
@@ -344,22 +381,27 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
 
       {history.length > 0 && (
         <>
-          <div className="px-6 pt-6 pb-2.5 text-[17px] font-bold">Activité</div>
-          <div className="px-6 pb-8 flex flex-col gap-3">
-            {history.map(p => (
-              <div key={p.id} className="flex gap-3 text-sm">
-                <div className="w-16 shrink-0" style={{ color: C.mute }}>{dateFr(p.date, { day: 'numeric', month: 'short' })}</div>
-                <div style={{ color: p.status === 'cancelled' ? C.mute : undefined }}>
-                  <span style={{ textDecoration: p.status === 'cancelled' ? 'line-through' : undefined }}>{euro2(p.amount, loan.currency)} · {p.method}</span> · <span style={{ color: p.status === 'confirmed' ? C.green : p.status === 'cancelled' ? C.mute : C.ochreText, fontWeight: 600 }}>{p.status === 'confirmed' ? 'confirmé' : p.status === 'cancelled' ? 'annulé (saisi par erreur)' : 'à confirmer'}</span>
+          <div className="px-6 pt-7 pb-2.5 text-[18px] font-extrabold">Activité</div>
+          <div className="mx-5 pb-8">
+            <Card>
+              {history.map((p, i) => (
+                <div key={p.id} className="flex gap-3 px-4 py-3 text-[14px] leading-snug" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
+                  <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: p.status === 'confirmed' ? C.green : p.status === 'cancelled' ? C.border : C.ochre }} />
+                  <span className="flex-1" style={{ color: p.status === 'cancelled' ? C.mute : undefined }}>
+                    <span style={{ textDecoration: p.status === 'cancelled' ? 'line-through' : undefined }}>Paiement de {euro2(p.amount, loan.currency)} · {p.method}</span>
+                    <span className="block text-[12.5px] font-semibold" style={{ color: p.status === 'confirmed' ? C.green : p.status === 'cancelled' ? C.mute : C.ochreText }}>{p.status === 'confirmed' ? 'Confirmé' : p.status === 'cancelled' ? 'Annulé (saisi par erreur)' : 'À confirmer'}</span>
+                  </span>
+                  <span className="text-[12.5px] shrink-0" style={{ color: C.mute }}>{dateFr(p.date, { day: 'numeric', month: 'short' })}</span>
                 </div>
-              </div>
-            ))}
-            {loan.borrowerSignedAt && (
-              <div className="flex gap-3 text-sm">
-                <div className="w-16 shrink-0" style={{ color: C.mute }}>{dateFr(loan.borrowerSignedAt, { day: 'numeric', month: 'short' })}</div>
-                <div>Contrat signé par vous deux</div>
-              </div>
-            )}
+              ))}
+              {loan.borrowerSignedAt && (
+                <div className="flex gap-3 px-4 py-3 text-[14px]" style={{ borderTop: history.length ? `1px solid ${C.line}` : undefined }}>
+                  <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: C.ink }} />
+                  <span className="flex-1">Contrat signé par vous deux</span>
+                  <span className="text-[12.5px] shrink-0" style={{ color: C.mute }}>{dateFr(loan.borrowerSignedAt, { day: 'numeric', month: 'short' })}</span>
+                </div>
+              )}
+            </Card>
           </div>
         </>
       )}

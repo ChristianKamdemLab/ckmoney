@@ -381,12 +381,12 @@ const EventsScreen: React.FC<{ isAdmin: boolean; me?: string; onBack: () => void
 
   return withToast(
     <Screen>
-      <NightHeader onBack={onBack} title="Les sorties" accent={C.mango} desc="Événements, spots et chills. Partage-les à qui tu veux : la page s'ouvre sans compte.">
+      <NightHeader onBack={onBack} title="Événements à venir" accent={C.mango} desc="Événements, spots et chills. Partage-les à qui tu veux : la page s'ouvre sans compte.">
         <button onClick={() => go({ k: 'edit' })} className="w-full h-13 min-h-[52px] rounded-xl flex items-center justify-center gap-2 text-[15.5px] font-extrabold" style={{ background: C.mango, color: C.ink }}><Icon name="plus" size={20} /> Nouvelle sortie</button>
       </NightHeader>
       <div className="px-5 flex flex-col gap-2 pb-[max(env(safe-area-inset-bottom),28px)]">
         {!list && <><Skeleton h={88} /><Skeleton h={88} /></>}
-        {failed && <Note tone="warn">Les sorties n'ont pas pu être chargées. Vérifie ta connexion.</Note>}
+        {failed && <Note tone="warn">Les événements n’ont pas pu être chargés. Vérifie ta connexion.</Note>}
         {groups.filter && (
           <div className="pb-2" role="group" aria-label="Où">
             <Chips options={[{ id: 'tout', label: 'Tout' }, ...groups.regions.map(r => ({ id: r, label: REGION_LABEL[r] }))]} value={region} onChange={r => setRegion(r as 'tout' | Region)} />
