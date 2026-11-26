@@ -145,25 +145,25 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
         )}
 
         {dec ? (
-          <div className="relative overflow-hidden rounded-[24px] px-5 pt-5 pb-5" style={{ background: C.night, color: C.nightText }}>
-            <span aria-hidden="true" className="absolute rounded-full" style={{ width: 150, height: 150, background: C.mango, top: -84, right: -56 }} />
-            <span aria-hidden="true" className="absolute rounded-full box-border" style={{ width: 52, height: 52, border: `9px solid ${C.coral}`, bottom: -18, right: 30 }} />
-            <button onClick={() => nav.onInfo('decryptage')} className="relative block text-left w-full">
-              <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ background: C.coral }} /><span className="relative z-[1] text-[11.5px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>À la une · {dec.date === parisDay() ? 'Le décryptage' : "Le décryptage d'hier"}</span></span>
-              <span className="relative z-[1] block mt-2.5 mr-14 text-[20px] leading-[1.28] font-extrabold">{frTypo(dec.title)}</span>
-              <span className="block mt-1.5 text-[13px]" style={{ color: C.nightMute }}>{dec.minutes} min · par Christian · CKLabs</span>
+          // Carte compacte (26/11, retour de Christian : l'ancienne prenait tout l'écran) : deux lignes de titre, lecture à droite
+          <div className="relative overflow-hidden rounded-[20px] pl-4 pr-3 py-3.5 flex items-center gap-3" style={{ background: C.night, color: C.nightText }}>
+            <span aria-hidden="true" className="absolute rounded-full" style={{ width: 96, height: 96, background: C.mango, top: -58, right: -34 }} />
+            <button onClick={() => nav.onInfo('decryptage')} className="relative z-[1] flex-1 min-w-0 text-left">
+              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: C.coral }} /><span className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>{dec.date === parisDay() ? 'Le décryptage du jour' : "Le décryptage d'hier"} · {dec.minutes} min</span></span>
+              <span className="block mt-1 text-[15.5px] leading-[1.3] font-extrabold line-clamp-2">{frTypo(dec.title)}</span>
             </button>
-            <button onClick={() => playDecryptage(dec, () => nav.onInfo('decryptage'))} className="relative mt-4 h-12 pl-4 pr-5 rounded-full flex items-center gap-2 text-[15px] font-extrabold" style={{ background: C.mango, color: C.ink }}>
-              {decPlaying && ps.playing
-                ? <><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="4.5" height="14" rx="1.2" fill="currentColor" /><rect x="11.5" y="3" width="4.5" height="14" rx="1.2" fill="currentColor" /></svg>Pause</>
-                : <><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 3.2v13.6L16.5 10z" fill="currentColor" /></svg>{decPlaying ? 'Chargement…' : 'Écouter'}</>}
+            <button onClick={() => playDecryptage(dec, () => nav.onInfo('decryptage'))} aria-label={decPlaying && ps.playing ? 'Pause' : 'Écouter le décryptage'}
+              className="relative z-[1] w-[52px] h-[52px] rounded-full shrink-0 flex items-center justify-center" style={{ background: C.mango, color: C.ink, boxShadow: `0 0 0 4px ${C.night}` }}>
+              {decPlaying && ps.loading ? <span className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(14,21,51,.25)', borderTopColor: C.ink }} />
+                : decPlaying && ps.playing ? <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="4.5" height="14" rx="1.2" fill="currentColor" /><rect x="11.5" y="3" width="4.5" height="14" rx="1.2" fill="currentColor" /></svg>
+                : <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 3.2v13.6L16.5 10z" fill="currentColor" /></svg>}
             </button>
           </div>
         ) : day?.items[0] ? (
-          <button onClick={() => nav.onInfo(day.items[0].scope)} className="relative overflow-hidden w-full text-left rounded-[24px] px-5 py-5" style={{ background: C.night, color: C.nightText }}>
-            <span aria-hidden="true" className="absolute rounded-full" style={{ width: 150, height: 150, background: C.mango, top: -84, right: -56 }} />
-            <span className="relative text-[11.5px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>À la une · L'info du jour</span>
-            <span className="relative z-[1] block mt-2.5 mr-14 text-[20px] leading-[1.28] font-extrabold">{frTypo(day.items[0].title)}</span>
+          <button onClick={() => nav.onInfo(day.items[0].scope)} className="relative overflow-hidden w-full text-left rounded-[20px] px-4 py-3.5" style={{ background: C.night, color: C.nightText }}>
+            <span aria-hidden="true" className="absolute rounded-full" style={{ width: 96, height: 96, background: C.mango, top: -58, right: -34 }} />
+            <span className="relative z-[1] text-[11px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>L'info du jour</span>
+            <span className="relative z-[1] block mt-1 mr-8 text-[15.5px] leading-[1.3] font-extrabold line-clamp-2">{frTypo(day.items[0].title)}</span>
           </button>
         ) : null}
 
