@@ -36,6 +36,7 @@ export interface Announcement {
   radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
   radioRemove?: string[];   // recos à retirer (doublons), avec leurs commentaires
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
+  placeImages?: { id: string; image: string }[]; // photo d'une adresse déjà publiée (remplace celle tirée du lien)
   places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
   films?: (Omit<Film, 'updatedAt'>)[];   // « Films et séries » à ajouter (idem ; le premier est le plus récent)
   filmsReplace?: boolean;                // remplace le texte des fiches existantes (avec l'accord de Christian)
@@ -104,6 +105,11 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 };
 
 export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-11-27-haze-photo',
+    sendAt: '2026-11-27T17:40:00.000Z', // Instagram ne donnait que son logo : photo du lieu (fiche Privateaser du Haze)
+    placeImages: [{ id: 'haze-paris', image: 'https://privateaser-media.s3.eu-west-1.amazonaws.com/etab_photos/52668/1500x750/456997.jpg' }],
+  },
   {
     id: '2026-11-27-adresse-haze',
     sendAt: '2026-11-27T17:10:00.000Z', // Christian y va ce soir ; son avis viendra après (fiche à compléter dans l'appli)
@@ -453,7 +459,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
-    if (a.events || a.eventsRemove || a.eventImages || a.radio || a.radioRemove || a.radioComments || a.places || a.films) {
+    if (a.events || a.eventsRemove || a.eventImages || a.radio || a.radioRemove || a.radioComments || a.places || a.placeImages || a.films) {
       // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie (avant toute notification)
       try {
         if (a.events) Object.assign(result, await importEvents(a.events, now));
@@ -492,6 +498,16 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
             radioRemoved++;
           }
           result.radioRemoved = radioRemoved;
+        }
+        if (a.placeImages) {
+          let placeImagesSet = 0;
+          for (const { id, image } of a.placeImages) {
+            const ref = adminDb.collection('places').doc(id);
+            if (!(await ref.get()).exists || !/^https:\/\//.test(image)) continue;
+            await ref.set({ image }, { merge: true });
+            placeImagesSet++;
+          }
+          result.placeImagesSet = placeImagesSet;
         }
         if (a.places) {
           let placesAdded = 0;
