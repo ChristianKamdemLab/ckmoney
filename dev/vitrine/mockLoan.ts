@@ -1,0 +1,26 @@
+// Faux services de prêt pour le banc d'essai (pas de Firebase).
+export type BorrowerIdentity = any; export type Terms = any; export type LenderCard = any; export type KnownFriend = any;
+export const getMainLender = async () => ({ uid: 'chris', firstName: 'Christian' });
+export const getLenderCard = async () => ({ firstName: 'Christian', paymentLink: 'paypal.me/test', updatedAt: '' });
+export const payUrl = (link?: string) => (link ? `https://${link}` : null);
+export const scheduleSummary = () => 'En une fois';
+export const signOffer = async () => undefined;
+export const createRequest = async () => undefined;
+export const previewTexts = async () => ({});
+export const acceptRequest = async () => undefined;
+export const declineRequest = async () => undefined;
+export const recordPaymentByLender = async () => undefined;
+export const reviewPayment = async () => undefined;
+export const markLoanPaid = async () => undefined;
+export const declarePayment = async () => undefined;
+export const requestDelay = async () => undefined;
+export const respondToDelay = async () => undefined;
+export const deleteOffer = async () => undefined;
+export const inviteLinkFor = (t: string) => `https://x/p/${t}`;
+export const payProvider = () => 'paypal';
+export const markFundsSent = async () => undefined;
+export const verifyContract = async () => null;
+export const createOffer = async (a: any) => { (window as any).__offer = { amount: a.terms.amount, counterOf: a.counterOf, nickname: a.nickname }; return { loanId: 'new1', token: 'sara-100-abc' }; };
+export const updateOffer = async () => undefined;
+export const knownFriends = () => [];
+export const reopenRequest = async () => undefined;
