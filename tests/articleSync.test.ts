@@ -230,10 +230,14 @@ describe('agent Articles : le document « L’essentiel » peut donner la source
       { id: 'u', name: 'article.pdf', mimeType: PDF, modifiedTime: 'm', fixture: 'inconnu.pdf' },
       { id: 'e', name: "article · L'essentiel", mimeType: GDOC, modifiedTime: 'e1', text: 'Accroche : Accroche.\nSource : The Washington Post\nSynthèse.' },
     ];
-    expect((await syncArticles(drive(files))).done).toEqual({ 'article.pdf': 'press' });
+    const asked: string[] = [];
+    const deps = { ...drive(files), fetchPage: async (u: string) => { asked.push(u); return '<meta name="theme-color" content="#231f20">'; } };
+    expect((await syncArticles(deps)).done).toEqual({ 'article.pdf': 'press' });
     expect(store.get(`articles/${store.get('articleImports/u').articleId}`)).toMatchObject({
       kind: 'press', status: 'published', body: '', source: 'The Washington Post', sourceUrl: 'https://www.washingtonpost.com', summary: 'Synthèse.',
+      sourceColor: '#231F20', // nouveau journal : la couleur lue sur son site (27/11)
     });
+    expect(asked).toEqual(['https://www.washingtonpost.com/']);
   }, 60000);
 
   it('fichier resté « à vérifier » : le document arrivé ensuite le publie, sans message en double', async () => {

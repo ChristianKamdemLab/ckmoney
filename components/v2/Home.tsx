@@ -1,3 +1,4 @@
+import { pressBrand } from '../../utils/pressBrand';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Article, Loan, Notification, Profile, User } from '../../types';
 import { C, Icon, IconName, Avatar, Card, Screen, TopBar, Button, Note, firstName, dateFr, MainTab } from './ui';
@@ -213,13 +214,19 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
             {own.map((a, i) => {
               const press = a.kind === 'press';
               const c = press ? pressCover(a.zones?.length ? a.zones : zonesOf(`${a.title} ${a.sourceSection || ''} ${a.excerpt}`, a.source)) : CK_COVER;
-              const tag = press ? `${a.source || 'Presse'} · ${(c as any).label}` : 'CKLabs';
+              const brand = press ? pressBrand(a.source, a.sourceColor) : null;
               return (
                 <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[252px] self-start text-left">
                   {/* Carte compacte (27/11) : la source et le titre en haut, sans vide au milieu */}
                   <span className="relative overflow-hidden flex flex-col gap-2 h-[132px] rounded-2xl px-3.5 pt-3 pb-3" style={{ background: c.bg, color: c.fg }}>
                     {c.deco}
-                    <span className="relative pr-10 text-[10.5px] font-extrabold tracking-[.08em] uppercase truncate" style={{ color: c.tag }}>{tag}</span>
+                    {brand
+                      // Version « mélange » (27/11) : le journal dans une étiquette à sa couleur, la rubrique à côté
+                      ? <span className="relative pr-10 flex items-center gap-2 min-w-0">
+                          <span className="shrink min-w-0 truncate text-[10px] font-extrabold tracking-[.06em] uppercase px-[7px] py-[3px] rounded-md" style={{ background: brand.bg, color: brand.fg }}>{a.source || 'Presse'}</span>
+                          <span className="shrink-0 text-[10.5px] font-extrabold tracking-[.08em] uppercase" style={{ color: c.tag }}>{(c as any).label}</span>
+                        </span>
+                      : <span className="relative pr-10 text-[10.5px] font-extrabold tracking-[.08em] uppercase truncate" style={{ color: c.tag }}>CKLabs</span>}
                     <span className="relative text-[15px] font-extrabold leading-[1.3] line-clamp-4">{frTypo(a.title)}</span>
                   </span>
                   <span className="text-[12.5px] leading-[1.35] mt-1.5 line-clamp-2" style={{ color: C.mute }}>{a.excerpt ? frTypo(a.excerpt) : press ? 'Revue de presse' : `${a.readMinutes} min de lecture`}</span>

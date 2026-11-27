@@ -5,6 +5,7 @@ import { DriveFile } from './drive.js';
 import { classify, readDocx, readPdf, readText, isIssueName, findDate, norm, MEDIA, Ingested, Hints } from './articleIngest.js';
 import { PdfTooLong } from '../../utils/pdfLines.js';
 import { excerptOf, readMinutes } from '../../utils/articleText.js';
+import { knownBrand, themeColorIn } from '../../utils/pressBrand.js';
 
 // Agent Articles : chaque fichier nouveau ou modifié du dossier Drive devient un article.
 // Texte de Christian : publié tout de suite (son choix), notification « nouvel article » à tous les
@@ -31,7 +32,30 @@ const MAX_BYTES = 20 * 1024 * 1024;
 export interface SyncDeps {
   list: () => Promise<DriveFile[]>;
   download: (f: DriveFile) => Promise<{ data?: Uint8Array; text?: string }>;
+  /** Page d'accueil d'un journal (pour sa couleur) ; par défaut, fetch avec 5 s au plus. */
+  fetchPage?: (url: string) => Promise<string>;
 }
+
+const fetchPage = async (url: string) => {
+  const r = await fetch(url, { signal: AbortSignal.timeout(5000), headers: { 'User-Agent': 'Mozilla/5.0 (CKMoney)', Accept: 'text/html' } });
+  if (!r.ok) return '';
+  return (await r.text()).slice(0, 400_000);
+};
+
+/** Couleur d'un journal absent de la liste (utils/pressBrand.ts) : la balise theme-color de son site. */
+const colorCache = new Map<string, string>();
+const sourceColorOf = async (source: string, sourceUrl: string | undefined, deps: SyncDeps): Promise<string> => {
+  if (!source || knownBrand(source)) return '';
+  if (process.env.VITEST && !deps.fetchPage) return ''; // jamais de réseau pendant les tests
+  const m = MEDIA.find(x => norm(x.name) === norm(source));
+  let host = m?.domains[0]?.split('/')[0] || '';
+  if (!host && sourceUrl) { try { host = new URL(sourceUrl).hostname.replace(/^www\./, ''); } catch { /* rien */ } }
+  if (!host || /(^|\.)google\./.test(host)) return '';
+  if (colorCache.has(host)) return colorCache.get(host)!;
+  const c = themeColorIn(await (deps.fetchPage || fetchPage)(`https://www.${host}/`).catch(() => '')) || '';
+  colorCache.set(host, c);
+  return c;
+};
 
 const author = async () => {
   const u = await adminAuth.getUserByEmail(authorEmail());
@@ -251,6 +275,10 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
           // La date d'une fiche est celle du journal quand on la connaît (elle ne change pas d'une lecture à l'autre)
           source: r.source, sourceUrl: r.sourceUrl, sourceSection: r.section || '', sourceAuthor: r.author || '', publishedAt: r.publishedAt || kept || iso,
         }, { merge: true });
+        // Couleur du journal pour l'étiquette des cartes, cherchée une fois (27/11)
+        if (prev?.sourceColor === undefined && !opts.dry) {
+          await ref.set({ sourceColor: await sourceColorOf(r.source || '', r.sourceUrl, deps).catch(() => '') }, { merge: true });
+        }
       } else {
         await ref.set({
           ...base, kind: 'own', title: r.title, body: r.body, excerpt: excerptOf(r.body), readMinutes: readMinutes(r.body),

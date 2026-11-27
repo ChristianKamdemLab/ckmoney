@@ -227,6 +227,7 @@ export interface Article {
   kind?: 'own' | 'press';  // press : fiche « revue de presse » d'un autre média (jamais le texte entier)
   source?: string;         // nom du média
   sourceUrl?: string;      // lien vers l'article original
+  sourceColor?: string;    // couleur du journal lue sur son site (theme-color), '' si aucune
   sourceAuthor?: string;
   sourceSection?: string;  // rubrique (« Grande enquête », « Cameroun · Énergies »…)
   summary?: string;        // presse : « L'essentiel », synthèse écrite avec nos mots (jamais le texte du journal)
