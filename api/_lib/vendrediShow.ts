@@ -22,7 +22,7 @@ const christian = async () => {
 };
 
 /** La photo d'un lieu recommandé, tirée de son lien une fois (puis gardée). */
-const placeImage = async (ref: any, p: any) => {
+export const placeImage = async (ref: any, p: any) => {
   if (typeof p.image === 'string') return p.image;
   let img = '';
   try { img = p.url ? await Promise.race([pageImage(p.url), new Promise<string>(r => setTimeout(() => r(''), 4000))]) : ''; } catch { img = ''; }

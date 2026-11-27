@@ -64,6 +64,10 @@ const coll = (base: string): any => ({
       .sort((a: any, b: any) => (dir === 'desc' ? -1 : 1) * String(a.data()[f]).localeCompare(String(b.data()[f]))),
   }) }) }),
   get: async () => ({ docs: [...store.keys()].filter(k => k.startsWith(`${base}/`) && !k.slice(base.length + 1).includes('/')).map(snap) }),
+  where: (f: string, _op: string, v: any) => ({ limit: () => ({ get: async () => {
+    const docs = [...store.keys()].filter(k => k.startsWith(`${base}/`) && !k.slice(base.length + 1).includes('/') && store.get(k)?.[f] === v).map(snap);
+    return { docs, empty: !docs.length };
+  } }) }),
 });
 const pushed: { uid: string; msg: any }[] = [];
 let caller: any;
@@ -109,6 +113,8 @@ describe('api/radio', () => {
     await call(CHRIS, { action: 'save', notify: true, item: { id: r.id, url: 'https://youtu.be/dQw4w9WgXcQ', title: 'Corrigé' } });
     expect(pushed).toEqual([]);
     expect(store.get(`radio/${r.id}`).title).toBe('Corrigé');
+    // Le même lien une seconde fois : refusé (pas de doublon dans Radio CK)
+    expect((await call(CHRIS, { action: 'save', item: { url: 'https://youtu.be/dQw4w9WgXcQ', title: 'Encore' } })).status).toBe(409);
   });
 
   it('les proches ne publient pas, ne suppriment pas, ne lisent pas les liens', async () => {

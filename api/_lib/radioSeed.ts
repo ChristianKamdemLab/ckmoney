@@ -20,6 +20,8 @@ export const importRadio = async (list: RadioSeed[], now = Date.now()) => {
     const s = list[i];
     const ref = adminDb.collection('radio').doc(`seed-${s.id}`.slice(0, 40));
     if ((await ref.get()).exists) { already++; continue; }
+    // Même lien déjà recommandé (dans l'appli ou par une autre annonce) : pas de doublon (27/11)
+    if (!(await adminDb.collection('radio').where('url', '==', s.url).limit(1).get()).empty) { already++; continue; }
     const meta = await fetchMeta(s.url).catch(() => null);
     const e = cleanReco({ url: s.url, kind: meta?.kind, title: s.title || meta?.title, show: s.show || meta?.show, thumbnail: meta?.thumbnail, comment: s.comment || '' });
     if (!e) { invalid++; continue; }

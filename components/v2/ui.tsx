@@ -21,9 +21,6 @@ export const NightHero: React.FC<{ children: React.ReactNode }> = ({ children })
   </div>
 );
 
-/** Ombre décalée « ndop » (cartes mises en avant). */
-export const ndopShadow = (color = C.ink) => `4px 4px 0 ${color}`;
-
 export const Screen: React.FC<{ children: React.ReactNode; bottomPad?: boolean }> = ({ children, bottomPad }) => (
   <div className="min-h-[100dvh] w-full flex justify-center" style={{ background: C.bg, color: C.ink }}>
     <div className={`w-full max-w-[480px] flex flex-col min-h-[100dvh] ${bottomPad ? 'pb-40' : ''}`}>{children}</div>

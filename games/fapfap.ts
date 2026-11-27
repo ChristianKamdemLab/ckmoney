@@ -16,7 +16,6 @@ export interface Card { s: Suit; r: number }
 export const SUITS: Suit[] = ['coeur', 'carreau', 'pique', 'trefle'];
 export const RANKS = [3, 4, 5, 6, 7, 8, 9, 10];
 export const SUIT_NAME: Record<Suit, string> = { coeur: 'Koubi', carreau: 'Zing', pique: 'pique', trefle: 'trèfle' };
-export const SUIT_FULL: Record<Suit, string> = { coeur: 'Koubi (cœur)', carreau: 'Zing (carreau)', pique: 'Pique', trefle: 'Trèfle' };
 export const isRed = (s: Suit) => s === 'coeur' || s === 'carreau';
 export const cardName = (c: Card) => `${c.r} de ${SUIT_NAME[c.s]}`;
 export const sameCard = (a: Card) => (b: Card) => a.s === b.s && a.r === b.r;

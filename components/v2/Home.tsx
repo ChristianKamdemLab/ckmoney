@@ -1,4 +1,5 @@
-import { pressBrand } from '../../utils/pressBrand';
+import { pressCover, CK_COVER, BrandTag } from './pressLook';
+import { guessZones } from '../../utils/rubrique';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Article, Loan, Notification, Profile, User } from '../../types';
 import { C, Icon, IconName, Avatar, Card, Screen, TopBar, Button, Note, firstName, dateFr, MainTab } from './ui';
@@ -12,6 +13,8 @@ import { listArticles } from '../../services/articleService';
 import { listInfo } from '../../services/infoService';
 import { listDecryptage, DecryptageDay, playDecryptage, decryptageTrackId } from '../../services/decryptageService';
 import { listFilms } from '../../services/filmService';
+import { listPlaces } from '../../services/vendrediService';
+import { Place } from '../../utils/vendredi';
 import { listEvents } from '../../services/eventService';
 import { usePlayer } from '../../services/player';
 import { getUserNotifications, markNotificationAsRead } from '../../services/notificationService';
@@ -86,23 +89,6 @@ const Rail: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="flex gap-3 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none' }}>{children}</div>
 );
 
-// Couverture des textes CKLabs : la nuit et la mangue de l'appli (pas d'image : une composition)
-const CK_COVER = { bg: C.night, fg: '#F7F3EA', tag: C.mango, deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 64, height: 64, background: C.mango, top: -22, right: -18 }} />) };
-
-// Revue de presse (27/11) : une couleur par rubrique, pour donner envie et repérer d'un coup d'œil
-const ZONE_COVER: Record<string, { bg: string; fg: string; tag: string; dot: string }> = {
-  cameroun: { bg: C.teal, fg: C.ink, tag: C.ink, dot: C.night },
-  afrique: { bg: C.mango, fg: C.ink, tag: C.ochreText, dot: C.coral },
-  monde: { bg: C.coral, fg: C.ink, tag: C.ink, dot: C.mango },
-  eco: { bg: C.green, fg: '#fff', tag: C.mango, dot: C.mango },
-};
-const ZONE_NAME: Record<string, string> = { cameroun: 'Cameroun', afrique: 'Afrique', monde: 'Monde', eco: 'Éco' };
-const pressCover = (zones: string[]) => {
-  const z = zones.find(x => x !== 'eco' && ZONE_COVER[x]) || (zones.includes('eco') ? 'eco' : 'monde');
-  const c = ZONE_COVER[z];
-  return { ...c, label: ZONE_NAME[z], deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 52, height: 52, background: c.dot, top: -20, right: -16 }} />) };
-};
-
 const motLine = () => {
   const n = dayNumber(), p = puzzleFor(n);
   let h: Record<string, string[]> = {};
@@ -128,6 +114,57 @@ const loanAlert = (loans: Loan[], uid: string, isLender: boolean): string | null
 };
 
 // ───────────────────────── Accueil ─────────────────────────
+
+/** Séries et films (27/11) : l'image entière de la bande-annonce, sur l'accueil et dans Entre amis. */
+const FilmsRail: React.FC<{ films: Film[]; onOpen: () => void }> = ({ films: recos, onOpen }) => !recos.length ? null : (
+  <>
+    <Section title="Mes séries et films" action="Tout voir" onAction={onOpen} />
+          <Rail>
+            {recos.map(f => {
+              const img = f.poster || (f.trailer ? trailerImage(f.trailer, 'hq') : '');
+              return (
+                <button key={f.id} onClick={onOpen} className="shrink-0 w-[220px] text-left">
+                  {/* Image entière de la bande-annonce (27/11) : le titre écrit dessus reste lisible */}
+                  <span className="relative overflow-hidden block aspect-video rounded-xl" style={{ background: C.nightCard }}>
+                    {img && <img src={img} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" />}
+                    <span aria-hidden="true" className="absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(14,21,51,.72)', color: '#fff' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" /></svg>
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 mt-2">
+                    <span className="text-[15px] font-extrabold leading-[1.25] truncate">{f.title}</span>
+                    <span className="shrink-0 flex items-center gap-[3px] px-[7px] py-[2px] rounded-full text-[11.5px] font-extrabold" style={{ background: C.mango, color: C.ink }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.2l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" fill="currentColor" /></svg>
+                      {String(f.rating).replace('.', ',')}
+                    </span>
+                  </span>
+                  <span className="block text-[12.5px]" style={{ color: C.mute }}>{FILM_KIND[f.kind]}</span>
+                </button>
+              );
+            })}
+          </Rail>
+  </>
+);
+
+/** Mes adresses (27/11) : la photo du lieu, son nom et le budget, comme le Vendredi Show. */
+const PlacesRail: React.FC<{ places: Place[]; onOpen: () => void }> = ({ places, onOpen }) => !places.length ? null : (
+  <>
+    <Section title="Mes adresses" action="Tout voir" onAction={onOpen} />
+    <Rail>
+      {places.map(p => (
+        <button key={p.id} onClick={onOpen} className="shrink-0 w-[220px] text-left">
+          <span className="relative overflow-hidden block aspect-video rounded-xl" style={{ background: C.night, color: C.mango }}>
+            {p.image
+              ? <img src={p.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" />
+              : <span className="absolute inset-0 flex items-center justify-center"><Icon name="pin" size={30} /></span>}
+          </span>
+          <span className="block text-[15px] font-extrabold leading-[1.25] mt-2 truncate">{p.name}</span>
+          <span className="block text-[12.5px] truncate" style={{ color: C.mute }}>{p.budget || p.address}</span>
+        </button>
+      ))}
+    </Rail>
+  </>
+);
 
 export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loan[]; isLender: boolean; nav: Nav }> = ({ user, profile, loans, isLender, nav }) => {
   const unread = useUnread(user.id);
@@ -213,19 +250,15 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
           <Rail>
             {own.map((a, i) => {
               const press = a.kind === 'press';
-              const c = press ? pressCover(a.zones?.length ? a.zones : zonesOf(`${a.title} ${a.sourceSection || ''} ${a.excerpt}`, a.source)) : CK_COVER;
-              const brand = press ? pressBrand(a.source, a.sourceColor) : null;
+              const c = press ? pressCover(a) : CK_COVER;
               return (
                 <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[252px] self-start text-left">
                   {/* Carte compacte (27/11) : la source et le titre en haut, sans vide au milieu */}
                   <span className="relative overflow-hidden flex flex-col gap-2 h-[132px] rounded-2xl px-3.5 pt-3 pb-3" style={{ background: c.bg, color: c.fg }}>
                     {c.deco}
-                    {brand
+                    {press
                       // Version « mélange » (27/11) : le journal dans une étiquette à sa couleur, la rubrique à côté
-                      ? <span className="relative pr-10 flex items-center gap-2 min-w-0">
-                          <span className="shrink min-w-0 truncate text-[10px] font-extrabold tracking-[.06em] uppercase px-[7px] py-[3px] rounded-md" style={{ background: brand.bg, color: brand.fg }}>{a.source || 'Presse'}</span>
-                          <span className="shrink-0 text-[10.5px] font-extrabold tracking-[.08em] uppercase" style={{ color: c.tag }}>{(c as any).label}</span>
-                        </span>
+                      ? <span className="relative pr-10 flex items-center gap-2 min-w-0"><BrandTag a={a} /><span className="shrink-0 text-[10.5px] font-extrabold tracking-[.08em] uppercase" style={{ color: c.tag }}>{c.label}</span></span>
                       : <span className="relative pr-10 text-[10.5px] font-extrabold tracking-[.08em] uppercase truncate" style={{ color: c.tag }}>CKLabs</span>}
                     <span className="relative text-[15px] font-extrabold leading-[1.3] line-clamp-4">{frTypo(a.title)}</span>
                   </span>
@@ -237,35 +270,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
         </>
       )}
 
-      {recos.length > 0 && (
-        <>
-          <Section title="Mes séries et films" action="Tout voir" onAction={nav.onFilms} />
-          <Rail>
-            {recos.map(f => {
-              const img = f.poster || (f.trailer ? trailerImage(f.trailer, 'hq') : '');
-              return (
-                <button key={f.id} onClick={nav.onFilms} className="shrink-0 w-[220px] text-left">
-                  {/* Image entière de la bande-annonce (27/11) : le titre écrit dessus reste lisible */}
-                  <span className="relative overflow-hidden block aspect-video rounded-xl" style={{ background: C.nightCard }}>
-                    {img && <img src={img} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" />}
-                    <span aria-hidden="true" className="absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(14,21,51,.72)', color: '#fff' }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" /></svg>
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-2 mt-2">
-                    <span className="text-[15px] font-extrabold leading-[1.25] truncate">{f.title}</span>
-                    <span className="shrink-0 flex items-center gap-[3px] px-[7px] py-[2px] rounded-full text-[11.5px] font-extrabold" style={{ background: C.mango, color: C.ink }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.2l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" fill="currentColor" /></svg>
-                      {String(f.rating).replace('.', ',')}
-                    </span>
-                  </span>
-                  <span className="block text-[12.5px]" style={{ color: C.mute }}>{FILM_KIND[f.kind]}</span>
-                </button>
-              );
-            })}
-          </Rail>
-        </>
-      )}
+      <FilmsRail films={recos} onOpen={nav.onFilms} />
 
       <VendrediShow />
 
@@ -294,20 +299,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
 
 type Zone = RZone | 'cklabs';
 const ZONES: [Zone | 'tout', string][] = [['tout', 'Tout'], ['cameroun', 'Cameroun'], ['afrique', 'Afrique'], ['monde', 'Monde'], ['eco', 'Éco'], ['cklabs', 'CKLabs']];
-const CM_RE = /camer|yaound|douala|biya|rdpc|elecam|bamenda|garoua|bafoussam/i;
-const AF_RE = /afri|sénégal|senegal|nigeria|côte d.ivoire|rdc|congo|gabon|tchad|maroc|algérie|tunisie|kenya|mali\b|burkina|niger\b|ghana|éthiopie|soudan|libye|can 20/i;
-const ECO_RE = /écono|economi|financ|bours|banque|budget|dette|inflation|entreprise|investiss|immobili|fiscal|impôt|pétrole|croissance|marché/i;
-const CM_SRC = /cameroon|cameroun|ecomatin|quotidien de l.économie|actu cameroun|mimi mefo|crtv|data cameroon|business in cameroon/i;
-const AF_SRC = /jeune afrique|africa intelligence|rfi afrique|monde afrique|africa report|africanews|ecofin|bbc afrique/i;
-const ECO_SRC = /les echos|financial times|ecofin|ecomatin|économie|business in|investir/i;
-const zonesOf = (text: string, source = ''): Zone[] => {
-  const z = new Set<Zone>();
-  if (CM_RE.test(text) || CM_SRC.test(source)) { z.add('cameroun'); z.add('afrique'); }
-  if (AF_RE.test(text) || AF_SRC.test(source)) z.add('afrique');
-  if (ECO_RE.test(text) || ECO_SRC.test(source)) z.add('eco');
-  if (!z.has('afrique')) z.add('monde');
-  return [...z];
-};
+const zonesOf = (text: string, source = ''): Zone[] => guessZones(text, source);
 
 interface FeedItem { key: string; at: string; kind: 'Décryptage' | 'Info du jour' | 'Revue de presse' | 'CKLabs'; source: string; title: string; zones: Zone[]; top: boolean; open: () => void; dec?: DecryptageDay }
 const KIND_STYLE: Record<FeedItem['kind'], React.CSSProperties> = {
@@ -403,7 +395,10 @@ const ListRow: React.FC<{ icon: IconName; title: string; sub?: string; onClick: 
 );
 
 export const AmisTab: React.FC<{ nav: Nav }> = ({ nav }) => {
-  const events = useLoad(() => listEvents(), [] as AppEvent[]);
+  // Dernière version gardée sur le téléphone : pas de saut à l'ouverture (27/11)
+  const [events] = useCached(() => listEvents(), [] as AppEvent[], 'events', l => sortUpcoming(l).slice(0, 3));
+  const [films] = useCached(() => listFilms().then(r => r.films), [] as Film[], 'films', l => l.slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 10));
+  const [places] = useCached(() => listPlaces().then(r => r.places), [] as Place[], 'places', l => l.slice(0, 10));
   const next = sortUpcoming(events).slice(0, 3);
   const games: [string, string, string, string, string, () => void][] = [
     ['J', 'Jambo', 'Fap Fap, seul ou à plusieurs', '#16204A', C.mango, nav.onJambo],
@@ -419,12 +414,13 @@ export const AmisTab: React.FC<{ nav: Nav }> = ({ nav }) => {
       <VendrediShow standalone />
 
       <Section title="Jouer" />
-      <div className="px-5 grid grid-cols-2 gap-2.5">
+      {/* Trois jeux sur une ligne (27/11) : plus de case seule sur la dernière ligne */}
+      <div className="px-5 grid grid-cols-3 gap-2.5">
         <MotTile onClick={nav.onMot} />
         {games.map(([l, title, sub, bg, fg, fn]) => (
-          <button key={title} onClick={fn} className="rounded-[18px] p-3.5 flex flex-col gap-2.5 text-left" style={{ background: bg, color: bg === C.card ? C.ink : '#fff' }}>
+          <button key={title} onClick={fn} className="rounded-[18px] p-3 flex flex-col gap-2.5 text-left" style={{ background: bg, color: bg === C.card ? C.ink : '#fff' }}>
             <span className="w-10 h-10 rounded-xl flex items-center justify-center display text-[16px]" style={{ background: bg === C.card ? C.soft : 'rgba(255,255,255,.12)', color: fg }}>{l}</span>
-            <span><span className="block text-[15px] font-extrabold">{title}</span><span className="block text-[12.5px]" style={{ color: bg === C.card ? C.mute : C.nightMute }}>{sub}</span></span>
+            <span><span className="block text-[14.5px] font-extrabold leading-tight">{title}</span><span className="block text-[12px] leading-snug mt-0.5" style={{ color: bg === C.card ? C.mute : C.nightMute }}>{sub}</span></span>
           </button>
         ))}
       </div>
@@ -447,13 +443,8 @@ export const AmisTab: React.FC<{ nav: Nav }> = ({ nav }) => {
         ) : <button onClick={() => nav.onEvents()} className="text-[14px] font-bold" style={{ color: C.ochreText }}>Voir l'agenda</button>}
       </div>
 
-      <div className="px-5 pt-3">
-        <Card>
-          <ListRow first icon="pin" title="Mes adresses" sub="Les lieux que je recommande" onClick={nav.onAdresses} />
-          <ListRow icon="glass" title="Films et séries" sub="Mes notes et mes avis" onClick={nav.onFilms} />
-          <ListRow icon="news" title="Les articles" sub="CKLabs et la revue de presse" onClick={() => nav.onArticles()} />
-        </Card>
-      </div>
+      <PlacesRail places={places} onOpen={nav.onAdresses} />
+      <FilmsRail films={films.slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 10)} onOpen={nav.onFilms} />
       <InviteCard />
     </Screen>
   );

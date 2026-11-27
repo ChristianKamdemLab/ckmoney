@@ -34,6 +34,7 @@ export interface Announcement {
   eventsRemove?: string[];                       // sorties à retirer (identifiants Firestore), avec l'accord de Christian
   eventImages?: { id: string; page?: string; clear?: boolean }[]; // visuel officiel (og:image de la page, sinon de l'adresse de la sortie) ; clear : retire le visuel
   radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
+  radioRemove?: string[];   // recos à retirer (doublons), avec leurs commentaires
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
   places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
   films?: (Omit<Film, 'updatedAt'>)[];   // « Films et séries » à ajouter (idem ; le premier est le plus récent)
@@ -103,6 +104,11 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 };
 
 export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-11-27-radio-doublon',
+    sendAt: '2026-11-27T16:45:00.000Z', // doublon signalé par Christian : « Médias et extrême droite » ajouté le 19/11 et le 21/11 ; on garde celui du 19/11 (son texte validé)
+    radioRemove: ['seed-heure-du-monde-medias-extreme-droit'], // identifiant coupé à 40 caractères (importRadio)
+  },
   {
     id: '2026-11-27-essai-notif-christian',
     sendAt: '2026-11-27T14:00:00.000Z', // Christian n'a pas reçu les avis des fiches du 27/11 : essai vers son appareil inscrit
@@ -438,7 +444,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
-    if (a.events || a.eventsRemove || a.eventImages || a.radio || a.radioComments || a.places || a.films) {
+    if (a.events || a.eventsRemove || a.eventImages || a.radio || a.radioRemove || a.radioComments || a.places || a.films) {
       // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie (avant toute notification)
       try {
         if (a.events) Object.assign(result, await importEvents(a.events, now));
@@ -468,6 +474,16 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
         }
         if (a.radio) { const r = await importRadio(a.radio, now); Object.assign(result, { radioAdded: r.added, radioAlready: r.already, radioInvalid: r.invalid }); }
         if (a.radioComments) Object.assign(result, await fillRadioComments(a.radioComments));
+        if (a.radioRemove) {
+          let radioRemoved = 0;
+          for (const id of a.radioRemove) {
+            const ref = adminDb.collection('radio').doc(id);
+            if (!(await ref.get()).exists) continue;
+            await adminDb.recursiveDelete(ref);
+            radioRemoved++;
+          }
+          result.radioRemoved = radioRemoved;
+        }
         if (a.places) {
           let placesAdded = 0;
           for (const p of a.places) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loan, Profile, User } from '../../types';
-import { Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, euro2, firstName, relDays, dateFr, Note } from './ui';
+import { Screen, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, euro2, firstName, relDays, dateFr, Note } from './ui';
 import { InstallButton } from './Install';
 import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
@@ -24,14 +24,6 @@ interface Props {
   onLegal: (v: 'cgu' | 'privacy') => void;
   onBorrowerSpace?: () => void;   // accueil : « Voir ce que je dois » (seulement s'il emprunte)
   onBorrowerArea?: () => void;    // profil : ses emprunts et ses demandes à d'autres prêteurs (toujours)
-  onArticles: () => void;
-  onJambo: () => void;
-  onBac: () => void;
-  onWiseman: () => void;
-  onEvents: () => void;
-  onRadio?: () => void;
-  onMot?: () => void;
-  onInfo?: (scope?: 'monde' | 'afrique' | 'decryptage') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
   requestLink: string;
 }
 

@@ -10,7 +10,8 @@ let users: any[] = [];
 let metaFails = false;
 vi.mock('../api/_lib/admin.js', () => ({
   adminDb: {
-    collection: (c: string) => ({ doc: (id: string) => ref(`${c}/${id}`), get: async () => ({ docs: [...store.keys()].filter(k => k.startsWith(`${c}/`)).map(snap) }) }),
+    collection: (c: string) => ({ doc: (id: string) => ref(`${c}/${id}`), get: async () => ({ docs: [...store.keys()].filter(k => k.startsWith(`${c}/`)).map(snap) }),
+      where: (f: string, _op: string, v: any) => ({ limit: () => ({ get: async () => { const docs = [...store.keys()].filter(k => k.startsWith(`${c}/`) && store.get(k)?.[f] === v).map(snap); return { docs, empty: !docs.length }; } }) }) }),
     runTransaction: async (fn: any) => { const w: any[] = []; const r = await fn({ get: async (x: any) => snap(x.path), set: (x: any, d: any) => w.push(() => store.set(x.path, d)) }); w.forEach(f => f()); return r; },
   },
   pushToUser: async (uid: string) => { pushed.push(uid); return 1; },
@@ -50,6 +51,8 @@ describe('lancement de Radio CK', () => {
     expect(a.publishedAt > b.publishedAt && b.publishedAt > c.publishedAt).toBe(true);
     expect(a.notifiedAt).toBeTruthy(); // une modification plus tard ne renotifie pas
     expect(await importRadio(RADIO_LANCEMENT, NOW)).toEqual({ added: 0, already: 3, invalid: 0 });
+    // Même lien sous un autre identifiant (cas du 21/11) : pas de doublon
+    expect(await importRadio([{ ...RADIO_LANCEMENT[0], id: 'autre-identifiant' }], NOW)).toEqual({ added: 0, already: 1, invalid: 0 });
   });
 
   it('si YouTube ne répond pas : la vidéo sans titre est écartée, les podcasts passent', async () => {

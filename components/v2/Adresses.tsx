@@ -37,9 +37,11 @@ const Editor: React.FC<{ initial?: Place; onBack: () => void; onSaved: (msg: str
 };
 
 export const PlaceCard: React.FC<{ p: Place; onEdit?: () => void }> = ({ p, onEdit }) => (
-  <Card className="px-5 py-5">
+  <Card className="px-5 py-5 overflow-hidden">
+    {/* Photo du lieu (27/11), comme dans le Vendredi Show */}
+    {p.image && <img src={p.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="-mx-5 -mt-5 mb-4 w-[calc(100%+2.5rem)] max-w-none aspect-[16/9] object-cover" />}
     <div className="flex items-start justify-between gap-3">
-      <h2 className="serif text-[21px] font-semibold leading-tight">{p.name}</h2>
+      <h2 className="text-[20px] font-extrabold leading-tight">{p.name}</h2>
       {onEdit && <button onClick={onEdit} className="text-[13px] font-semibold shrink-0" style={{ color: C.ochreText }}>Modifier</button>}
     </div>
     <div className="mt-3 flex flex-col gap-2.5">

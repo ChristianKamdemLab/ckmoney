@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Article, User } from '../../types';
 import { Screen, TopBar, Button, Card, Note, Sheet, Toast, Skeleton, Avatar, Chips, Field, inputClass, inputStyle, Icon, C, dateFr, NewPill, NightHeader } from './ui';
+import { pressCover, CK_COVER, BrandTag } from './pressLook';
 import { listArticles, saveArticle, importArticles, deleteArticle, savePress, ArticleInput, PressInput } from '../../services/articleService';
 import { parseBody, blocksToBody, readMinutes, frTypo, Block, shareUrl } from '../../utils/articleText';
 import { seenAt, markSeen, isNewSince } from '../../utils/seen';
@@ -14,19 +15,11 @@ const day = (a: Pick<Article, 'publishedAt' | 'updatedAt'>) => dateFr(a.publishe
 const isPress = (a: Pick<Article, 'kind'>) => a.kind === 'press';
 const meta = (a: Article) => isPress(a) ? `${a.source} · ${day(a)}` : `${a.readMinutes} min de lecture · ${day(a)}`;
 /** « d'Africa Intelligence », « de Jeune Afrique » */
-const deMedia = (s = '') => (/^[aeiouyhàâéèêîïôûœ]/i.test(s) ? `d’${s}` : `de ${s}`);
 const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, ''); } catch { return ''; } };
 
-/** Étiquette de type : « Revue de presse · Africa Intelligence » ou « CKLabs ». */
 /** Titre d'article : la police du texte (Manrope), en gras ; plus petit quand il est long, pour
  *  qu'il tienne en quelques lignes et laisse voir le début de l'article sur l'écran d'un téléphone. */
 const titleCls = (t: string) => `${t.length > 90 ? 'text-[21px]' : t.length > 55 ? 'text-[23px]' : 'text-[25px]'} leading-[1.28] font-extrabold tracking-[-0.2px]`;
-
-const Kind: React.FC<{ a: Article; dark?: boolean }> = ({ a, dark }) => (
-  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-wide" style={{ color: dark ? C.ochre : C.ochreText }}>
-    {isPress(a) ? <>Revue de presse <span style={{ opacity: .5 }}>·</span> {a.source}</> : 'CKLabs'}
-  </span>
-);
 
 const Blocks: React.FC<{ blocks: Block[] }> = ({ blocks }) => (
   <div className="text-[17px] leading-[1.7]" style={{ color: '#22263A' }}>
@@ -530,25 +523,40 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
             {drafts.map((a, i) => (
               <button key={a.id} onClick={() => go({ k: 'read', id: a.id })} className="w-full text-left px-4 py-3.5 flex items-center gap-3" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
                 <span className="text-[11px] font-bold px-2 py-1 rounded-full shrink-0" style={{ background: C.ochreSoft, color: C.ochreText }}>Brouillon</span>
-                <span className="serif text-[16px] font-semibold leading-snug flex-1 min-w-0 truncate">{frTypo(a.title)}</span>
+                <span className="text-[15px] font-bold leading-snug flex-1 min-w-0 truncate">{frTypo(a.title)}</span>
               </button>
             ))}
           </Card>
         )}
-        {first && (
-          <button onClick={() => go({ k: 'read', id: first.id })} className="text-left rounded-2xl p-5 pt-5" style={{ background: C.ink, color: '#fff' }}>
-            <div className="flex items-center justify-between gap-2"><Kind a={first} dark />{fresh(first) ? <NewPill dark /> : <span className="text-[11.5px] font-semibold" style={{ color: 'rgba(255,255,255,.55)' }}>Le plus récent</span>}</div>
-            <div className="serif text-[24px] font-semibold leading-[1.18] mt-2">{frTypo(first.title)}</div>
-            {first.excerpt && <p className="text-[14px] leading-relaxed mt-3 line-clamp-3" style={{ color: 'rgba(255,255,255,.78)' }}>{frTypo(first.excerpt)}</p>}
-            <div className="text-[12px] mt-4" style={{ color: 'rgba(255,255,255,.6)' }}>{meta(first)}</div>
-          </button>
-        )}
+        {first && (() => {
+          // Le plus récent, aux couleurs de l'accueil (27/11) : la rubrique en fond, le journal en étiquette
+          const c = isPress(first) ? pressCover(first) : CK_COVER;
+          return (
+            <button onClick={() => go({ k: 'read', id: first.id })} className="relative overflow-hidden text-left rounded-2xl p-5" style={{ background: c.bg, color: c.fg }}>
+              {c.deco}
+              <div className="relative flex items-center gap-2 pr-10 min-w-0">
+                {isPress(first) ? <><BrandTag a={first} /><span className="shrink-0 text-[10.5px] font-extrabold tracking-[.08em] uppercase" style={{ color: c.tag }}>{c.label}</span></>
+                  : <span className="text-[10.5px] font-extrabold tracking-[.08em] uppercase" style={{ color: c.tag }}>CKLabs</span>}
+                {fresh(first) && <span className="ml-auto"><NewPill dark={c.fg !== C.ink} /></span>}
+              </div>
+              <div className="relative text-[22px] font-extrabold leading-[1.22] mt-3">{frTypo(first.title)}</div>
+              {first.excerpt && <p className="relative text-[14px] leading-relaxed mt-2.5 line-clamp-3" style={{ opacity: .85 }}>{frTypo(first.excerpt)}</p>}
+              <div className="relative text-[12px] mt-3.5" style={{ opacity: .7 }}>{meta(first)}</div>
+            </button>
+          );
+        })()}
         {rest.length > 0 && (
           <Card>
             {rest.map((a, i) => (
-              <button key={a.id} onClick={() => go({ k: 'read', id: a.id })} className="w-full text-left px-4 py-4" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
-                <div className="flex items-center justify-between gap-2"><Kind a={a} />{fresh(a) && <NewPill />}</div>
-                <div className="serif text-[18px] font-semibold leading-snug mt-1">{frTypo(a.title)}</div>
+              <button key={a.id} onClick={() => go({ k: 'read', id: a.id })} className="relative w-full text-left pl-5 pr-4 py-4" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
+                {/* Filet à la couleur de la rubrique, comme les cartes de l'accueil */}
+                <span aria-hidden="true" className="absolute left-0 top-4 bottom-4 w-[4px] rounded-r" style={{ background: (isPress(a) ? pressCover(a) : CK_COVER).bg }} />
+                <div className="flex items-center gap-2 min-w-0">
+                  {isPress(a) ? <><BrandTag a={a} /><span className="shrink-0 text-[10.5px] font-extrabold tracking-[.08em] uppercase" style={{ color: C.mute }}>{pressCover(a).label}</span></>
+                    : <span className="text-[10.5px] font-extrabold tracking-[.08em] uppercase" style={{ color: C.ochreText }}>CKLabs</span>}
+                  {fresh(a) && <span className="ml-auto"><NewPill /></span>}
+                </div>
+                <div className="text-[17px] font-extrabold leading-[1.3] mt-1.5">{frTypo(a.title)}</div>
                 {a.excerpt && <p className="text-[14px] leading-snug mt-1.5 line-clamp-2" style={{ color: C.text2 }}>{frTypo(a.excerpt)}</p>}
                 <div className="text-[12px] mt-2" style={{ color: C.mute }}>{meta(a)}</div>
               </button>
