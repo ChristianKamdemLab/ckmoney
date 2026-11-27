@@ -5,7 +5,7 @@ import type { Place } from '../../utils/vendredi.js';
 import { sendMail } from './mail.js';
 import { importEvents, SeedEvent, SALONS_2026_2027 } from './salons.js';
 import { pageImage } from './radioMeta.js';
-import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, RADIO_2026_11_20_ARTE, RADIO_2026_11_21_MEDIAS, LOGEMENT_POURQUOI, fillRadioComments, HEURE_DU_MONDE_POURQUOI } from './radioSeed.js';
+import { importRadio, RadioSeed, RADIO_LANCEMENT, RADIO_2026_11_19, RADIO_2026_11_19_SOIR, RADIO_2026_11_20_ARTE, RADIO_2026_11_21_MEDIAS, LOGEMENT_POURQUOI, fillRadioComments, HEURE_DU_MONDE_POURQUOI, RADIO_2026_11_27_HDM } from './radioSeed.js';
 
 // Annonces : une notification et/ou un e-mail envoyés une seule fois, à l'heure prévue.
 //  - notification : à tous les appareils inscrits (l'appli installée avec les notifications) ;
@@ -103,6 +103,16 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 };
 
 export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-11-27-radio-hdm-bardella',
+    sendAt: '2026-11-27T12:45:00.000Z', // recommandé par Christian à 13 h 40, avec notification
+    radio: RADIO_2026_11_27_HDM,
+    push: {
+      title: 'Nouveau podcast dans Radio CK',
+      body: 'L’Heure du Monde : « De nouveaux messages antisémites de Jordan Bardella révélés par “Le Monde” »',
+      url: '/?radio',
+    },
+  },
   {
     id: '2026-11-26-expo-ndop',
     sendAt: '2026-11-26T18:05:00.000Z', // demandé par Christian à 19 h 59 : à ajouter aux événements, avec notification
