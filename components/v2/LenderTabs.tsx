@@ -4,7 +4,7 @@ import { Screen, Amount, Card, Avatar, Icon, Skeleton, Button, Sheet, Toast, C, 
 import { InstallButton } from './Install';
 import { ratesOutdated, RATES_VALID_UNTIL } from '../../config/legal';
 import { sendTestReminder } from '../../services/push';
-import { reopenRequest } from '../../services/loanService';
+import { reopenRequest, hideDeclined } from '../../services/loanService';
 import { computeSituation } from '../../utils/schedule';
 import { LEGAL_INTEREST_RATE } from '../../config/legal';
 import { fetchExchangeRate } from '../../services/exchangeRate';
@@ -80,6 +80,7 @@ const LenderTabs: React.FC<Props> = (p) => {
   const [shareOpen, setShareOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [reopening, setReopening] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<string[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -119,7 +120,7 @@ const LenderTabs: React.FC<Props> = (p) => {
     const done = mine.filter(l => !open.includes(l));
     // Demandes classées depuis moins de 30 jours, sans contre-proposition envoyée : on peut y revenir
     const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    const declined = p.loans.filter(l => l.lenderUid === p.user.id && l.status === 'declined' && l.initiatedBy === 'borrower'
+    const declined = p.loans.filter(l => l.lenderUid === p.user.id && l.status === 'declined' && l.initiatedBy === 'borrower' && !l.lenderHidden && !hidden.includes(l.id)
       && (l.createdAt || '') > since && !p.loans.some(x => x.counterOf === l.id));
     return (
       <Screen bottomPad>
@@ -171,15 +172,18 @@ const LenderTabs: React.FC<Props> = (p) => {
                   <div key={l.id} className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
                     <Avatar name={l.borrowerNickname || firstName(l.borrowerName)} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-[15px] font-semibold truncate">{l.borrowerNickname || firstName(l.borrowerName)} · {euro2(l.amount, l.currency)}</div>
-                      <div className="text-[13px]" style={{ color: C.mute }}>Demande du {dateFr(l.createdAt, { day: 'numeric', month: 'short' })}</div>
+                      <div className="text-[15px] font-semibold truncate">{l.borrowerNickname || firstName(l.borrowerName)}</div>
+                      <div className="text-[13px]" style={{ color: C.mute }}>{euro2(l.amount, l.currency)} · {dateFr(l.createdAt, { day: 'numeric', month: 'short' })}</div>
                     </div>
-                    <button disabled={reopening === l.id} className="h-10 px-4 rounded-xl text-[14px] font-bold shrink-0 disabled:opacity-50" style={{ background: C.soft, color: C.ink }}
+                    <button disabled={reopening === l.id} className="h-10 px-3.5 rounded-xl text-[14px] font-bold shrink-0 disabled:opacity-50" style={{ background: C.soft, color: C.ink }}
                       onClick={async () => { setReopening(l.id); try { await reopenRequest(l); p.onOpenLoan({ ...l, status: 'requested' }); } catch { setToast("Ça n'a pas marché, réessaie."); } finally { setReopening(null); } }}>{reopening === l.id ? '…' : 'Reprendre'}</button>
+                    {/* Retirer de la liste (27/11) : la demande reste refusée, l'ami garde son historique */}
+                    <button aria-label={`Retirer la demande de ${l.borrowerNickname || firstName(l.borrowerName)}`} disabled={reopening === l.id} className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center disabled:opacity-50" style={{ color: C.mute }}
+                      onClick={async () => { setHidden(h => [...h, l.id]); try { await hideDeclined(l); } catch { setHidden(h => h.filter(x => x !== l.id)); setToast("Ça n'a pas marché, réessaie."); } }}><Icon name="close" size={18} /></button>
                   </div>
                 ))}
               </Card>
-              <div className="text-[12.5px] mt-2 px-1" style={{ color: C.mute }}>Tu peux revenir sur une demande refusée : elle repasse en « à traiter », pour l'accepter ou faire une contre-proposition.</div>
+              <div className="text-[12.5px] mt-2 px-1" style={{ color: C.mute }}>« Reprendre » la repasse en « à traiter », pour l'accepter ou faire une contre-proposition. La croix la retire de ta liste.</div>
             </div>
           </>
         )}

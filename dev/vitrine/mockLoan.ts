@@ -24,3 +24,4 @@ export const createOffer = async (a: any) => { (window as any).__offer = { amoun
 export const updateOffer = async () => undefined;
 export const knownFriends = () => [];
 export const reopenRequest = async () => undefined;
+export const hideDeclined = async () => undefined;

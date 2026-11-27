@@ -85,15 +85,22 @@ const Rail: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="flex gap-3 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none' }}>{children}</div>
 );
 
-// Couvertures des articles CKLabs, aux couleurs de l'appli (pas d'image : une composition)
-const COVERS = [
-  { bg: C.night, fg: '#F7F3EA', tag: C.mango, deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 64, height: 64, background: C.mango, top: -22, right: -18 }} />) },
-  { bg: C.mango, fg: C.ink, tag: C.ochreText, deco: (<span aria-hidden="true" className="absolute rounded-full box-border" style={{ width: 56, height: 56, border: `9px solid ${C.coral}`, top: -14, right: -12 }} />) },
-  { bg: C.teal, fg: C.ink, tag: C.ink, deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 64, height: 64, background: C.night, top: -26, right: -22 }} />) },
-];
+// Couverture des textes CKLabs : la nuit et la mangue de l'appli (pas d'image : une composition)
+const CK_COVER = { bg: C.night, fg: '#F7F3EA', tag: C.mango, deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 64, height: 64, background: C.mango, top: -22, right: -18 }} />) };
 
-// Revue de presse : une couverture claire, pour la distinguer des textes CKLabs
-const PRESS_COVER = { bg: C.card, fg: C.ink, tag: C.ochreText, deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 40, height: 40, background: C.soft, top: -12, right: -12 }} />) };
+// Revue de presse (27/11) : une couleur par rubrique, pour donner envie et repérer d'un coup d'œil
+const ZONE_COVER: Record<string, { bg: string; fg: string; tag: string; dot: string }> = {
+  cameroun: { bg: C.teal, fg: C.ink, tag: C.ink, dot: C.night },
+  afrique: { bg: C.mango, fg: C.ink, tag: C.ochreText, dot: C.coral },
+  monde: { bg: C.coral, fg: C.ink, tag: C.ink, dot: C.mango },
+  eco: { bg: C.green, fg: '#fff', tag: C.mango, dot: C.mango },
+};
+const ZONE_NAME: Record<string, string> = { cameroun: 'Cameroun', afrique: 'Afrique', monde: 'Monde', eco: 'Éco' };
+const pressCover = (zones: string[]) => {
+  const z = zones.find(x => x !== 'eco' && ZONE_COVER[x]) || (zones.includes('eco') ? 'eco' : 'monde');
+  const c = ZONE_COVER[z];
+  return { ...c, label: ZONE_NAME[z], deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 52, height: 52, background: c.dot, top: -20, right: -16 }} />) };
+};
 
 const motLine = () => {
   const n = dayNumber(), p = puzzleFor(n);
@@ -204,15 +211,17 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
           <Section title="Les articles" action="Tout voir" onAction={() => nav.onArticles()} />
           <Rail>
             {own.map((a, i) => {
-              const c = a.kind === 'press' ? PRESS_COVER : COVERS[i % COVERS.length];
+              const press = a.kind === 'press';
+              const c = press ? pressCover(a.zones?.length ? a.zones : zonesOf(`${a.title} ${a.sourceSection || ''} ${a.excerpt}`, a.source)) : CK_COVER;
+              const tag = press ? `${a.source || 'Presse'} · ${(c as any).label}` : 'CKLabs';
               return (
-                <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[136px] text-left">
-                  <span className="relative overflow-hidden block h-[136px] rounded-2xl p-3" style={{ background: c.bg, color: c.fg }}>
+                <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[232px] self-start text-left">
+                  <span className="relative overflow-hidden flex flex-col h-[168px] rounded-2xl p-3.5" style={{ background: c.bg, color: c.fg }}>
                     {c.deco}
-                    <span className="absolute top-3 left-3 right-10 text-[10.5px] font-extrabold tracking-[.08em] uppercase truncate" style={{ color: c.tag }}>{a.kind === 'press' ? a.source || 'Presse' : 'CKLabs'}</span>
-                    <span className="absolute left-3 right-3 bottom-3 text-[14px] font-extrabold leading-[1.3] line-clamp-3">{frTypo(a.title)}</span>
+                    <span className="relative pr-10 text-[10.5px] font-extrabold tracking-[.08em] uppercase truncate" style={{ color: c.tag }}>{tag}</span>
+                    <span className="relative mt-auto text-[15px] font-extrabold leading-[1.28] line-clamp-5">{frTypo(a.title)}</span>
                   </span>
-                  <span className="block text-[12.5px] mt-1.5" style={{ color: C.mute }}>{a.kind === 'press' ? 'Revue de presse' : `${a.readMinutes} min de lecture`}</span>
+                  <span className="text-[12.5px] leading-[1.35] mt-1.5 line-clamp-2" style={{ color: C.mute }}>{a.excerpt ? frTypo(a.excerpt) : press ? 'Revue de presse' : `${a.readMinutes} min de lecture`}</span>
                 </button>
               );
             })}

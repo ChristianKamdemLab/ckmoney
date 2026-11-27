@@ -117,8 +117,9 @@ export const KV: React.FC<{ rows: [React.ReactNode, React.ReactNode][] }> = ({ r
   <Card className="px-4 py-1">
     {rows.map(([k, v], i) => (
       <div key={i} className="flex justify-between gap-4 py-3.5 text-[15px]" style={{ borderTop: i ? `1px solid ${C.line}` : undefined }}>
-        <div style={{ color: C.mute }}>{k}</div>
-        <div className="font-semibold text-right">{v}</div>
+        <div className="shrink-0 max-w-[45%]" style={{ color: C.mute }}>{k}</div>
+        {/* Une valeur longue (lien PayPal, IBAN) passe à la ligne au lieu de sortir de l'écran (27/11) */}
+        <div className="font-semibold text-right min-w-0 [overflow-wrap:anywhere]">{v}</div>
       </div>
     ))}
   </Card>

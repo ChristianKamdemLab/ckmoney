@@ -468,6 +468,11 @@ export const reopenRequest = async (loan: Loan) => {
   await updateDoc(doc(db, LOANS, loan.id), { status: 'requested' });
 };
 
+/** Le prêteur retire une demande refusée de sa liste (elle reste dans l'historique de l'ami). */
+export const hideDeclined = async (loan: Loan) => {
+  await updateDoc(doc(db, LOANS, loan.id), { lenderHidden: true });
+};
+
 export const deleteOffer = async (loan: Loan) => {
   if (loan.inviteToken) await deleteDoc(doc(db, "invites", loan.inviteToken)).catch(() => undefined);
   await deleteDoc(doc(db, LOANS, loan.id));

@@ -15,9 +15,9 @@ const press = (id: string, title: string, source: string, days: number, zones: s
 const list: Article[] = [
   own('a0', "Tribune d'exemple : un titre assez long pour voir comment il se coupe sur deux ou trois lignes", 1, 6),
   own('a1', 'Chronique inventée', 9, 4),
-  press('p1', 'Les fintech africaines accélèrent (exemple)', 'Jeune Afrique', 0, ['Afrique', 'Éco']),
-  press('p2', 'Un sujet monde inventé pour la vitrine', 'Le Monde', 0, ['Monde']),
-  press('p3', 'Économie camerounaise : un titre d\'exemple', 'EcoMatin', 1, ['Cameroun', 'Éco']),
+  press('p1', 'Les fintech africaines accélèrent (exemple)', 'Jeune Afrique', 0, ['afrique', 'eco']),
+  press('p2', 'Un sujet monde inventé pour la vitrine', 'Le Monde', 0, ['monde']),
+  press('p3', 'Économie camerounaise : un titre d\'exemple', 'EcoMatin', 1, ['cameroun', 'afrique', 'eco']),
 ];
 export const listArticles = async () => [...list].sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
 export const savePress = async () => 'p1';
