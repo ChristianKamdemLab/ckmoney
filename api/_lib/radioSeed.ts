@@ -94,3 +94,9 @@ export const RADIO_2026_11_21_MEDIAS: RadioSeed[] = [
  *  vérifié (ANIL : titre de séjour valide et plafonds de revenus, pas de condition d'emploi ni de durée)
  *  et validé par lui à 18 h 32. */
 export const LOGEMENT_POURQUOI = "Au moment où la campagne de 2027 se prépare, le logement s’annonce comme la prochaine bombe sociale, et C ce soir met les cartes sur la table, face à Frédéric Falcon, le monsieur logement du RN. On y voit tomber une idée qui a la vie dure : les logements sociaux seraient d’abord pour les étrangers, comme s’il suffisait de poser le pied en France pour décrocher un HLM. Dans les faits, il faut un titre de séjour en règle, des revenus sous les plafonds, et beaucoup de patience sur des listes d’attente qui se comptent en années.\n\nEt quand on parle d’« étrangers », suivez mon regard : ce ne sont ni les Italiens ni les Espagnols qui sont visés. Écoutez, et dites-moi ce que vous en pensez.";
+
+/** Envoyé par Christian le 27/11/2026 à 13 h 40, sans « pourquoi je le recommande » (sujet politique :
+ *  aucun avis ne lui est prêté). Titre et émission tels que publiés par Le Monde. */
+export const RADIO_2026_11_27_HDM: RadioSeed[] = [
+  { id: 'hdm-bardella-messages', url: 'https://open.spotify.com/episode/7uS3cnULel5k3EtuFn2QWJ', title: 'De nouveaux messages antisémites de Jordan Bardella révélés par « Le Monde »', show: "L'Heure du Monde" },
+];
