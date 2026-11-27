@@ -13,7 +13,8 @@ const pushStats = async () => {
   const docs = (await adminDb.collection('pushTokens').get()).docs;
   const me = await adminAuth.getUserByEmail(authorEmail()).catch(() => null);
   const n = (d: any) => (d.data()?.tokens || []).length;
-  return { comptes: docs.filter((d: any) => n(d) > 0).length, appareils: docs.reduce((t: number, d: any) => t + n(d), 0), christian: me ? n(docs.find((d: any) => d.id === me.uid) || { data: () => ({}) }) : null };
+  return { comptes: docs.filter((d: any) => n(d) > 0).length, appareils: docs.reduce((t: number, d: any) => t + n(d), 0), christian: me ? n(docs.find((d: any) => d.id === me.uid) || { data: () => ({}) }) : null,
+    jetonPerdu: me ? docs.find((d: any) => d.id === me.uid)?.data()?.lostAt || null : null, inscrit: me ? docs.find((d: any) => d.id === me.uid)?.data()?.updatedAt || null : null };
 };
 
 export default async function handler(req: any, res: any) {

@@ -28,7 +28,8 @@ export const pushToUser = async (uid: string, msg: { title: string; body: string
   const dead = res.responses
     .map((r, i) => (!r.success && /registration-token-not-registered|invalid-registration-token|invalid-argument/.test(r.error?.code || '') ? tokens[i] : null))
     .filter(Boolean) as string[];
-  if (dead.length) await ref.set({ tokens: tokens.filter(t => !dead.includes(t)) }, { merge: true });
+  // L'heure de la perte est gardée : elle explique une notification jamais arrivée (27/11)
+  if (dead.length) await ref.set({ tokens: tokens.filter(t => !dead.includes(t)), lostAt: new Date().toISOString() }, { merge: true });
   return res.successCount;
 };
 
