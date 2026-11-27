@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loan, Notification, Profile, User, ReceiveInfo, isIdentityComplete } from '../../types';
 import {
-  Screen, TopBar, H1, Amount, Button, Card, KV, Avatar, Chips, Field, inputClass, inputStyle, Note, Footer, Sheet, Toast, Icon, Skeleton,
+  Screen, TopBar, H1, Amount, Button, Card, KV, Avatar, Chips, Field, inputClass, inputStyle, Note, Footer, Sheet, Icon, Skeleton,
   C, euro, euro2, firstName, dateFr, relDays,
   NightHero, DateInput,
 } from './ui';
 import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
-import Discover, { Today, InviteCard } from './Discover';
+import { InviteCard } from './Discover';
 import { InstallCard, InstallButton } from './Install';
 import ReceiveFields, { receiveValid } from './ReceiveFields';
 import CityInput from '../CityInput';
@@ -442,7 +442,6 @@ export const BorrowerSpace: React.FC<{
   onOpenLoan: (l: Loan) => void; onRequest: (lenderUid: string, lenderFirstName: string) => void;
   onEditIdentity: () => void; onLogout: () => void; onLegal: (v: 'cgu' | 'privacy') => void; onBack?: () => void;
   onOpenContract: (l: Loan) => void;
-  onArticles?: () => void; onJambo?: () => void; onBac?: () => void; onWiseman?: () => void; onEvents?: () => void; onRadio?: () => void; onMot?: () => void; onInfo?: (scope?: 'monde' | 'afrique' | 'decryptage') => void; onVendredi?: () => void; onAdresses?: () => void; onFilms?: () => void;
   onBecomeLender?: () => void;   // « Prêter à mes proches » (absent si déjà prêteur)
   embedded?: boolean;            // onglet « Prêts » de la nouvelle interface (26/11) : seulement les emprunts
 }> = (p) => {
@@ -452,7 +451,6 @@ export const BorrowerSpace: React.FC<{
   const [cards, setCards] = useState<Record<string, LenderCard | null>>({});
   const [menu, setMenu] = useState(false);
   const [notifs, setNotifs] = useState<Notification[]>([]);
-  const lenders = Array.from(new Set(mine.map(l => l.lenderUid).filter(Boolean))) as string[];
   // Ses prêteurs : ceux avec qui il a déjà un prêt ou une demande, et ceux dont il a ouvert le lien de demande.
   // Jamais un inconnu : l'appli n'est pas une plateforme qui met en relation.
   const targets = requestTargets(p.loans, p.user.id, p.profile?.viaLenders);
@@ -496,7 +494,6 @@ export const BorrowerSpace: React.FC<{
 
   // Rien en cours : pas de gros « 0,00 € », on met en avant ce qui change chaque jour
   const quiet = !p.loading && open.length === 0;
-  const today = p.onEvents && !p.embedded ? <Today onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} /> : null;
 
   return (
     <Screen bottomPad={p.embedded}>
@@ -519,7 +516,6 @@ export const BorrowerSpace: React.FC<{
           )}
         </div>
       </NightHero>
-      {quiet && today}
 
       {nextDue && (
         <div className="px-5 pt-5">
@@ -585,7 +581,6 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      {!quiet && today}
 
       {mine.some(l => l.contractText) && (
         <>
@@ -622,7 +617,6 @@ export const BorrowerSpace: React.FC<{
         </div>
       )}
 
-      {!p.embedded && p.onArticles && p.onJambo && p.onBac && p.onWiseman && p.onEvents && <Discover today={false} onArticles={p.onArticles} onJambo={p.onJambo} onBac={p.onBac} onWiseman={p.onWiseman} onEvents={p.onEvents} onRadio={p.onRadio} onMot={p.onMot} onInfo={p.onInfo} onVendredi={p.onVendredi} onAdresses={p.onAdresses} onFilms={p.onFilms} />}
       {!p.embedded && <InviteCard />}
 
       {!p.embedded && <InstallCard slot="bottom" />}

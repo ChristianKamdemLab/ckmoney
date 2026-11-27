@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Screen, TopBar, Button, Chips, Note, Card as Box, Avatar, Field, Toast, Icon, inputClass, inputStyle, C, firstName } from './ui';
+import { Screen, TopBar, Button, Chips, Note, Card as Box, Avatar, Toast, Icon, C, firstName } from './ui';
 import { Card, Play } from '../../games/fapfap';
 import { TableView, TableModel, FELT } from './JamboTable';
-import { Felt, NameStep, ShareBox, nameOf } from './GameKit';
+import { NameStep, ShareBox, nameOf } from './GameKit';
 import { ensurePlayer, jambo, watchTable, watchHand, tableLink, savedName, saveName, OnlineTable, ERRORS } from '../../services/jamboOnline';
 
 // Jambo en ligne : une table, un lien WhatsApp, chacun joue depuis son téléphone.

@@ -12,7 +12,6 @@ const v = new URLSearchParams(location.search).get('v') || 'home';
 const names = [{ name: 'Christian', human: true }, { name: 'Tonton', human: false }, { name: 'La Go', human: false }];
 
 let el: React.ReactNode = null;
-if (v === 'home-old') el = <LenderTabs tab="loans" user={user} profile={null} loans={[]} loading={false} onOpenLoan={() => {}} onCreate={() => {}} onEditProfile={() => {}} onLogout={() => {}} onLegal={() => {}} requestLink="https://ck-money.vercel.app/christian" onArticles={() => {}} onJambo={() => {}} onBac={() => {}} onWiseman={() => {}} onEvents={() => {}} onMot={() => {}} onInfo={() => {}} onVendredi={() => {}} onAdresses={() => {}} onRadio={() => {}} />;
 if (v === 'articles') el = <ArticlesScreen user={user} isAuthor={false} onBack={() => {}} />;
 if (v === 'articles-author') el = <ArticlesScreen user={user} isAuthor onBack={() => {}} />;
 if (v.startsWith('read')) el = <ArticlesScreen user={user} isAdmin={false} onBack={() => {}} initialId={v.slice(4) || 'a0'} />;
@@ -51,9 +50,7 @@ if (v === 'join') {
 
 import FilmsScreen from '../../components/v2/Films';
 if (v === 'films') el = <FilmsScreen onBack={() => {}} />;
-import VendrediScreen from '../../components/v2/Vendredi';
 import AdressesScreen from '../../components/v2/Adresses';
-if (v === 'vendredi') el = <VendrediScreen onBack={() => {}} />;
 if (v === 'adresses') el = <AdressesScreen onBack={() => {}} />;
 import InfoScreen from '../../components/v2/Info';
 if (v === 'info') el = <InfoScreen onBack={() => {}} />;
@@ -85,7 +82,7 @@ import { buildSchedule } from '../../utils/schedule';
   const mk = (id: string, status: string, extra: any = {}) => ({ id, status, borrowerUid: 'ami', lenderUid: 'chris', lenderName: 'Christian Kamdem', amount: 150, currency: 'EUR',
     loanDate: '2026-11-11', repaymentDate: '2026-12-07', schedule: sch, interestRate: 0, lateRateMode: 'legal', payments: [], createdAt: '2026-11-11', ...extra }) as any;
   const sp = (loans: any[]) => <BorrowerSpace user={friend} profile={null} loans={loans} loading={false} onOpenLoan={() => {}} onRequest={(u, n) => { document.title = `request:${u}:${n}`; }}
-    onEditIdentity={() => {}} onLogout={() => {}} onLegal={() => {}} onOpenContract={() => {}} onArticles={() => {}} onJambo={() => {}} onBac={() => {}} onWiseman={() => {}} onEvents={() => {}} onRadio={() => {}} onMot={() => {}} onInfo={() => {}} onVendredi={() => {}} onAdresses={() => {}} onFilms={() => {}} onBecomeLender={() => { document.title = 'lend'; }} />;
+    onEditIdentity={() => {}} onLogout={() => {}} onLegal={() => {}} onOpenContract={() => {}} onBecomeLender={() => { document.title = 'lend'; }} />;
   if (v === 'friend-empty') el = sp([]);
   if (v === 'friend-paid') el = sp([mk('old', 'paid')]);
   if (v === 'friend-active') el = sp([mk('a', 'active')]);
@@ -123,7 +120,7 @@ import LegalDocs from '../../components/LegalDocs';
 {
   const friend = { id: 'ami', name: 'Ami Test', email: 'a@x.fr' };
   if (v === 'friend-via') el = <BorrowerSpace user={friend} profile={{ viaLenders: ['chris'] } as any} loans={[]} loading={false} onOpenLoan={() => {}} onRequest={(u, n) => { document.title = `request:${u}:${n}`; }}
-    onEditIdentity={() => {}} onLogout={() => {}} onLegal={() => {}} onOpenContract={() => {}} onArticles={() => {}} onJambo={() => {}} onBac={() => {}} onWiseman={() => {}} onEvents={() => {}} onRadio={() => {}} onMot={() => {}} onInfo={() => {}} onVendredi={() => {}} onAdresses={() => {}} onFilms={() => {}} onBecomeLender={() => {}} />;
+    onEditIdentity={() => {}} onLogout={() => {}} onLegal={() => {}} onOpenContract={() => {}} onBecomeLender={() => {}} />;
   if (v === 'lend') el = <ProfileSetup user={friend} initial={null} lending onCancel={() => {}} onSaved={() => { document.title = 'saved'; }} />;
   if (v === 'cgu' || v === 'privacy') el = <LegalDocs view={v as any} onClose={() => {}} />;
 }
@@ -142,8 +139,8 @@ if (v.startsWith('shell')) {
       {tab === 'actu' && <ActuTab user={user} nav={nav} />}
       {tab === 'amis' && <AmisTab nav={nav} />}
       {tab === 'podcasts' && <RadioScreen asTab />}
-      {tab === 'loans' && <LenderTabs tab="loans" user={user} profile={null} loans={fake} loading={false} onOpenLoan={() => {}} onCreate={() => {}} onEditProfile={() => {}} onLogout={() => {}} onLegal={() => {}} requestLink="https://ck-money.vercel.app/christian" onArticles={() => {}} onJambo={() => {}} onBac={() => {}} onWiseman={() => {}} onEvents={() => {}} />}
-      {tab === 'profile' && <LenderTabs tab="profile" user={user} profile={null} loans={fake} loading={false} onOpenLoan={() => {}} onCreate={() => {}} onEditProfile={() => {}} onLogout={() => {}} onLegal={() => {}} requestLink="https://ck-money.vercel.app/christian" onArticles={() => {}} onJambo={() => {}} onBac={() => {}} onWiseman={() => {}} onEvents={() => {}} />}
+      {tab === 'loans' && <LenderTabs tab="loans" user={user} profile={null} loans={fake} loading={false} onOpenLoan={() => {}} onCreate={() => {}} onEditProfile={() => {}} onLogout={() => {}} onLegal={() => {}} requestLink="https://ck-money.vercel.app/christian" />}
+      {tab === 'profile' && <LenderTabs tab="profile" user={user} profile={null} loans={fake} loading={false} onOpenLoan={() => {}} onCreate={() => {}} onEditProfile={() => {}} onLogout={() => {}} onLegal={() => {}} requestLink="https://ck-money.vercel.app/christian" />}
       <MiniPlayer withTabs />
       <TabBar tab={tab} onTab={setTab} badge={1} />
     </>);

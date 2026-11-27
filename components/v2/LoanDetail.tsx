@@ -19,18 +19,6 @@ interface Props {
   onEdit?: (loan: Loan) => void;
 }
 
-const Ring: React.FC<{ done: number; total: number }> = ({ done, total }) => {
-  const r = 44, c = 2 * Math.PI * r, pct = total ? done / total : 0;
-  return (
-    <svg width="104" height="104" viewBox="0 0 104 104" role="img" aria-label={`${done} échéance(s) sur ${total} réglée(s)`} className="shrink-0">
-      <circle cx="52" cy="52" r={r} fill="none" stroke={C.border} strokeWidth="9" />
-      <circle cx="52" cy="52" r={r} fill="none" stroke={C.ochre} strokeWidth="9" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 52 52)" style={{ transition: 'stroke-dashoffset .6s' }} />
-      <text x="52" y="50" textAnchor="middle" fontSize="20" fontWeight="700" fill={C.ink}>{done}/{total}</text>
-      <text x="52" y="68" textAnchor="middle" fontSize="11" fill={C.mute}>payées</text>
-    </svg>
-  );
-};
-
 const Action: React.FC<{ icon: IconName; label: string; tone?: 'mango' | 'green' | 'plain'; onClick: () => void; href?: string }> = ({ icon, label, tone = 'plain', onClick, href }) => {
   const bg = tone === 'mango' ? C.mango : tone === 'green' ? '#25D366' : C.card;
   const fg = tone === 'green' ? '#fff' : C.ink;
@@ -78,13 +66,6 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
   const lateSince = s.schedule.find(i => i.outstanding > 0.004 && i.lateFrom)?.lateFrom;
   const [keepLate, setKeepLate] = useState(true);
   const unpaidFrom = s.schedule.find(i => i.outstanding > 0.004);
-  const delayCost = (() => {
-    if (!lateRate || !delayDate || !unpaidFrom) return 0;
-    const start = unpaidFrom.lateFrom || unpaidFrom.dueDate;
-    const days = Math.max(0, Math.round((new Date(delayDate).getTime() - new Date(start).getTime()) / 86400000));
-    const base = s.schedule.filter(i => i.outstanding > 0.004 && (i.lateFrom || i.dueDate) < delayDate).reduce((a, i) => a + i.outstanding, 0);
-    return Math.round(base * lateRate / 100 * days / 365 * 100) / 100;
-  })();
   // Taux de report : fixé par le prêteur, appliqué automatiquement à toute nouvelle date proposée
   // (jamais moins que le taux du contrat, jamais plus que le seuil de l'usure du montant prêté).
   const delayRate = Math.min(rateCapFor(loan.amount, loan.currency), Math.max(lateRate, loan.delayRate || lenderDelayRate || 0));

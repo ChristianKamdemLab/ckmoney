@@ -108,7 +108,6 @@ const ESSENTIEL_RE = /\s*[·•|_-]\s*L['’]essentiel\s*$/i;
 const keyOf = (n: string) => baseName(n).replace(ESSENTIEL_RE, '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 /** « <nom du PDF> · L'essentiel » (Google Doc, Word ou texte). */
 export const isEssentielDoc = (f: DriveFile) => !!TYPES[f.mimeType] && TYPES[f.mimeType] !== 'pdf' && ESSENTIEL_RE.test(baseName(f.name));
-export const essentielName = (pdfName: string) => `${baseName(pdfName)} · ${ESSENTIEL}`;
 export const MAX_SUMMARY = 4000;
 
 /** Le document : en tête, des lignes facultatives « Accroche : … », « Source : … » (le journal),

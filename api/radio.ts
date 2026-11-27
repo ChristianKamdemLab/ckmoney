@@ -138,6 +138,8 @@ export default async function handler(req: any, res: any) {
       const r = eid ? col().doc(eid) : col().doc();
       const prev = eid ? (await r.get()).data() : null;
       if (eid && !prev) return res.status(404).json({ error: 'introuvable' });
+      // Pas de doublon : le même lien ne peut être recommandé qu'une fois (27/11)
+      if (!eid && !(await col().where('url', '==', e.url).limit(1).get()).empty) return res.status(409).json({ error: 'deja' });
       const profile = (await adminDb.collection('profiles').doc(who.uid).get()).data();
       const notifyNow = !!body.notify && !prev?.notifiedAt;
       await r.set({

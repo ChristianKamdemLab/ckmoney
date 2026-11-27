@@ -1,5 +1,5 @@
 import { adminAuth, adminDb, isAdmin, pushToUser } from './_lib/admin.js';
-import { fridayActions } from './_lib/vendredi.js';
+import { placeActions } from './_lib/vendredi.js';
 import { showActions } from './_lib/vendrediShow.js';
 import { filmActions } from './_lib/films.js';
 import { cleanEvent, cleanName, escapeHtml, icsFor, isUpcoming, summary, AppEvent, KIND_LABEL } from '../utils/events.js';
@@ -15,7 +15,7 @@ import { cleanEvent, cleanName, escapeHtml, icsFor, isUpcoming, summary, AppEven
 //  POST save / delete / rsvps           tout compte CKMoney, pour ses propres sorties (Christian peut
 //                                       retirer n'importe quelle sortie)
 //  POST people                          Christian seulement (choisir « certaines personnes »)
-//  POST places.* / friday.*             Mes adresses et Mon vendredi soir (voir _lib/vendredi.ts)
+//  POST places.*                        Mes adresses (voir _lib/vendredi.ts)
 //  POST films.*                         Films et séries (voir _lib/films.ts)
 // Les réponses d'un chill ne sont visibles que par la personne qui l'organise.
 
@@ -202,8 +202,8 @@ export default async function handler(req: any, res: any) {
       const r = await showActions(body, who, admin);
       return res.status(r.status).json(r.json);
     }
-    if (/^(places|friday)\./.test(String(body.action))) {
-      const r = await fridayActions(body, who, admin);
+    if (/^places\./.test(String(body.action))) {
+      const r = await placeActions(body, admin);
       return res.status(r.status).json(r.json);
     }
 

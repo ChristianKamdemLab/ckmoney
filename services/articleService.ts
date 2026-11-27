@@ -2,7 +2,6 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase';
 import { Article } from '../types';
 import { callApi } from './push';
-import { auth } from './firebase';
 
 const fromDoc = (id: string, d: any): Article => ({
   id, title: d.title || '', body: d.body || '', excerpt: d.excerpt || '', readMinutes: d.readMinutes || 1,

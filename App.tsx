@@ -32,7 +32,6 @@ const Bac = lazy(() => import('./components/v2/Bac'));
 const Wiseman = lazy(() => import('./components/v2/Wiseman'));
 const Mot = lazy(() => import('./components/v2/Mot'));
 const InfoScreen = lazy(() => import('./components/v2/Info'));
-const VendrediScreen = lazy(() => import('./components/v2/Vendredi'));
 const AdressesScreen = lazy(() => import('./components/v2/Adresses'));
 const FilmsScreen = lazy(() => import('./components/v2/Films'));
 const EventsScreen = lazy(() => import('./components/v2/Events'));
@@ -135,7 +134,6 @@ type Overlay =
   | { k: 'radio'; back?: Overlay; id?: string }
   | { k: 'mot'; back?: Overlay }
   | { k: 'info'; back?: Overlay; scope?: 'monde' | 'afrique' | 'decryptage' }
-  | { k: 'vendredi'; back?: Overlay }
   | { k: 'adresses'; back?: Overlay }
   | { k: 'films'; back?: Overlay }
   | { k: 'activity' };
@@ -364,7 +362,6 @@ const App: React.FC = () => {
         case 'jambo': return <Suspense fallback={<Splash />}><Jambo playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'bac': return <Suspense fallback={<Splash />}><Bac playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'wiseman': return <Suspense fallback={<Splash />}><Wiseman playerName={profile?.fullName || user.name} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
-        case 'vendredi': return <Suspense fallback={<Splash />}><VendrediScreen onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'films': return <Suspense fallback={<Splash />}><FilmsScreen onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'adresses': return <Suspense fallback={<Splash />}><AdressesScreen onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
         case 'info': return <Suspense fallback={<Splash />}><InfoScreen initialScope={overlay.scope} onBack={() => setOverlay(overlay.back || null)} /></Suspense>;
@@ -417,11 +414,11 @@ const App: React.FC = () => {
             onRequest={(uid, name) => setOverlay({ k: 'request', uid, name })} onEditIdentity={() => setOverlay({ k: 'identity' })}
             onLogout={logout} onLegal={v => setOverlay({ k: 'legal', v })} onBack={isLender ? close : undefined}
             onOpenContract={l => setOverlay({ k: 'contract', id: l.id })}
-            onArticles={() => setOverlay({ k: 'articles', back: { k: 'borrower' } })} onJambo={() => setOverlay({ k: 'jambo', back: { k: 'borrower' } })} onBac={() => setOverlay({ k: 'bac', back: { k: 'borrower' } })} onWiseman={() => setOverlay({ k: 'wiseman', back: { k: 'borrower' } })} onEvents={() => setOverlay({ k: 'events', back: { k: 'borrower' } })} onRadio={() => setOverlay({ k: 'radio', back: { k: 'borrower' } })} onMot={() => setOverlay({ k: 'mot', back: { k: 'borrower' } })} onInfo={scope => setOverlay({ k: 'info', scope, back: { k: 'borrower' } })} onVendredi={() => setOverlay({ k: 'vendredi', back: { k: 'borrower' } })} onAdresses={() => setOverlay({ k: 'adresses', back: { k: 'borrower' } })} onFilms={() => setOverlay({ k: 'films', back: { k: 'borrower' } })} />;
+            />;
       }
     })();
     // Mini-lecteur (26/11) : sur les écrans de lecture seulement (pas sur un formulaire, un jeu ou l'info, qui a son lecteur)
-    const withMini = ['articles', 'films', 'adresses', 'events', 'vendredi', 'activity'].includes(overlay.k);
+    const withMini = ['articles', 'films', 'adresses', 'events', 'activity'].includes(overlay.k);
     return <ErrorBoundary>{content}{withMini && <MiniPlayer withTabs={false} />}<Toast text={toast} onDone={() => setToast(null)} /></ErrorBoundary>;
   }
 
@@ -435,15 +432,13 @@ const App: React.FC = () => {
     onArticles: id => setOverlay({ k: 'articles', id }), onInfo: scope => setOverlay({ k: 'info', scope }),
     onEvents: id => setOverlay({ k: 'events', id }), onMot: () => setOverlay({ k: 'mot' }),
     onJambo: () => setOverlay({ k: 'jambo' }), onBac: () => setOverlay({ k: 'bac' }), onWiseman: () => setOverlay({ k: 'wiseman' }),
-    onRadio: () => goTab('podcasts'), onVendredi: () => setOverlay({ k: 'vendredi' }), onAdresses: () => setOverlay({ k: 'adresses' }), onFilms: () => setOverlay({ k: 'films' }),
+    onRadio: () => goTab('podcasts'), onVendredi: () => goTab('amis'), onAdresses: () => setOverlay({ k: 'adresses' }), onFilms: () => setOverlay({ k: 'films' }),
   };
   const lenderProps = {
     user, profile, loans, loading, onOpenLoan: openLoan,
     onCreate: () => setOverlay({ k: 'new' }), onEditProfile: () => setOverlay({ k: 'profile' }), onLogout: logout,
     onLegal: (v: 'cgu' | 'privacy') => setOverlay({ k: 'legal', v }), requestLink: requestLinkFor(handle || user.id),
     onBorrowerSpace: hasBorrowerSide ? () => setOverlay({ k: 'borrower' }) : undefined, onBorrowerArea: () => setOverlay({ k: 'borrower' }),
-    onArticles: () => nav.onArticles(), onJambo: nav.onJambo, onBac: nav.onBac, onWiseman: nav.onWiseman, onEvents: () => nav.onEvents(),
-    onRadio: nav.onRadio, onMot: nav.onMot, onInfo: nav.onInfo, onVendredi: nav.onVendredi, onAdresses: nav.onAdresses, onFilms: nav.onFilms,
   };
   return (
     <ErrorBoundary>

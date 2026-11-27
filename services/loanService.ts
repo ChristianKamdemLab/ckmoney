@@ -515,11 +515,6 @@ export const reviewPayment = async (loanId: string, paymentId: string, accept: b
   });
 };
 
-export const confirmPendingPayments = async (loanId: string) => {
-  const payments = await getLoanPayments(loanId);
-  await Promise.all(payments.filter(p => p.status === 'declared').map(p => reviewPayment(loanId, p.id, true)));
-};
-
 export const markLoanPaid = async (loanId: string) => {
   await updateDoc(doc(db, LOANS, loanId), { status: 'paid' });
 };

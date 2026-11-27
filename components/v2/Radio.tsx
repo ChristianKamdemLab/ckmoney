@@ -84,6 +84,7 @@ const Reader: React.FC<{ id: string; isAuthor: boolean; onBack: () => void; onEd
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remove, setRemove] = useState<RadioComment | null>(null);
+  const [dropReco, setDropReco] = useState(false);
   useEffect(() => { window.scrollTo(0, 0); getRadio(id).then(setData).catch(() => setFailed(true)); }, [id]);
 
   if (failed) return <Screen><TopBar onBack={onBack} /><div className="px-5"><Note tone="warn">Cette reco n'est plus en ligne.</Note></div></Screen>;
@@ -118,7 +119,8 @@ const Reader: React.FC<{ id: string; isAuthor: boolean; onBack: () => void; onEd
   };
 
   return (
-    <Screen>
+    // bottomPad : dans l'onglet Podcasts, la zone de commentaire ne passe plus sous la barre du bas (27/11)
+    <Screen bottomPad>
       <TopBar onBack={onBack} title="Radio CK" right={isAuthor ? <button onClick={() => onEdit(r)} className="text-[15px] font-semibold px-1" style={{ color: C.ochreText }}>Modifier</button> : undefined} />
       <div className="px-5 pt-1"><Player item={r} /></div>
       <div className="px-6 pt-4">
@@ -172,13 +174,22 @@ const Reader: React.FC<{ id: string; isAuthor: boolean; onBack: () => void; onEd
           </Card>
         )}
         <div className="mt-3 flex flex-col gap-2">
-          <textarea value={text} onChange={e => setText(e.target.value)} rows={2} maxLength={MAX_COMMENT} aria-label="Ton commentaire"
+          <textarea value={text} onChange={e => setText(e.target.value)} rows={4} maxLength={MAX_COMMENT} aria-label="Ton commentaire"
             placeholder={comments.length ? 'Ajoute ton avis…' : 'Sois le premier à donner ton avis…'}
             className="w-full rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed outline-none border-[1.5px] focus:border-[#0E1533] resize-none" style={inputStyle} />
           {text.trim() && <Button busy={busy === 'send'} onClick={send}>Envoyer</Button>}
           {error && <Note tone="danger">{error}</Note>}
         </div>
+        {isAuthor && <div className="mt-8"><Button variant="danger" onClick={() => setDropReco(true)}>Supprimer la reco</Button></div>}
       </div>
+
+      <Sheet open={dropReco} onClose={() => setDropReco(false)} title="Supprimer cette reco ?">
+        <p className="text-[15px] leading-relaxed mb-4" style={{ color: C.text2 }}>Elle disparaîtra de Radio CK pour tout le monde, avec ses réactions et ses commentaires.</p>
+        <div className="flex flex-col gap-2.5">
+          <Button variant="danger" busy={busy === 'drop'} onClick={async () => { setBusy('drop'); try { await deleteRadio(r.id); onChanged(); onBack(); } catch { setError('La suppression a échoué.'); setDropReco(false); } finally { setBusy(null); } }}>Supprimer définitivement</Button>
+          <Button variant="secondary" onClick={() => setDropReco(false)}>Annuler</Button>
+        </div>
+      </Sheet>
 
       <Sheet open={!!remove} onClose={() => setRemove(null)} title="Retirer ce commentaire ?">
         <p className="text-[15px] leading-relaxed mb-4" style={{ color: C.text2 }}>{remove?.mine ? 'Ton commentaire' : `Le commentaire de ${remove?.name}`} disparaîtra pour tout le monde.</p>
@@ -228,7 +239,7 @@ const Editor: React.FC<{ initial?: RadioItem; onBack: () => void; onSaved: (id?:
     if (!media || !f.title.trim()) { setError('Il faut au moins le lien et un titre.'); return; }
     setBusy('save'); setError(null);
     try { const r = await saveRadio({ id: initial?.id, url: url.trim(), ...f }, notify); onSaved(r.id, r.notified); }
-    catch { setError("L'enregistrement a échoué. Réessaie."); }
+    catch (e: any) { setError(e?.message === 'deja' ? 'Ce lien est déjà dans Radio CK.' : "L'enregistrement a échoué. Réessaie."); }
     finally { setBusy(null); }
   };
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
