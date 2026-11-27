@@ -254,7 +254,7 @@ export const SlideToConfirm: React.FC<{ label: string; onConfirm: () => void; di
 };
 
 export type IconName = 'back' | 'close' | 'plus' | 'check' | 'refresh' | 'bell' | 'home' | 'list' | 'activity' | 'user' | 'search'
-  | 'chevron' | 'file' | 'chat' | 'dots' | 'info' | 'lock' | 'arrow' | 'phone' | 'calendar' | 'clock' | 'alert' | 'copy' | 'logout' | 'pin' | 'share' | 'ticket' | 'glass' | 'users' | 'news' | 'wallet';
+  | 'chevron' | 'file' | 'chat' | 'dots' | 'info' | 'lock' | 'arrow' | 'phone' | 'calendar' | 'clock' | 'alert' | 'copy' | 'logout' | 'pin' | 'share' | 'ticket' | 'glass' | 'users' | 'news' | 'wallet' | 'headphones';
 
 export const Icon: React.FC<{ name: IconName; size?: number }> = ({ name, size = 22 }) => {
   const p: Record<IconName, React.ReactNode> = {
@@ -276,6 +276,7 @@ export const Icon: React.FC<{ name: IconName; size?: number }> = ({ name, size =
     share: <><path d="M12 15V3" /><path d="m7 8 5-5 5 5" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" /></>,
     ticket: <><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z" /><path d="M14.5 7v2M14.5 11v2M14.5 15v2" /></>,
     glass: <><path d="M6 3h12l-1.5 8a4.5 4.5 0 0 1-9 0z" /><path d="M12 15.5V21M8.5 21h7M6.6 7h10.8" /></>,
+    headphones: <><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z" /></>,
     news: <><path d="M4 5h13a3 3 0 0 1 3 3v11H7a3 3 0 0 1-3-3z" /><path d="M8 9h8M8 13h8M8 17h5" /></>,
     wallet: <><rect x="3" y="6" width="18" height="13" rx="2.5" /><path d="M3 10h18M7 15h4" /></>,
     users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 20a6.5 6.5 0 0 0-3-5.5" /></>,
@@ -285,8 +286,9 @@ export const Icon: React.FC<{ name: IconName; size?: number }> = ({ name, size =
   );
 };
 
-/** Barre d'onglets de toute l'appli (26/11) : Accueil · Actu · Prêts · Entre amis · Profil. */
-export type MainTab = 'home' | 'actu' | 'loans' | 'amis' | 'profile';
+/** Barre d'onglets de toute l'appli : Accueil · Actu · Podcasts · Prêts · Entre amis (27/11 : les podcasts
+ *  ont leur onglet ; le profil s'ouvre depuis l'avatar de l'accueil). */
+export type MainTab = 'home' | 'actu' | 'podcasts' | 'loans' | 'amis' | 'profile';
 export const TabBar: React.FC<{ tab: MainTab; onTab: (t: MainTab) => void; badge?: number }> = ({ tab, onTab, badge }) => {
   const item = (id: MainTab, label: string, icon: IconName) => {
     const on = tab === id;
@@ -305,9 +307,9 @@ export const TabBar: React.FC<{ tab: MainTab; onTab: (t: MainTab) => void; badge
       <div className="w-full max-w-[480px] grid grid-cols-5 items-end px-1 pt-1 pb-[max(env(safe-area-inset-bottom),10px)]">
         {item('home', 'Accueil', 'home')}
         {item('actu', 'Actu', 'news')}
+        {item('podcasts', 'Podcasts', 'headphones')}
         {item('loans', 'Prêts', 'wallet')}
         {item('amis', 'Entre amis', 'users')}
-        {item('profile', 'Profil', 'user')}
       </div>
     </nav>
   );

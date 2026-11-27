@@ -246,7 +246,8 @@ const App: React.FC = () => {
     else if (link?.vendredi) setTab('amis'); // Vendredi Show (26/11) : en tête de l'onglet Entre amis
     else if (link?.adresses) setOverlay({ k: 'adresses' });
     else if (link?.films) setOverlay({ k: 'films' });
-    else if (link?.radio) setOverlay({ k: 'radio', id: link.radio === true ? undefined : link.radio });
+    else if (link?.radio === true) setTab('podcasts'); // l'onglet Podcasts (27/11)
+    else if (link?.radio) setOverlay({ k: 'radio', id: link.radio });
   }, [user?.id]);
 
   // Mise à jour en direct : une demande, une signature ou un paiement apparaît sans rouvrir l'appli
@@ -434,7 +435,7 @@ const App: React.FC = () => {
     onArticles: id => setOverlay({ k: 'articles', id }), onInfo: scope => setOverlay({ k: 'info', scope }),
     onEvents: id => setOverlay({ k: 'events', id }), onMot: () => setOverlay({ k: 'mot' }),
     onJambo: () => setOverlay({ k: 'jambo' }), onBac: () => setOverlay({ k: 'bac' }), onWiseman: () => setOverlay({ k: 'wiseman' }),
-    onRadio: () => setOverlay({ k: 'radio' }), onVendredi: () => setOverlay({ k: 'vendredi' }), onAdresses: () => setOverlay({ k: 'adresses' }), onFilms: () => setOverlay({ k: 'films' }),
+    onRadio: () => goTab('podcasts'), onVendredi: () => setOverlay({ k: 'vendredi' }), onAdresses: () => setOverlay({ k: 'adresses' }), onFilms: () => setOverlay({ k: 'films' }),
   };
   const lenderProps = {
     user, profile, loans, loading, onOpenLoan: openLoan,
@@ -449,6 +450,7 @@ const App: React.FC = () => {
       {tab === 'home' && <HomeTab user={user} profile={profile} loans={loans} isLender={isLender} nav={nav} />}
       {tab === 'actu' && <ActuTab user={user} nav={nav} />}
       {tab === 'amis' && <AmisTab nav={nav} />}
+      {tab === 'podcasts' && <Suspense fallback={<Splash />}><RadioScreen asTab /></Suspense>}
       {tab === 'loans' && (isLender
         ? <LenderTabs tab="loans" {...lenderProps} />
         : <BorrowerSpace embedded user={user} profile={profile} loans={loans} loading={loading} onOpenLoan={openLoan}

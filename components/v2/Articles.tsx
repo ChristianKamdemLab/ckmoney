@@ -453,6 +453,10 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
     prefill && isAuthor ? { k: 'press', prefill } : initialId ? { k: 'read', id: initialId } : { k: 'list' });
   const [filter, setFilter] = useState<Filter>('all');
   const [toast, setToast] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  // Ouvert sur un article depuis l'accueil ou l'Actu (27/11) : « retour » ramène là-bas, pas à la liste
+  const [entry] = useState(initialId);
+  const backFrom = (id: string) => (id === entry ? onBack : () => go({ k: 'list' }));
   // « Nouveau » : ce qui est paru depuis la dernière visite (retenue à l'ouverture)
   const [since] = useState(() => seenAt('articles'));
   useEffect(() => { markSeen('articles'); }, []);
@@ -467,14 +471,14 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
   const withToast = (n: React.ReactNode) => <>{n}<Toast text={toast} onDone={() => setToast(null)} /></>;
 
   if (view.k === 'read') {
-    if (!list) return <Screen><TopBar onBack={() => go({ k: 'list' })} /><div className="px-6 flex flex-col gap-3"><Skeleton h={40} /><Skeleton h={20} /><Skeleton h={300} /></div></Screen>;
+    if (!list) return <Screen><TopBar onBack={backFrom(view.id)} /><div className="px-6 flex flex-col gap-3"><Skeleton h={40} /><Skeleton h={20} /><Skeleton h={300} /></div></Screen>;
     const a = list.find(x => x.id === view.id);
-    if (a && isPress(a)) return withToast(<PressReader article={a} isAuthor={isAuthor} onBack={() => go({ k: 'list' })} onEdit={() => go({ k: 'press', id: a.id })} />);
+    if (a && isPress(a)) return withToast(<PressReader article={a} isAuthor={isAuthor} onBack={backFrom(a.id)} onEdit={() => go({ k: 'press', id: a.id })} />);
     if (a) {
       const own = published.filter(x => !isPress(x));
       const idx = own.findIndex(x => x.id === a.id);
       const next = own.length > 1 ? own[(idx + 1) % own.length] : undefined;
-      return withToast(<Reader article={a} next={next && next.id !== a.id ? next : undefined} isAuthor={isAuthor} onBack={() => go({ k: 'list' })} onEdit={() => go({ k: 'edit', id: a.id })} onOpen={x => go({ k: 'read', id: x.id })} />);
+      return withToast(<Reader article={a} next={next && next.id !== a.id ? next : undefined} isAuthor={isAuthor} onBack={backFrom(a.id)} onEdit={() => go({ k: 'edit', id: a.id })} onOpen={x => go({ k: 'read', id: x.id })} />);
     }
     // Article introuvable (supprimé entre-temps) : on retombe sur la liste
   }
@@ -499,12 +503,15 @@ const ArticlesScreen: React.FC<{ user: User; isAuthor: boolean; onBack: () => vo
   const hasPress = sources.length > 0;
   return withToast(
     <Screen>
-      <NightHeader onBack={onBack} title="Articles" accent={C.mango} desc="Les textes de Christian, signés CKLabs, et sa revue de presse. Réservés aux proches inscrits sur l'appli." />
+      <NightHeader onBack={onBack} title="Articles" accent={C.mango} desc="Les textes de Christian, signés CKLabs, et sa revue de presse. Réservés aux proches inscrits sur l'appli."
+        right={isAuthor ? <button onClick={() => setAddOpen(true)} aria-label="Ajouter un article" className="w-10 h-10 rounded-full flex items-center justify-center relative z-[1]" style={{ background: C.mango, color: C.ink }}><Icon name="plus" size={20} /></button> : undefined} />
       {isAuthor && (
-        <div className="px-5 pb-4 flex flex-col gap-2.5">
-          <Button onClick={() => go({ k: 'edit' })}><Icon name="plus" size={20} /> Écrire ou importer un article</Button>
-          <Button variant="secondary" onClick={() => go({ k: 'press' })}><Icon name="file" size={20} /> Ajouter une revue de presse</Button>
-        </div>
+        <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="Ajouter">
+          <div className="flex flex-col gap-2.5">
+            <Button onClick={() => { setAddOpen(false); go({ k: 'edit' }); }}><Icon name="plus" size={20} /> Écrire ou importer un article</Button>
+            <Button variant="secondary" onClick={() => { setAddOpen(false); go({ k: 'press' }); }}><Icon name="file" size={20} /> Ajouter une revue de presse</Button>
+          </div>
+        </Sheet>
       )}
       {list && hasPress && (
         <div className="px-5 pb-3 flex flex-col gap-2">

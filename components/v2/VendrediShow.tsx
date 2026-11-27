@@ -18,7 +18,9 @@ const Cover: React.FC<{ c: ShowChoice; h: number }> = ({ c, h }) => (
 );
 
 const VendrediShow: React.FC<{ standalone?: boolean }> = ({ standalone }) => {
-  const [show, setShow] = useState<Show | null>(null);
+  // Dernière version gardée sur le téléphone : la rangée s'affiche tout de suite à sa place (27/11)
+  const [show, setShowState] = useState<Show | null>(() => { try { return JSON.parse(localStorage.getItem('ck_c_show') || 'null'); } catch { return null; } });
+  const setShow = (s: Show) => { setShowState(s); try { localStorage.setItem('ck_c_show', JSON.stringify(s)); } catch { /* rien */ } };
   const [open, setOpen] = useState<ShowChoice | null>(null);
   const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<'place' | 'home'>('place');
@@ -26,7 +28,12 @@ const VendrediShow: React.FC<{ standalone?: boolean }> = ({ standalone }) => {
   const [busy, setBusy] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => { getShow().then(setShow).catch(() => undefined); }, []);
-  if (!show) return null;
+  if (!show) return (
+    <div aria-hidden="true" className={`px-5 ${standalone ? 'pt-2' : 'pt-7'}`}>
+      <div className="h-[44px] w-40 rounded-lg animate-pulse" style={{ background: C.soft }} />
+      <div className="flex gap-3 mt-3">{[0, 1, 2].map(i => <div key={i} className="shrink-0 w-[136px] h-[226px] rounded-2xl animate-pulse" style={{ background: C.soft }} />)}</div>
+    </div>
+  );
 
   const act = async (key: string, f: () => Promise<Show>, ok?: string) => {
     setBusy(key);

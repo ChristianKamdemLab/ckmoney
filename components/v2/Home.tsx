@@ -5,7 +5,7 @@ import CKLogo from '../brand/CKLogo';
 import PushCard from './PushCard';
 import FiscalPanel from '../FiscalPanel';
 import { InstallCard, InstallButton } from './Install';
-import { InviteCard, RadioTile, MotTile } from './Discover';
+import { InviteCard, MotTile } from './Discover';
 import VendrediShow from './VendrediShow';
 import { listArticles } from '../../services/articleService';
 import { listInfo } from '../../services/infoService';
@@ -48,11 +48,25 @@ const dayLabel = (iso: string) => {
   return dateFr(d, { weekday: 'long', day: 'numeric' });
 };
 
-const useLoad = <T,>(f: () => Promise<T>, init: T): T => {
-  const [v, setV] = useState<T>(init);
-  useEffect(() => { let on = true; f().then(x => on && setV(x)).catch(() => undefined); return () => { on = false; }; }, []);
-  return v;
+const useLoad = <T,>(f: () => Promise<T>, init: T): T => useCached(f, init)[0];
+
+/** Chargement avec la dernière version gardée sur le téléphone (27/11) : l'écran s'affiche tout de suite
+ *  à sa taille finale, puis se met à jour ; plus de « saut » quand les données arrivent. */
+const useCached = <T,>(f: () => Promise<T>, init: T, key?: string, slim?: (v: T) => T): [T, boolean] => {
+  const [v, setV] = useState<T>(() => { if (!key) return init; try { const c = localStorage.getItem(`ck_c_${key}`); return c ? JSON.parse(c) : init; } catch { return init; } });
+  const [ready, setReady] = useState(() => { try { return !!key && localStorage.getItem(`ck_c_${key}`) !== null; } catch { return false; } });
+  useEffect(() => {
+    let on = true;
+    f().then(x => {
+      if (!on) return;
+      setV(x); setReady(true);
+      if (key) try { localStorage.setItem(`ck_c_${key}`, JSON.stringify(slim ? slim(x) : x)); } catch { /* stockage plein ou indisponible */ }
+    }).catch(() => on && setReady(true));
+    return () => { on = false; };
+  }, []);
+  return [v, ready];
 };
+const slimArticles = (l: Article[]) => l.filter(a => a.status === 'published').map(a => ({ id: a.id, kind: a.kind, status: a.status, title: a.title, readMinutes: a.readMinutes, publishedAt: a.publishedAt, updatedAt: a.updatedAt, source: a.source, excerpt: '', body: '', summary: '' } as any));
 
 const useUnread = (uid: string) => {
   const [n, setN] = useState(0);
@@ -77,6 +91,9 @@ const COVERS = [
   { bg: C.mango, fg: C.ink, tag: C.ochreText, deco: (<span aria-hidden="true" className="absolute rounded-full box-border" style={{ width: 56, height: 56, border: `9px solid ${C.coral}`, top: -14, right: -12 }} />) },
   { bg: C.teal, fg: C.ink, tag: C.ink, deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 64, height: 64, background: C.night, top: -26, right: -22 }} />) },
 ];
+
+// Revue de presse : une couverture claire, pour la distinguer des textes CKLabs
+const PRESS_COVER = { bg: C.card, fg: C.ink, tag: C.ochreText, deco: (<span aria-hidden="true" className="absolute rounded-full" style={{ width: 40, height: 40, background: C.soft, top: -12, right: -12 }} />) };
 
 const motLine = () => {
   const n = dayNumber(), p = puzzleFor(n);
@@ -106,15 +123,17 @@ const loanAlert = (loans: Loan[], uid: string, isLender: boolean): string | null
 
 export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loan[]; isLender: boolean; nav: Nav }> = ({ user, profile, loans, isLender, nav }) => {
   const unread = useUnread(user.id);
-  const decs = useLoad(listDecryptage, [] as DecryptageDay[]);
-  const info = useLoad(listInfo, [] as InfoDay[]);
-  const articles = useLoad(() => listArticles(user.id, false), [] as Article[]);
-  const films = useLoad(() => listFilms().then(r => r.films), [] as Film[]);
+  const [decs, decReady] = useCached(listDecryptage, [] as DecryptageDay[], 'decs', l => l.slice(0, 2).map(d => ({ ...d, lines: [] })));
+  const [info, infoReady] = useCached(listInfo, [] as InfoDay[], 'info', l => l.slice(0, 1));
+  const [articles] = useCached(() => listArticles(user.id, false), [] as Article[], 'articles', slimArticles);
+  const [films] = useCached(() => listFilms().then(r => r.films), [] as Film[], 'films', l => l.slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 10));
   const ps = usePlayer();
 
   const dec = decs.find(d => d.date >= yesterday()) || null;
   const day = info[0];
-  const own = articles.filter(a => a.kind !== 'press' && a.status === 'published').slice(0, 8);
+  // Les articles (27/11) : tous les textes CKLabs (ils restent) et la revue de presse récente, du plus récent au plus ancien
+  const own = [...articles.filter(a => a.status === 'published' && a.kind !== 'press'), ...articles.filter(a => a.status === 'published' && a.kind === 'press').slice(0, 8)]
+    .sort((a, b) => (b.publishedAt || b.updatedAt || '').localeCompare(a.publishedAt || a.updatedAt || ''));
   const recos = films.slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 10);
   const alert = loanAlert(loans, user.id, isLender);
   const name = firstName(profile?.fullName || user.name);
@@ -164,7 +183,7 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
             <span className="relative z-[1] text-[11px] font-extrabold uppercase tracking-wide" style={{ color: C.mango }}>L'info du jour</span>
             <span className="relative z-[1] block mt-1 mr-8 text-[15.5px] leading-[1.3] font-extrabold line-clamp-2">{frTypo(day.items[0].title)}</span>
           </button>
-        ) : null}
+        ) : !(decReady && infoReady) ? <div className="h-[82px] rounded-[20px] animate-pulse" style={{ background: C.soft }} /> : null}
 
         <div className="grid grid-cols-2 gap-2.5 mt-3">
           <button onClick={nav.onMot} className="rounded-2xl px-3 py-3 flex items-center gap-2.5 text-left" style={{ background: C.card }}>
@@ -182,18 +201,18 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
 
       {own.length > 0 && (
         <>
-          <Section title="Les articles CKLabs" action="Tout voir" onAction={() => nav.onArticles()} />
+          <Section title="Les articles" action="Tout voir" onAction={() => nav.onArticles()} />
           <Rail>
             {own.map((a, i) => {
-              const c = COVERS[i % COVERS.length];
+              const c = a.kind === 'press' ? PRESS_COVER : COVERS[i % COVERS.length];
               return (
                 <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[136px] text-left">
                   <span className="relative overflow-hidden block h-[136px] rounded-2xl p-3" style={{ background: c.bg, color: c.fg }}>
                     {c.deco}
-                    <span className="absolute top-3 left-3 text-[10.5px] font-extrabold tracking-[.08em]" style={{ color: c.tag }}>CKLABS</span>
+                    <span className="absolute top-3 left-3 right-10 text-[10.5px] font-extrabold tracking-[.08em] uppercase truncate" style={{ color: c.tag }}>{a.kind === 'press' ? a.source || 'Presse' : 'CKLabs'}</span>
                     <span className="absolute left-3 right-3 bottom-3 text-[14px] font-extrabold leading-[1.3] line-clamp-3">{frTypo(a.title)}</span>
                   </span>
-                  <span className="block text-[12.5px] mt-1.5" style={{ color: C.mute }}>{a.readMinutes} min de lecture</span>
+                  <span className="block text-[12.5px] mt-1.5" style={{ color: C.mute }}>{a.kind === 'press' ? 'Revue de presse' : `${a.readMinutes} min de lecture`}</span>
                 </button>
               );
             })}
@@ -372,12 +391,9 @@ export const AmisTab: React.FC<{ nav: Nav }> = ({ nav }) => {
     <Screen bottomPad>
       <div className="px-5 pt-[max(env(safe-area-inset-top),22px)] pb-3.5">
         <h1 className="display text-[26px]">Entre amis</h1>
-        <div className="text-[14px] mt-1" style={{ color: C.mute }}>Jouer, sortir, écouter ensemble</div>
+        <div className="text-[14px] mt-1" style={{ color: C.mute }}>Jouer et sortir ensemble</div>
       </div>
       <VendrediShow standalone />
-      <div className="px-5 pt-4 grid grid-cols-2 gap-2.5">
-        <RadioTile onClick={nav.onRadio} />
-      </div>
 
       <Section title="Jouer" />
       <div className="px-5 grid grid-cols-2 gap-2.5">

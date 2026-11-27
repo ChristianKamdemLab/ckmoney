@@ -50,7 +50,7 @@ const pushAll = async (msg: { title: string; body: string; url: string; tag: str
 export const notifyNewArticle = async (id: string, a: { title: string; kind?: string; source?: string; authorFirst?: string; alert?: string }) => {
   const ref = adminDb.collection('articles').doc(id);
   const snap = await ref.get();
-  if (snap.data()?.notifiedAt) return 0;
+  if (snap.data()?.notifiedAt) return -1; // déjà envoyée
   await ref.set({ notifiedAt: new Date().toISOString() }, { merge: true });
   return pushAll({
     title: a.alert ? a.alert : a.kind === 'press' ? `Revue de presse · ${a.source}` : `Nouvel article${a.authorFirst ? ` de ${a.authorFirst}` : ''}`,
@@ -145,6 +145,7 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
   const imports = adminDb.collection('articleImports');
   const articles = adminDb.collection('articles');
   const done: Record<string, string> = {};
+  const notifs: number[] = [];
   let me: Awaited<ReturnType<typeof author>> | null = null;
   let handled = 0;
   // Un document par article ; s'il y en a deux du même nom, le plus récent compte
@@ -159,6 +160,7 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
     // Fiche de presse effacée après 7 jours (api/_lib/retention.ts) : jamais réimportée
     if (state?.status === 'expired') continue;
     const ess = essentiels.get(keyOf(f.name));
+    let notified = -1;
     // Déjà lu, dans cette version : rien à faire. Resté « à vérifier » ou illisible avec un tri plus
     // ancien : on le relit une fois, si le brouillon n'a pas été touché depuis. Fiche de presse dont
     // « L'essentiel » est arrivé ou a changé : on la reprend.
@@ -261,12 +263,14 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
         // Relu sans plus de succès : Christian a déjà été prévenu la première fois
         if (!retry && !essChanged) await pushToUser(me.uid, { title: 'Article à vérifier', body: `« ${r.title} » : je n'ai pas reconnu sa source. Il t'attend en brouillon.`, url: `/?article=${ref.id}`, tag: `import-${f.id}` }).catch(() => 0);
       } else if (live) {
-        await notifyNewArticle(ref.id, { title: r.title, kind: r.kind, source: r.kind === 'press' ? r.source : undefined, authorFirst: me.first, alert: r.kind === 'press' ? e?.alert || undefined : undefined });
+        notified = await notifyNewArticle(ref.id, { title: r.title, kind: r.kind, source: r.kind === 'press' ? r.source : undefined, authorFirst: me.first, alert: r.kind === 'press' ? e?.alert || undefined : undefined });
       } else if (r.kind === 'press' && state?.status !== 'press') {
         // Fiche reconnue, en attente de sa synthèse : Christian seul est prévenu, une fois
         await pushToUser(me.uid, { title: `Fiche à compléter · ${r.source}`, body: `« ${r.title} » attend son « L'essentiel » avant d'être publiée.`, url: `/?article=${ref.id}`, tag: `import-${f.id}` }).catch(() => 0);
       }
       done[f.name] = r.kind === 'press' ? (live ? 'press' : "press · en attente de l'essentiel") : r.kind;
+      // Le nombre de personnes prévenues figure dans le compte rendu (27/11 : notifications non reçues)
+      if (notified >= 0) notifs.push(notified);
     } catch (e: any) {
       if (e instanceof PdfTooLong) { await tooLong(e.pages); continue; }
       await track('erreur', { error: String(e?.message || e).slice(0, 200), essentiel: ess?.modifiedTime || '', ...(state?.articleId ? { articleId: state.articleId } : {}) });
@@ -277,5 +281,5 @@ export const syncArticles = async (deps: SyncDeps, now = new Date(), opts: { dry
       done[f.name] = 'erreur';
     }
   }
-  return { files: files.length, done };
+  return { files: files.length, done, ...(notifs.length ? { notifs } : {}) };
 };

@@ -272,7 +272,7 @@ const Editor: React.FC<{ initial?: RadioItem; onBack: () => void; onSaved: (id?:
   );
 };
 
-const RadioScreen: React.FC<{ onBack: () => void; initialId?: string }> = ({ onBack, initialId }) => {
+const RadioScreen: React.FC<{ onBack?: () => void; initialId?: string; asTab?: boolean }> = ({ onBack, initialId, asTab }) => {
   const [list, setList] = useState<RadioItem[] | null>(null);
   const [author, setAuthor] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -293,10 +293,9 @@ const RadioScreen: React.FC<{ onBack: () => void; initialId?: string }> = ({ onB
   const kinds = (['podcast', 'video', 'musique'] as RadioKind[]).filter(k => (list || []).some(i => i.kind === k));
   const shown = (list || []).filter(i => filter === 'all' || i.kind === filter);
   return withToast(
-    <Screen>
-      <NightHeader onBack={onBack} title="Radio CK" accent={C.coral} desc="Les podcasts et vidéos que Christian a aimés. Écoute, puis dis ce que tu en penses.">
-        {author && <button onClick={() => go({ k: 'edit' })} className="w-full min-h-[52px] rounded-xl flex items-center justify-center gap-2 text-[15.5px] font-extrabold" style={{ background: C.coral, color: C.ink }}><Icon name="plus" size={20} /> Ajouter une reco</button>}
-      </NightHeader>
+    <Screen bottomPad={asTab}>
+      <NightHeader onBack={onBack} title="Radio CK" accent={C.coral} desc="Les podcasts et vidéos que Christian a aimés. Écoute, puis dis ce que tu en penses."
+        right={author ? <button onClick={() => go({ k: 'edit' })} aria-label="Ajouter une reco" className="w-10 h-10 rounded-full flex items-center justify-center relative z-[1]" style={{ background: C.coral, color: C.ink }}><Icon name="plus" size={20} /></button> : undefined} />
       {kinds.length > 1 && (
         <div className="px-5 pb-3">
           <Chips options={[{ id: 'all', label: 'Tout' }, ...kinds.map(k => ({ id: k, label: k === 'musique' ? 'Musique' : `${KIND_LABEL[k]}s` }))]} value={filter} onChange={v => setFilter(v as Filter)} />
