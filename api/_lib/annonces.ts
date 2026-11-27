@@ -105,6 +105,15 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: '2026-11-27-adresse-haze',
+    sendAt: '2026-11-27T17:10:00.000Z', // Christian y va ce soir ; son avis viendra après (fiche à compléter dans l'appli)
+    places: [{
+      id: 'haze-paris', name: 'Haze', address: "4 rue de l'Arc de Triomphe, 75017 Paris", url: 'https://www.instagram.com/haze.paris/',
+      budget: 'Cocktail autour de 19 €', hours: 'Lundi 18 h – 0 h 30, du mardi au jeudi 19 h 30 – 2 h, vendredi et samedi 19 h 30 – 4 h (à confirmer)',
+      review: '',
+    }],
+  },
+  {
     id: '2026-11-27-radio-doublon',
     sendAt: '2026-11-27T16:45:00.000Z', // doublon signalé par Christian : « Médias et extrême droite » ajouté le 19/11 et le 21/11 ; on garde celui du 19/11 (son texte validé)
     radioRemove: ['seed-heure-du-monde-medias-extreme-droit'], // identifiant coupé à 40 caractères (importRadio)

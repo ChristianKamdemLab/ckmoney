@@ -45,9 +45,10 @@ export const PlaceCard: React.FC<{ p: Place; onEdit?: () => void }> = ({ p, onEd
       {onEdit && <button onClick={onEdit} className="text-[13px] font-semibold shrink-0" style={{ color: C.ochreText }}>Modifier</button>}
     </div>
     <div className="mt-3 flex flex-col gap-2.5">
-      {p.review.split(/\n+/).map((t, i) => <p key={i} className="text-[16px] leading-[1.6]" style={{ color: '#1B2140' }}>{frTypo(t)}</p>)}
+      {p.review.split(/\n+/).filter(Boolean).map((t, i) => <p key={i} className="text-[16px] leading-[1.6]" style={{ color: '#1B2140' }}>{frTypo(t)}</p>)}
     </div>
-    <div className="text-[12.5px] mt-1.5" style={{ color: C.mute }}>L'avis de Christian</div>
+    {/* Sans avis (lieu ajouté avant d'y être allé) : pas de mention « L'avis de Christian » */}
+    {p.review.trim() ? <div className="text-[12.5px] mt-1.5" style={{ color: C.mute }}>L'avis de Christian</div> : <div className="text-[14px] italic" style={{ color: C.mute }}>Avis à venir.</div>}
     <div className="mt-4 flex flex-col gap-2 text-[13.5px]" style={{ color: C.text2 }}>
       {p.budget && <div className="flex gap-2"><span className="shrink-0" style={{ color: C.ochreText }}><Icon name="ticket" size={17} /></span>{p.budget}</div>}
       {p.hours && <div className="flex gap-2"><span className="shrink-0" style={{ color: C.ochreText }}><Icon name="clock" size={17} /></span>{p.hours}</div>}
