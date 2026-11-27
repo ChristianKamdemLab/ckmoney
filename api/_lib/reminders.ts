@@ -38,7 +38,7 @@ export const notify = async (userId: string, loanId: string, type: string, title
  *  et 21 h ; aucune la nuit. (26/11 au soir : Christian est revenu de quatre à une par jour.) */
 export const overdueSlot = (now = new Date()) => {
   const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hourCycle: 'h23' }).format(now));
-  return h >= 8 && h < 21 ? `${parisToday()}-0` : null;
+  return h >= 8 && h < 21 ? `${new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(now)}-0` : null;
 };
 
 /** Relances de retard : une par jour dès le premier jour de retard (notification et e-mail), tant que
