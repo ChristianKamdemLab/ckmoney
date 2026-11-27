@@ -1,0 +1,29 @@
+import { Article } from '../../types';
+import { excerptOf, readMinutes } from '../../utils/articleText';
+// Articles inventés pour la vitrine (aucun texte réel : le dépôt est public).
+const para = (n: number) => Array.from({ length: n }, (_, i) => `Paragraphe ${i + 1} d'un article inventé pour la vitrine de l'appli. Il sert à juger la mise en page, la longueur des lignes, les intertitres et le confort de lecture sur un téléphone, sans reprendre le texte d'un vrai article.`).join('\n\n');
+const own = (id: string, title: string, days: number, n: number): Article => {
+  const body = para(n), at = new Date(Date.now() - days * 86400_000).toISOString();
+  return { id, title, body, excerpt: excerptOf(body), readMinutes: readMinutes(body), status: 'published', publishedAt: at, updatedAt: at, authorUid: 'me', authorName: 'Christian Kamdem' } as any;
+};
+const press = (id: string, title: string, source: string, days: number, zones: string[]): Article => {
+  const at = new Date(Date.now() - days * 86400_000).toISOString();
+  return { id, kind: 'press', title, body: '', excerpt: 'Une accroche inventée pour la vitrine.', readMinutes: 1, status: 'published', publishedAt: at, updatedAt: at,
+    authorUid: 'me', authorName: 'Christian Kamdem', source, sourceUrl: 'https://example.com', zones,
+    summary: "Premier paragraphe de synthèse inventé pour la vitrine.\nDeuxième paragraphe, un peu plus long, pour voir la mise en page d'une fiche de revue de presse sur un petit écran." } as any;
+};
+const list: Article[] = [
+  own('a0', "Tribune d'exemple : un titre assez long pour voir comment il se coupe sur deux ou trois lignes", 1, 6),
+  own('a1', 'Chronique inventée', 9, 4),
+  press('p1', 'Les fintech africaines accélèrent (exemple)', 'Jeune Afrique', 0, ['Afrique', 'Éco']),
+  press('p2', 'Un sujet monde inventé pour la vitrine', 'Le Monde', 0, ['Monde']),
+  press('p3', 'Économie camerounaise : un titre d\'exemple', 'EcoMatin', 1, ['Cameroun', 'Éco']),
+];
+export const listArticles = async () => [...list].sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
+export const savePress = async () => 'p1';
+export type PressInput = any;
+export const saveArticle = async () => 'a0';
+export const importArticles = async () => [];
+export const deleteArticle = async () => undefined;
+export type ArticleInput = any;
+export const fetchAudio = async (_id: string) => '';
