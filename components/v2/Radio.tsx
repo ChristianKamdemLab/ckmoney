@@ -17,14 +17,20 @@ const ago = (iso: string) => {
 };
 
 /** Vignette : 16:9 pour une vidéo, carrée pour un podcast ou un son. */
-const Thumb: React.FC<{ item: Pick<RadioItem, 'thumbnail' | 'kind' | 'title'>; size?: number }> = ({ item, size = 76 }) => {
+// Vignette au même format pour tous (27/11) : 16/9. Une pochette carrée (podcast) est posée entière
+// sur un fond flou de la même image, au lieu d'être recadrée ou de décaler le texte.
+const Thumb: React.FC<{ item: Pick<RadioItem, 'thumbnail' | 'kind' | 'title'>; width?: number }> = ({ item, width = 116 }) => {
   const video = item.kind === 'video';
-  const w = video ? Math.round(size * 1.5) : size, h = video ? Math.round(size * 1.5 * 9 / 16) : size;
   return (
-    <div className="relative shrink-0 rounded-xl overflow-hidden" style={{ width: w, height: h, background: C.ink }}>
+    <div className="relative shrink-0 rounded-xl overflow-hidden" style={{ width, height: Math.round(width * 9 / 16), background: C.ink }}>
       {item.thumbnail
-        ? <img src={item.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-        : <div className="w-full h-full flex items-center justify-center serif text-[22px] font-semibold" style={{ color: C.ochre }}>CK</div>}
+        ? video
+          ? <img src={item.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+          : <>
+              <img src={item.thumbnail} alt="" aria-hidden="true" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover scale-125 blur-md opacity-70" />
+              <img src={item.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" className="relative h-full aspect-square object-cover mx-auto" />
+            </>
+        : <div className="w-full h-full flex items-center justify-center text-[20px] font-extrabold" style={{ color: C.ochre }}>CK</div>}
       <span className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,.55)' }} aria-hidden="true">
         <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z" fill="#fff" /></svg>
       </span>
@@ -241,7 +247,7 @@ const Editor: React.FC<{ initial?: RadioItem; onBack: () => void; onSaved: (id?:
           <>
             {f.thumbnail && (
               <div className="flex items-center gap-3.5">
-                <Thumb item={{ ...f, title: f.title }} size={64} />
+                <Thumb item={{ ...f, title: f.title }} width={96} />
                 <div className="text-[13px]" style={{ color: C.mute }}>{media ? PLATFORM_LABEL[media.platform] : ''}</div>
               </div>
             )}
@@ -307,11 +313,11 @@ const RadioScreen: React.FC<{ onBack?: () => void; initialId?: string; asTab?: b
         {shown.length > 0 && (
           <Card>
             {shown.map((i, n) => (
-              <button key={i.id} onClick={() => go({ k: 'read', id: i.id })} className="w-full text-left flex items-center gap-3.5 px-4 py-3.5" style={{ borderTop: n ? `1px solid ${C.line}` : undefined }}>
+              <button key={i.id} onClick={() => go({ k: 'read', id: i.id })} className="w-full text-left flex items-start gap-3.5 px-4 py-3.5" style={{ borderTop: n ? `1px solid ${C.line}` : undefined }}>
                 <Thumb item={i} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2"><div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.ochreText }}>{KIND_LABEL[i.kind]} · {ago(i.publishedAt)}</div>{isNewSince(i.publishedAt, since) && <NewPill />}</div>
-                  <div className="serif text-[16.5px] font-semibold leading-snug mt-0.5 line-clamp-2">{i.title}</div>
+                  <div className="text-[15px] font-extrabold leading-[1.3] mt-0.5 line-clamp-3">{i.title}</div>
                   {i.show && <div className="text-[13px] mt-0.5 truncate" style={{ color: C.mute }}>{i.show}</div>}
                   <div className="mt-1"><Reactions item={i} compact /></div>
                 </div>
