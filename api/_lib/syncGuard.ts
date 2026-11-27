@@ -23,6 +23,8 @@ export const summarize = (out: any) => {
   return {
     files: typeof out?.files === 'number' ? out.files : undefined,
     articles: count(out?.done),
+    // Personnes prévenues, pour chaque nouvel article publié
+    ...(Array.isArray(out?.notifs) && out.notifs.length ? { notifiés: out.notifs } : {}),
     info: out?.info && typeof out.info === 'object' ? Object.keys(out.info).length : 0,
     // Le décryptage : date → état (« audio en cours (12/24) », « publié… ») ; jamais de titre
     effacés: out?.effacés,
