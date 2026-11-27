@@ -93,7 +93,7 @@ import { buildSchedule } from '../../utils/schedule';
   if (v === 'blocked') el = <RequestBlocked loan={mk('a', 'active')} lenderFirstName="Christian" onOpen={() => {}} onBack={() => {}} />;
   if (v === 'review') {
     const me = { id: 'chris', name: 'Christian', email: 'c@x.fr' };
-    const req = mk('r2', 'requested', { borrowerNickname: 'Ami' });
+    const req = mk('r2', 'requested', { borrowerNickname: 'Ami', borrowerReceive: { method: 'paypal', value: 'https://www.paypal.me/unpseudoassezlong' } });
     el = <RequestReview loan={req} user={me} profile={{ fullName: 'Christian Kamdem', signature: 'x' } as any} loans={[req, mk('a', 'active')]} onBack={() => {}} onChanged={() => {}} onModify={() => {}} />;
   }
 }
@@ -135,7 +135,8 @@ if (v.startsWith('shell')) {
   const Shell = () => {
     const [tab, setTab] = React.useState<MainTab>((new URLSearchParams(location.search).get('tab') as MainTab) || 'home');
     const nav: any = new Proxy({}, { get: (_t, k) => k === 'onTab' ? setTab : () => {} });
-    const fake: any[] = [{ id: 'l1', lenderUid: 'me', borrowerUid: 'b1', borrowerName: 'Ami Test', lenderName: 'Christian', amount: 300, currency: 'EUR', status: 'active', loanDate: '2026-10-20', repaymentDate: '2026-11-20', dueDate: '2026-11-20', firstDueDate: '2026-11-20', repaymentType: 'single', createdAt: '2026-10-20T10:00:00Z', payments: [], installments: 1, frequency: 'once' }];
+    const fake: any[] = [{ id: 'l1', lenderUid: 'me', borrowerUid: 'b1', borrowerName: 'Ami Test', lenderName: 'Christian', amount: 300, currency: 'EUR', status: 'active', loanDate: '2026-10-20', repaymentDate: '2026-11-20', dueDate: '2026-11-20', firstDueDate: '2026-11-20', repaymentType: 'single', createdAt: '2026-10-20T10:00:00Z', payments: [], installments: 1, frequency: 'once' },
+      { id: 'd1', lenderUid: 'me', borrowerUid: 'b2', borrowerNickname: 'Inès', borrowerName: 'Inès', amount: 20, currency: 'EUR', status: 'declined', initiatedBy: 'borrower', createdAt: new Date(Date.now() - 6 * 86400_000).toISOString(), payments: [], schedule: [] }];
     return (<>
       {tab === 'home' && <HomeTab user={user} profile={{ fullName: 'Christian Kamdem' } as any} loans={fake} isLender nav={nav} />}
       {tab === 'actu' && <ActuTab user={user} nav={nav} />}

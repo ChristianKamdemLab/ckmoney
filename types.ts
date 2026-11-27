@@ -1,6 +1,8 @@
 
 export interface Loan {
   id: string;
+  /** Demande refusée retirée de la liste du prêteur (27/11). */
+  lenderHidden?: boolean;
   // Lender Details
   lenderName: string;
   lenderEmail: string;

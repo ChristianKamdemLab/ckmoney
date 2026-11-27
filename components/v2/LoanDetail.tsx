@@ -291,7 +291,7 @@ const LoanDetail: React.FC<Props> = ({ loan, user, profile, onBack, onChanged, o
                           <span>Titulaire : {rcv.holder}{rcv.bic ? ` · BIC ${rcv.bic}` : ''}</span>
                         </span>)
                       : isEmail ? <>Par PayPal, à l'adresse <strong>{rcv.value}</strong>. Ouvre ton appli PayPal et envoie-lui {euro2(loan.amount, loan.currency)}.</>
-                      : <>Il veut le recevoir sur {payProvider(rcv.value)}. Le montant est déjà rempli.</>}
+                      : <>À envoyer sur {payProvider(rcv.value)}. Le montant est déjà rempli.</>}
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-3">
                     {!rcv ? <a href={ask} target="_blank" rel="noopener noreferrer" className="h-12 rounded-[14px] flex items-center justify-center text-[15px] font-bold text-white" style={{ background: C.green }}>Lui demander</a>

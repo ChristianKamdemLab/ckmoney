@@ -8,6 +8,14 @@ import SignaturePad from '../SignaturePad';
 import { receiveLabel } from './ReceiveFields';
 import { openLoanWith } from '../../utils/requests';
 
+/** Lien affiché sans « https://www. » : plus court, toujours lisible (27/11). */
+const short = (t: string) => t.replace(/https?:\/\/(www\.)?/gi, '');
+/** « PayPal · lien » : le moyen en gras, le lien dessous en plus petit. */
+const receiveCell = (t: string) => {
+  const [how, ...rest] = short(t).split(' · ');
+  return rest.length ? <>{how}<span className="block text-[13.5px] font-medium [overflow-wrap:anywhere]" style={{ color: C.text2 }}>{rest.join(' · ')}</span></> : how;
+};
+
 /** Le prêteur reçoit la demande d'un proche : accepter (vaut signature), modifier ou refuser. */
 const RequestReview: React.FC<{
   loan: Loan; user: User; profile: Profile; loans: Loan[];
@@ -41,11 +49,11 @@ const RequestReview: React.FC<{
       {loan.requestNote && <div className="px-6 pt-4"><Card className="px-4 py-3.5 text-[15px] leading-[1.45]" style={{ color: C.text2 }}>« {loan.requestNote} »</Card></div>}
       <div className="px-6 pt-3">
         <KV rows={[
-          ['Il propose', s.length > 1 ? `${s.length} × ${euro2(s[0].amount, loan.currency)}` : `En une fois`],
+          ['Remboursement', s.length > 1 ? `${s.length} × ${euro2(s[0].amount, loan.currency)}` : `En une fois`],
           [s.length > 1 ? 'Échéances' : 'Date', s.length > 1 ? `du ${dateFr(s[0].dueDate, { day: 'numeric', month: 'short' })} au ${dateFr(s[s.length - 1].dueDate, { day: 'numeric', month: 'short' })}` : dateFr(s[0]?.dueDate || loan.repaymentDate)],
           ['Intérêts · retard', `${loan.interestRate ? `${loan.interestRate} %` : 'Aucun'} · ${loan.lateRateMode === 'none' ? 'rien' : 'taux légal'}`],
-          ['Il veut recevoir', loan.borrowerReceive ? receiveLabel(loan.borrowerReceive) : loan.borrowerPaymentLink || 'Non précisé'],
-          ['Historique avec lui', past.length ? `${past.length} prêt(s), ${paidOnTime === past.length ? 'à jour' : 'retard en cours'}` : 'Premier prêt'],
+          ['Pour recevoir', receiveCell(loan.borrowerReceive ? receiveLabel(loan.borrowerReceive) : loan.borrowerPaymentLink || 'Non précisé')],
+          ['Vos prêts passés', past.length ? `${past.length} prêt(s), ${paidOnTime === past.length ? 'à jour' : 'retard en cours'}` : 'Premier prêt'],
         ]} />
       </div>
       {!profile.signature && (
