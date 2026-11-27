@@ -6,14 +6,14 @@ import type { Show, ShowChoice } from '../../utils/vendrediShow';
 // « Vendredi Show » (26/11) : la rangée des plans pour vendredi soir, sans vote. Chacun touche « J'y vais »
 // sur le choix qui lui plaît ; l'hôte d'un chill à domicile est prévenu à chaque venue.
 
-const going = (c: ShowChoice) => c.going.length ? `${c.going.length} y ${c.going.length > 1 ? 'vont' : 'va'}` : '';
+const going = (c: ShowChoice) => c.count ? `${c.count} y ${c.count > 1 ? 'vont' : 'va'}` : '';
 
 const Cover: React.FC<{ c: ShowChoice; h: number }> = ({ c, h }) => (
   <span className="relative overflow-hidden block rounded-2xl" style={{ height: h, background: c.kind === 'home' ? C.mango : C.night, color: c.kind === 'home' ? C.ink : C.mango }}>
     {c.image
       ? <img src={c.image} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" />
       : <span className="absolute inset-0 flex items-center justify-center"><Icon name={c.kind === 'home' ? 'home' : 'pin'} size={34} /></span>}
-    {c.going.length > 0 && <span className="absolute left-2 bottom-2 px-2 py-[3px] rounded-full text-[11.5px] font-extrabold" style={{ background: C.ink, color: '#fff' }}>{going(c)}</span>}
+    {c.count > 0 && <span className="absolute left-2 bottom-2 px-2 py-[3px] rounded-full text-[11.5px] font-extrabold" style={{ background: C.ink, color: '#fff' }}>{going(c)}</span>}
   </span>
 );
 
@@ -86,7 +86,7 @@ const VendrediShow: React.FC<{ standalone?: boolean }> = ({ standalone }) => {
               ? <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(open.address)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[14.5px] font-semibold" style={{ color: C.ink }}><Icon name="pin" size={18} />{open.address}</a>
               : open.kind === 'home' && <div className="text-[13.5px]" style={{ color: C.mute }}>L'adresse s'affiche quand tu y vas.</div>}
             {open.url && <a href={open.url} target="_blank" rel="noopener noreferrer" className="text-[14px] font-bold" style={{ color: C.ochreText }}>Voir la page du lieu</a>}
-            <div className="text-[14px]"><b>{open.going.length ? `${going(open)} :` : "Personne pour l'instant."}</b> {open.going.join(', ')}</div>
+            <div className="text-[14px]"><b>{open.count ? `${going(open)}${open.going.length ? ' :' : '.'}` : "Personne pour l'instant."}</b> {open.going.join(', ')}</div>
             <Button busy={busy === open.id} variant={open.me ? 'secondary' : 'primary'} onClick={() => pick(open)}>{open.me ? "Je n'y vais plus" : "J'y vais"}</Button>
             {(open.mine || (show.admin && !open.id.startsWith('p_') && open.id !== 'home_christian')) && (
               <Button variant="danger" busy={busy === 'rm'} onClick={async () => { if (await act('rm', () => removeShow(open.id), 'Choix retiré')) setOpen(null); }}>Retirer ce choix</Button>

@@ -16,7 +16,8 @@ export interface ShowChoice {
   image: string;
   hostUid?: string;       // domicile : la personne qui reçoit
   mine: boolean;          // ajouté par moi (je peux le retirer)
-  going: string[];        // prénoms de ceux qui y vont
+  count: number;          // combien y vont
+  going: string[];        // leurs prénoms : pour Christian seulement (vide pour les autres)
   me: boolean;            // j'y vais
 }
 export interface Show { date: string; choices: ShowChoice[]; canHome: boolean; admin: boolean }

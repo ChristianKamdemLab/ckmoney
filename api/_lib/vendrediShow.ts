@@ -50,7 +50,8 @@ const build = async (uid: string, admin: boolean) => {
     const going = goingTo(c.id);
     const me = picks[uid] === c.id;
     const seeAddress = c.kind !== 'home' || me || c.hostUid === uid || admin;
-    return { id: c.id, kind: c.kind, name: c.name, sub: c.sub, review: c.review, address: seeAddress ? c.address || '' : '', url: c.url || '', image: c.image || '', hostUid: c.hostUid, mine: c.mine, going, me };
+    // Les prénoms ne sont montrés qu'à Christian ; les autres voient seulement le nombre (27/11)
+    return { id: c.id, kind: c.kind, name: c.name, sub: c.sub, review: c.review, address: seeAddress ? c.address || '' : '', url: c.url || '', image: c.image || '', hostUid: c.hostUid, mine: c.mine, count: going.length, going: admin ? going : [], me };
   });
   return { show: { date, choices, canHome: !(d.choices || []).some((c: any) => c.kind === 'home' && c.byUid === uid) && uid !== host, admin }, ref, d };
 };
