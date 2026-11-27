@@ -60,5 +60,7 @@ export const pageImage = async (page: string): Promise<string> => {
   if (!html) return '';
   let img = ogTags(html).image;
   try { img = img ? new URL(img, page).toString() : ''; } catch { img = ''; }
+  // Le logo générique d'un réseau social n'est pas la photo du lieu (Instagram renvoie son logo, 27/11)
+  if (/static\.cdninstagram\.com|instagram\.com\/static|\/rsrc\.php|facebook\.com\/images|abs\.twimg\.com/i.test(img)) return '';
   return /^https:\/\//i.test(img) && img.length <= 600 ? img : '';
 };
