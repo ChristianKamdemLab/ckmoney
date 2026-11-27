@@ -4,16 +4,16 @@
 
 const key = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-/** Couleurs dominantes des journaux suivis. Celles marquées « à confirmer » sont proches du logo. */
+/** Couleurs dominantes des journaux suivis, relevées sur leurs sites le 27/11 (sauf « à confirmer »). */
 const BRANDS: Record<string, { bg: string; fg?: string }> = {
   lemonde: { bg: '#000B15' },
   financialtimes: { bg: '#FFF1E5', fg: '#990F3D' },
   ft: { bg: '#FFF1E5', fg: '#990F3D' },
   reuters: { bg: '#FF8000' },
-  jeuneafrique: { bg: '#D5001C' },        // à confirmer
-  mediapart: { bg: '#E2001A' },           // à confirmer
-  lesechos: { bg: '#E2231A' },            // à confirmer
-  africaintelligence: { bg: '#1D2A44' },  // à confirmer
+  jeuneafrique: { bg: '#D5001C' },        // à confirmer (site fermé aux lectures automatiques)
+  mediapart: { bg: '#FC392B' },           // rouge du petit crieur du logo
+  lesechos: { bg: '#212121' },            // logo noir sur le site
+  africaintelligence: { bg: '#EB7C2D' },  // orange du site
 };
 
 export const NEUTRAL = { bg: '#FFFFFF', fg: '#0E1533' };
