@@ -215,11 +215,12 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
               const c = press ? pressCover(a.zones?.length ? a.zones : zonesOf(`${a.title} ${a.sourceSection || ''} ${a.excerpt}`, a.source)) : CK_COVER;
               const tag = press ? `${a.source || 'Presse'} · ${(c as any).label}` : 'CKLabs';
               return (
-                <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[232px] self-start text-left">
-                  <span className="relative overflow-hidden flex flex-col h-[168px] rounded-2xl p-3.5" style={{ background: c.bg, color: c.fg }}>
+                <button key={a.id} onClick={() => nav.onArticles(a.id)} className="shrink-0 w-[252px] self-start text-left">
+                  {/* Carte compacte (27/11) : la source et le titre en haut, sans vide au milieu */}
+                  <span className="relative overflow-hidden flex flex-col gap-2 h-[132px] rounded-2xl px-3.5 pt-3 pb-3" style={{ background: c.bg, color: c.fg }}>
                     {c.deco}
                     <span className="relative pr-10 text-[10.5px] font-extrabold tracking-[.08em] uppercase truncate" style={{ color: c.tag }}>{tag}</span>
-                    <span className="relative mt-auto text-[15px] font-extrabold leading-[1.28] line-clamp-5">{frTypo(a.title)}</span>
+                    <span className="relative text-[15px] font-extrabold leading-[1.3] line-clamp-4">{frTypo(a.title)}</span>
                   </span>
                   <span className="text-[12.5px] leading-[1.35] mt-1.5 line-clamp-2" style={{ color: C.mute }}>{a.excerpt ? frTypo(a.excerpt) : press ? 'Revue de presse' : `${a.readMinutes} min de lecture`}</span>
                 </button>
@@ -236,15 +237,21 @@ export const HomeTab: React.FC<{ user: User; profile: Profile | null; loans: Loa
             {recos.map(f => {
               const img = f.poster || (f.trailer ? trailerImage(f.trailer, 'hq') : '');
               return (
-                <button key={f.id} onClick={nav.onFilms} className="shrink-0 w-[96px] text-left">
-                  <span className="relative overflow-hidden block h-[136px] rounded-xl" style={{ background: C.nightCard }}>
+                <button key={f.id} onClick={nav.onFilms} className="shrink-0 w-[220px] text-left">
+                  {/* Image entière de la bande-annonce (27/11) : le titre écrit dessus reste lisible */}
+                  <span className="relative overflow-hidden block aspect-video rounded-xl" style={{ background: C.nightCard }}>
                     {img && <img src={img} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" />}
-                    <span className="absolute left-1.5 bottom-1.5 flex items-center gap-[3px] px-[7px] py-[3px] rounded-full text-[11px] font-extrabold" style={{ background: C.mango, color: C.ink }}>
+                    <span aria-hidden="true" className="absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(14,21,51,.72)', color: '#fff' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" /></svg>
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 mt-2">
+                    <span className="text-[15px] font-extrabold leading-[1.25] truncate">{f.title}</span>
+                    <span className="shrink-0 flex items-center gap-[3px] px-[7px] py-[2px] rounded-full text-[11.5px] font-extrabold" style={{ background: C.mango, color: C.ink }}>
                       <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.2l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" fill="currentColor" /></svg>
                       {String(f.rating).replace('.', ',')}
                     </span>
                   </span>
-                  <span className="text-[14px] font-extrabold leading-[1.3] mt-1.5 line-clamp-1">{f.title}</span>
                   <span className="block text-[12.5px]" style={{ color: C.mute }}>{FILM_KIND[f.kind]}</span>
                 </button>
               );
