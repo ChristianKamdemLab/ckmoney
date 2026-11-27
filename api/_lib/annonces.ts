@@ -104,6 +104,12 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: '2026-11-27-essai-notif-christian',
+    sendAt: '2026-11-27T14:00:00.000Z', // Christian n'a pas reçu les avis des fiches du 27/11 : essai vers son appareil inscrit
+    pushTo: 'author',
+    push: { title: 'Essai de notification', body: "Si tu lis ceci, ton téléphone reçoit bien les notifications de CKMoney.", url: '/' },
+  },
+  {
     id: '2026-11-27-radio-hdm-bardella',
     sendAt: '2026-11-27T12:45:00.000Z', // recommandé par Christian à 13 h 40, avec notification
     radio: RADIO_2026_11_27_HDM,
