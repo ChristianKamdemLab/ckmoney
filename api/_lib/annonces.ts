@@ -107,6 +107,23 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: '2026-11-28-adresses-moonshiner-serpent',
+    sendAt: '2026-11-28T10:55:00.000Z', // demandé par Christian le 28/11 ; ses avis viendront après. Infos : Time Out, Visit Paris Region, Privateaser
+    places: [
+      {
+        id: 'moonshiner', name: 'Moonshiner', address: '5 rue Sedaine, 75011 Paris', url: 'https://moonshinerbar.fr/',
+        budget: 'Cocktails autour de 13 €', hours: 'Tous les jours 18 h – 2 h, jusqu’à 3 h le vendredi et le samedi',
+        review: '',
+      },
+      {
+        id: 'serpent-a-plume', name: 'Le Serpent à Plume', address: '24 place des Vosges, 75003 Paris', url: 'https://serpentaplume.com/',
+        image: 'https://privateaser-media.s3.eu-west-1.amazonaws.com/etab_photos/41573/1500x750/301116.jpg',
+        budget: 'Cocktail maison autour de 15 €', hours: 'Du mercredi au dimanche jusqu’à 2 h (à confirmer)',
+        review: '',
+      },
+    ],
+  },
+  {
     id: '2026-11-28-notif-haze',
     sendAt: '2026-11-28T10:40:00.000Z', // accord de Christian le 28/11 à 11 h 39
     push: { title: 'Nouvelle adresse : le Haze', body: "Un speakeasy près de l'Arc de Triomphe, testé par Christian. Son avis et son cocktail préféré dans Mes adresses.", url: '/?adresses' },
