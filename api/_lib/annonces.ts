@@ -107,6 +107,11 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: '2026-11-28-serpent-photo',
+    sendAt: '2026-11-28T11:25:00.000Z', // photo du bar du sous-sol prise par Christian (recadrée, sans le barman, sans métadonnées)
+    placeImages: [{ id: 'serpent-a-plume', image: 'https://ck-money.vercel.app/places/serpent-a-plume.jpg' }],
+  },
+  {
     id: '2026-11-28-adresses-moonshiner-serpent',
     sendAt: '2026-11-28T10:55:00.000Z', // demandé par Christian le 28/11 ; ses avis viendront après. Infos : Time Out, Visit Paris Region, Privateaser
     places: [
