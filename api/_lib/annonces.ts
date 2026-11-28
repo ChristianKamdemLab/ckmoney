@@ -36,6 +36,7 @@ export interface Announcement {
   radio?: RadioSeed[];  // recos Radio CK à publier (voir radioSeed.ts)
   radioRemove?: string[];   // recos à retirer (doublons), avec leurs commentaires
   radioComments?: { id: string; comment: string }[]; // « pourquoi je le recommande » à compléter, sans notification
+  placeReviews?: { id: string; review: string }[]; // avis de Christian sur une adresse déjà publiée
   placeImages?: { id: string; image: string }[]; // photo d'une adresse déjà publiée (remplace celle tirée du lien)
   places?: (Omit<Place, 'updatedAt'>)[]; // « Mes adresses » à ajouter (identifiant fixe, jamais recréées)
   films?: (Omit<Film, 'updatedAt'>)[];   // « Films et séries » à ajouter (idem ; le premier est le plus récent)
@@ -105,6 +106,11 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 };
 
 export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-11-28-avis-haze',
+    sendAt: '2026-11-28T10:30:00.000Z', // avis de Christian du 28/11, orthographe corrigée
+    placeReviews: [{ id: 'haze-paris', review: "Speakeasy situé à quelques pas de l'Arc de Triomphe. Quand on arrive dans cette ruelle, rien sur la façade ne laisse présager que derrière se cachent certains des meilleurs barmen mixologues de Paris. Pour entrer il faut sonner. On est alors reçu par l'un des quatre barmen en veste rouge à col Mao, qui nous accueille très chaleureusement et propose une place au bar ou à l'une des tables de l'entrée. Petit spoiler avant de continuer : la réservation est fortement conseillée et il faut arriver en début de soirée (20 h – 21 h) pour espérer une place au bar si vous êtes accompagné.\nDès que vous êtes assis, un barman vous tend une carte invisible dans le noir. Pour la découvrir il faut s'armer d'une mini-torche fluorescente qui révèle l'ensemble des cocktails, comme un voyage à travers Paris. Mon conseil : le New Ice Pop ! Vous me ferez votre retour.\nCôté ambiance, la lumière rouge tamisée rappelle Chinatown et l'endroit est fréquenté par beaucoup d'anglophones.\nPour les fumeurs, une petite salle fumoir au sous-sol permet d'allumer sa cigarette ou son cigare tout en savourant paisiblement ses cocktails.\nRien à ajouter : les amoureux de bons cocktails peuvent y aller les yeux fermés." }],
+  },
   {
     id: '2026-11-27-haze-photo',
     sendAt: '2026-11-27T17:40:00.000Z', // Instagram ne donnait que son logo : photo du lieu (fiche Privateaser du Haze)
@@ -459,7 +465,7 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
     });
     if (!mine) { out[a.id] = 'déjà envoyée'; continue; }
     const result: Record<string, number> = {};
-    if (a.events || a.eventsRemove || a.eventImages || a.radio || a.radioRemove || a.radioComments || a.places || a.placeImages || a.films) {
+    if (a.events || a.eventsRemove || a.eventImages || a.radio || a.radioRemove || a.radioComments || a.places || a.placeImages || a.placeReviews || a.films) {
       // En cas d'échec, on libère l'annonce pour que le passage suivant réessaie (avant toute notification)
       try {
         if (a.events) Object.assign(result, await importEvents(a.events, now));
@@ -498,6 +504,16 @@ export const sendDueAnnouncements = async (now = Date.now(), list = ANNOUNCEMENT
             radioRemoved++;
           }
           result.radioRemoved = radioRemoved;
+        }
+        if (a.placeReviews) {
+          let placeReviewsSet = 0;
+          for (const { id, review } of a.placeReviews) {
+            const ref = adminDb.collection('places').doc(id);
+            if (!(await ref.get()).exists || !review.trim()) continue;
+            await ref.set({ review, updatedAt: new Date().toISOString() }, { merge: true });
+            placeReviewsSet++;
+          }
+          result.placeReviewsSet = placeReviewsSet;
         }
         if (a.placeImages) {
           let placeImagesSet = 0;
