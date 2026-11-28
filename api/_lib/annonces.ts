@@ -107,6 +107,11 @@ export const NEWS_2026_11_21_FILMS: NewsEmail = {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: '2026-11-28-notif-haze',
+    sendAt: '2026-11-28T10:40:00.000Z', // accord de Christian le 28/11 à 11 h 39
+    push: { title: 'Nouvelle adresse : le Haze', body: "Un speakeasy près de l'Arc de Triomphe, testé par Christian. Son avis et son cocktail préféré dans Mes adresses.", url: '/?adresses' },
+  },
+  {
     id: '2026-11-28-avis-haze',
     sendAt: '2026-11-28T10:30:00.000Z', // avis de Christian du 28/11, orthographe corrigée
     placeReviews: [{ id: 'haze-paris', review: "Speakeasy situé à quelques pas de l'Arc de Triomphe. Quand on arrive dans cette ruelle, rien sur la façade ne laisse présager que derrière se cachent certains des meilleurs barmen mixologues de Paris. Pour entrer il faut sonner. On est alors reçu par l'un des quatre barmen en veste rouge à col Mao, qui nous accueille très chaleureusement et propose une place au bar ou à l'une des tables de l'entrée. Petit spoiler avant de continuer : la réservation est fortement conseillée et il faut arriver en début de soirée (20 h – 21 h) pour espérer une place au bar si vous êtes accompagné.\nDès que vous êtes assis, un barman vous tend une carte invisible dans le noir. Pour la découvrir il faut s'armer d'une mini-torche fluorescente qui révèle l'ensemble des cocktails, comme un voyage à travers Paris. Mon conseil : le New Ice Pop ! Vous me ferez votre retour.\nCôté ambiance, la lumière rouge tamisée rappelle Chinatown et l'endroit est fréquenté par beaucoup d'anglophones.\nPour les fumeurs, une petite salle fumoir au sous-sol permet d'allumer sa cigarette ou son cigare tout en savourant paisiblement ses cocktails.\nRien à ajouter : les amoureux de bons cocktails peuvent y aller les yeux fermés." }],
